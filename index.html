@@ -8,23 +8,43 @@
 ║                                                                           ║
 ║  1. 默认开奖号码（测试用）                                                  ║
 ║     搜索: 【测试用】默认开奖号码                                            ║
-║     位置: 约第 1510 行                                                     ║
 ║                                                                           ║
 ║  2. 格式解析模块（解析下注文本）                                            ║
 ║     搜索: 【模块1】格式解析模块                                             ║
-║     位置: 约第 1820 行                                                     ║
 ║                                                                           ║
 ║  3. 计算逻辑模块（计算中奖结果）                                            ║
 ║     搜索: 【模块2】计算逻辑模块                                             ║
-║     位置: 约第 1910 行                                                     ║
 ║                                                                           ║
 ║  4. 赔率设置模块（赔率读写导入导出）                                        ║
 ║     搜索: 【模块3】赔率设置模块                                             ║
-║     位置: 约第 2080 行                                                     ║
 ║                                                                           ║
 ║  5. 导出/导入赔率按钮                                                      ║
 ║     位置: 激活会员页面 → 赔率配置备份                                       ║
 ║                                                                           ║
+║  ★★★ 6. 【AI提示词】大模型输入提示词 ★★★                                  ║
+║     搜索: 【AI提示词开始】                                                  ║
+║     说明: 发送给DeepSeek大模型的提示词，控制AI如何解析用户输入              ║
+║                                                                           ║
+║  ★★★ 7. 【AI调试显示】测试完成后删除 ★★★                                  ║
+║     搜索: 【AI调试显示】                                                    ║
+║     说明: 告诉AI"删除AI调试显示代码"即可移除                               ║
+║                                                                           ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║  【支持的玩法类型】共22种                                                   ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║  特码类:     特码、大小单双                                                ║
+║  平特类:     平特一肖(一友)、平特二连肖(二友)、平特三连肖(三友)、           ║
+║             平特四连肖、平特五连肖、平特尾数                               ║
+║  生肖类:     生肖、六肖、合肖、正肖                                         ║
+║  波色类:     波色、半波(红单/红双/蓝单/蓝双/绿大/绿小等)                    ║
+║  平码类:     单平/平码                                                     ║
+║  连码类:     二中二、三中三、二全中、三全中、二中特、三中特、特串           ║
+║  不中类:     五不中、六不中、七不中、八不中、九不中、十不中、               ║
+║             十一不中、十二不中                                             ║
+║  其他:       总和大小单双、五行(金木水火土)、家禽野兽、头尾数               ║
+║                                                                           ║
+║  【别名映射】                                                              ║
+║  一友=平特一肖  二友=平特二连肖  三友=平特三连肖  平码=单平  +=十(号码)     ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 -->
 <html lang="zh-CN">
@@ -949,6 +969,16 @@
             text-align: center;
         }
         
+        .odds-note {
+            font-size: 12px;
+            color: #888;
+            padding: 8px 10px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 3px solid #e94560;
+        }
+        
         .odds-save-btn {
             position: fixed;
             bottom: 20px;
@@ -1165,21 +1195,23 @@
             </div>
             
             <div class="odds-layout">
-                <!-- 左侧菜单 -->
+                <!-- 左侧菜单（按用户提供的玩法类型） -->
                 <div class="odds-menu">
                     <div class="odds-menu-item active" onclick="showOddsPanel('tema')">特码</div>
-                    <div class="odds-menu-item" onclick="showOddsPanel('tema2')">特码两面</div>
-                    <div class="odds-menu-item" onclick="showOddsPanel('tematou')">特码头尾数</div>
-                    <div class="odds-menu-item" onclick="showOddsPanel('bose')">色波半波</div>
-                    <div class="odds-menu-item" onclick="showOddsPanel('shengxiao')">十二生肖</div>
-                    <div class="odds-menu-item" onclick="showOddsPanel('hexiao')">合肖</div>
-                    <div class="odds-menu-item" onclick="showOddsPanel('wuxing')">五行</div>
-                    <div class="odds-menu-item" onclick="showOddsPanel('zhengma')">正码</div>
-                    <div class="odds-menu-item" onclick="showOddsPanel('zhengmate')">正码特</div>
-                    <div class="odds-menu-item" onclick="showOddsPanel('zhengxiao')">正肖</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('daxiao')">大小单双</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('pingte')">平特一肖</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('pingte2')">平特连肖</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('pingtew')">平特尾数</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('liuxiao')">六肖</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('danping')">单平(平码)</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('bose')">波色</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('banbo')">半波</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('lianma')">连码</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('buzhong')">不中</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('qita')">其他</div>
                 </div>
                 
-                <!-- 右侧内容 -->
+                <!-- 右侧内容（按新玩法类型） -->
                 <div class="odds-content">
                     <!-- 特码 -->
                     <div class="odds-panel active" id="panel-tema">
@@ -1190,75 +1222,104 @@
                         </div>
                     </div>
                     
-                    <!-- 特码两面 -->
-                    <div class="odds-panel" id="panel-tema2">
-                        <div class="odds-panel-title">特码两面赔率</div>
+                    <!-- 大小单双 -->
+                    <div class="odds-panel" id="panel-daxiao">
+                        <div class="odds-panel-title">大小单双赔率</div>
                         <div class="odds-item">
                             <span class="odds-item-label">大</span>
-                            <input type="number" class="odds-item-input" id="odds-tema-da" value="2" step="0.1">
+                            <input type="number" class="odds-item-input" id="odds-da" value="1.98" step="0.01">
                         </div>
                         <div class="odds-item">
                             <span class="odds-item-label">小</span>
-                            <input type="number" class="odds-item-input" id="odds-tema-xiao" value="2" step="0.1">
+                            <input type="number" class="odds-item-input" id="odds-xiao" value="1.98" step="0.01">
                         </div>
                         <div class="odds-item">
                             <span class="odds-item-label">单</span>
-                            <input type="number" class="odds-item-input" id="odds-tema-dan" value="2" step="0.1">
+                            <input type="number" class="odds-item-input" id="odds-dan" value="1.98" step="0.01">
                         </div>
                         <div class="odds-item">
                             <span class="odds-item-label">双</span>
-                            <input type="number" class="odds-item-input" id="odds-tema-shuang" value="2" step="0.1">
+                            <input type="number" class="odds-item-input" id="odds-shuang" value="1.98" step="0.01">
                         </div>
                         <div class="odds-item">
                             <span class="odds-item-label">合大</span>
-                            <input type="number" class="odds-item-input" id="odds-tema-heda" value="2" step="0.1">
+                            <input type="number" class="odds-item-input" id="odds-heda" value="1.98" step="0.01">
                         </div>
                         <div class="odds-item">
                             <span class="odds-item-label">合小</span>
-                            <input type="number" class="odds-item-input" id="odds-tema-hexiao" value="2" step="0.1">
+                            <input type="number" class="odds-item-input" id="odds-hexiao" value="1.98" step="0.01">
                         </div>
                         <div class="odds-item">
                             <span class="odds-item-label">合单</span>
-                            <input type="number" class="odds-item-input" id="odds-tema-hedan" value="2" step="0.1">
+                            <input type="number" class="odds-item-input" id="odds-hedan" value="1.98" step="0.01">
                         </div>
                         <div class="odds-item">
                             <span class="odds-item-label">合双</span>
-                            <input type="number" class="odds-item-input" id="odds-tema-heshuang" value="2" step="0.1">
+                            <input type="number" class="odds-item-input" id="odds-heshuang" value="1.98" step="0.01">
                         </div>
                     </div>
                     
-                    <!-- 特码头尾数 -->
-                    <div class="odds-panel" id="panel-tematou">
-                        <div class="odds-panel-title">特码头尾数赔率</div>
+                    <!-- 平特一肖 -->
+                    <div class="odds-panel" id="panel-pingte">
+                        <div class="odds-panel-title">平特一肖赔率（别名：一友）</div>
                         <div class="odds-item">
-                            <span class="odds-item-label">头数0</span>
-                            <input type="number" class="odds-item-input" id="odds-tou0" value="4" step="0.1">
-                        </div>
-                        <div class="odds-item">
-                            <span class="odds-item-label">头数1</span>
-                            <input type="number" class="odds-item-input" id="odds-tou1" value="4" step="0.1">
-                        </div>
-                        <div class="odds-item">
-                            <span class="odds-item-label">头数2</span>
-                            <input type="number" class="odds-item-input" id="odds-tou2" value="4" step="0.1">
-                        </div>
-                        <div class="odds-item">
-                            <span class="odds-item-label">头数3</span>
-                            <input type="number" class="odds-item-input" id="odds-tou3" value="4" step="0.1">
-                        </div>
-                        <div class="odds-item">
-                            <span class="odds-item-label">头数4</span>
-                            <input type="number" class="odds-item-input" id="odds-tou4" value="4" step="0.1">
-                        </div>
-                        <div class="odds-item">
-                            <span class="odds-item-label">尾数0-9</span>
-                            <input type="number" class="odds-item-input" id="odds-wei" value="4" step="0.1">
+                            <span class="odds-item-label">平特一肖</span>
+                            <input type="number" class="odds-item-input" id="odds-pingte1" value="11" step="0.1">
                         </div>
                     </div>
                     
-                    <!-- 色波半波 -->
+                    <!-- 平特连肖 -->
+                    <div class="odds-panel" id="panel-pingte2">
+                        <div class="odds-panel-title">平特连肖赔率</div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">平特二连肖（二友）</span>
+                            <input type="number" class="odds-item-input" id="odds-pingte2x" value="26" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">平特三连肖（三友）</span>
+                            <input type="number" class="odds-item-input" id="odds-pingte3x" value="66" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">平特四连肖</span>
+                            <input type="number" class="odds-item-input" id="odds-pingte4x" value="180" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">平特五连肖</span>
+                            <input type="number" class="odds-item-input" id="odds-pingte5x" value="500" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <!-- 平特尾数 -->
+                    <div class="odds-panel" id="panel-pingtew">
+                        <div class="odds-panel-title">平特尾数赔率</div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">平特尾数</span>
+                            <input type="number" class="odds-item-input" id="odds-pingtew" value="2.8" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <!-- 六肖 -->
+                    <div class="odds-panel" id="panel-liuxiao">
+                        <div class="odds-panel-title">六肖赔率</div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">六肖</span>
+                            <input type="number" class="odds-item-input" id="odds-liuxiao" value="4.2" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <!-- 单平（平码） -->
+                    <div class="odds-panel" id="panel-danping">
+                        <div class="odds-panel-title">单平（平码）赔率</div>
+                        <div class="odds-note">说明：指除特码外的6个正码</div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">单平/平码</span>
+                            <input type="number" class="odds-item-input" id="odds-danping" value="8" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <!-- 波色 -->
                     <div class="odds-panel" id="panel-bose">
-                        <div class="odds-panel-title">色波半波赔率</div>
+                        <div class="odds-panel-title">波色赔率</div>
                         <div class="odds-item">
                             <span class="odds-item-label">红波</span>
                             <input type="number" class="odds-item-input" id="odds-red" value="2.8" step="0.1">
@@ -1271,6 +1332,12 @@
                             <span class="odds-item-label">绿波</span>
                             <input type="number" class="odds-item-input" id="odds-green" value="2.8" step="0.1">
                         </div>
+                    </div>
+                    
+                    <!-- 半波 -->
+                    <div class="odds-panel" id="panel-banbo">
+                        <div class="odds-panel-title">半波赔率</div>
+                        <div class="odds-note">格式：波色+大小/单双，如：红单、蓝双、绿大</div>
                         <div class="odds-item">
                             <span class="odds-item-label">红大</span>
                             <input type="number" class="odds-item-input" id="odds-red-da" value="5" step="0.1">
@@ -1287,107 +1354,180 @@
                             <span class="odds-item-label">红双</span>
                             <input type="number" class="odds-item-input" id="odds-red-shuang" value="5" step="0.1">
                         </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">蓝大</span>
+                            <input type="number" class="odds-item-input" id="odds-blue-da" value="5" step="0.1">
                     </div>
-                    
-                    <!-- 十二生肖 -->
-                    <div class="odds-panel" id="panel-shengxiao">
-                        <div class="odds-panel-title">十二生肖赔率</div>
                         <div class="odds-item">
-                            <span class="odds-item-label">生肖（单个）</span>
-                            <input type="number" class="odds-item-input" id="odds-shengxiao" value="12">
+                            <span class="odds-item-label">蓝小</span>
+                            <input type="number" class="odds-item-input" id="odds-blue-xiao" value="5" step="0.1">
                         </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">蓝单</span>
+                            <input type="number" class="odds-item-input" id="odds-blue-dan" value="5" step="0.1">
                     </div>
-                    
-                    <!-- 合肖 -->
-                    <div class="odds-panel" id="panel-hexiao">
-                        <div class="odds-panel-title">合肖赔率</div>
                         <div class="odds-item">
-                            <span class="odds-item-label">二肖</span>
-                            <input type="number" class="odds-item-input" id="odds-hexiao2" value="6" step="0.1">
+                            <span class="odds-item-label">蓝双</span>
+                            <input type="number" class="odds-item-input" id="odds-blue-shuang" value="5" step="0.1">
                         </div>
                         <div class="odds-item">
-                            <span class="odds-item-label">三肖</span>
-                            <input type="number" class="odds-item-input" id="odds-hexiao3" value="4" step="0.1">
+                            <span class="odds-item-label">绿大</span>
+                            <input type="number" class="odds-item-input" id="odds-green-da" value="5" step="0.1">
                         </div>
                         <div class="odds-item">
-                            <span class="odds-item-label">四肖</span>
-                            <input type="number" class="odds-item-input" id="odds-hexiao4" value="3" step="0.1">
+                            <span class="odds-item-label">绿小</span>
+                            <input type="number" class="odds-item-input" id="odds-green-xiao" value="5" step="0.1">
                         </div>
                         <div class="odds-item">
-                            <span class="odds-item-label">五肖</span>
-                            <input type="number" class="odds-item-input" id="odds-hexiao5" value="2.4" step="0.1">
-                        </div>
-                    </div>
-                    
-                    <!-- 五行 -->
-                    <div class="odds-panel" id="panel-wuxing">
-                        <div class="odds-panel-title">五行赔率</div>
-                        <div class="odds-item">
-                            <span class="odds-item-label">金</span>
-                            <input type="number" class="odds-item-input" id="odds-jin" value="4.8" step="0.1">
+                            <span class="odds-item-label">绿单</span>
+                            <input type="number" class="odds-item-input" id="odds-green-dan" value="5" step="0.1">
                         </div>
                         <div class="odds-item">
-                            <span class="odds-item-label">木</span>
-                            <input type="number" class="odds-item-input" id="odds-mu" value="4.8" step="0.1">
-                        </div>
-                        <div class="odds-item">
-                            <span class="odds-item-label">水</span>
-                            <input type="number" class="odds-item-input" id="odds-shui" value="5.8" step="0.1">
-                        </div>
-                        <div class="odds-item">
-                            <span class="odds-item-label">火</span>
-                            <input type="number" class="odds-item-input" id="odds-huo" value="4" step="0.1">
-                        </div>
-                        <div class="odds-item">
-                            <span class="odds-item-label">土</span>
-                            <input type="number" class="odds-item-input" id="odds-tu" value="5.4" step="0.1">
+                            <span class="odds-item-label">绿双</span>
+                            <input type="number" class="odds-item-input" id="odds-green-shuang" value="5" step="0.1">
                         </div>
                     </div>
                     
-                    <!-- 正码 -->
-                    <div class="odds-panel" id="panel-zhengma">
-                        <div class="odds-panel-title">正码赔率</div>
+                    <!-- 连码 -->
+                    <div class="odds-panel" id="panel-lianma">
+                        <div class="odds-panel-title">连码赔率</div>
                         <div class="odds-item">
-                            <span class="odds-item-label">正码</span>
-                            <input type="number" class="odds-item-input" id="odds-zhengma" value="8">
+                            <span class="odds-item-label">二中二</span>
+                            <input type="number" class="odds-item-input" id="odds-2z2" value="42" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">三中三</span>
+                            <input type="number" class="odds-item-input" id="odds-3z3" value="200" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">二全中</span>
+                            <input type="number" class="odds-item-input" id="odds-2qz" value="21" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">三全中</span>
+                            <input type="number" class="odds-item-input" id="odds-3qz" value="75" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">二中特</span>
+                            <input type="number" class="odds-item-input" id="odds-2zt" value="8" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">三中特</span>
+                            <input type="number" class="odds-item-input" id="odds-3zt" value="25" step="0.1">
+                    </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">特串</span>
+                            <input type="number" class="odds-item-input" id="odds-techuan" value="4.5" step="0.1">
                         </div>
                     </div>
                     
-                    <!-- 正码特 -->
-                    <div class="odds-panel" id="panel-zhengmate">
-                        <div class="odds-panel-title">正码特赔率</div>
+                    <!-- 不中 -->
+                    <div class="odds-panel" id="panel-buzhong">
+                        <div class="odds-panel-title">不中赔率（自选不中）</div>
                         <div class="odds-item">
-                            <span class="odds-item-label">正一特</span>
-                            <input type="number" class="odds-item-input" id="odds-zheng1te" value="43">
+                            <span class="odds-item-label">五不中</span>
+                            <input type="number" class="odds-item-input" id="odds-5bz" value="2.2" step="0.1">
                         </div>
                         <div class="odds-item">
-                            <span class="odds-item-label">正二特</span>
-                            <input type="number" class="odds-item-input" id="odds-zheng2te" value="43">
+                            <span class="odds-item-label">六不中</span>
+                            <input type="number" class="odds-item-input" id="odds-6bz" value="2.8" step="0.1">
                         </div>
                         <div class="odds-item">
-                            <span class="odds-item-label">正三特</span>
-                            <input type="number" class="odds-item-input" id="odds-zheng3te" value="43">
+                            <span class="odds-item-label">七不中</span>
+                            <input type="number" class="odds-item-input" id="odds-7bz" value="3.6" step="0.1">
                         </div>
                         <div class="odds-item">
-                            <span class="odds-item-label">正四特</span>
-                            <input type="number" class="odds-item-input" id="odds-zheng4te" value="43">
+                            <span class="odds-item-label">八不中</span>
+                            <input type="number" class="odds-item-input" id="odds-8bz" value="4.8" step="0.1">
                         </div>
                         <div class="odds-item">
-                            <span class="odds-item-label">正五特</span>
-                            <input type="number" class="odds-item-input" id="odds-zheng5te" value="43">
+                            <span class="odds-item-label">九不中</span>
+                            <input type="number" class="odds-item-input" id="odds-9bz" value="6.5" step="0.1">
                         </div>
                         <div class="odds-item">
-                            <span class="odds-item-label">正六特</span>
-                            <input type="number" class="odds-item-input" id="odds-zheng6te" value="43">
+                            <span class="odds-item-label">十不中</span>
+                            <input type="number" class="odds-item-input" id="odds-10bz" value="9" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">十一不中</span>
+                            <input type="number" class="odds-item-input" id="odds-11bz" value="12" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">十二不中</span>
+                            <input type="number" class="odds-item-input" id="odds-12bz" value="16" step="0.1">
                         </div>
                     </div>
                     
-                    <!-- 正肖 -->
-                    <div class="odds-panel" id="panel-zhengxiao">
-                        <div class="odds-panel-title">正肖赔率</div>
+                    <!-- 其他玩法 -->
+                    <div class="odds-panel" id="panel-qita">
+                        <div class="odds-panel-title">其他玩法赔率</div>
                         <div class="odds-item">
                             <span class="odds-item-label">正肖</span>
                             <input type="number" class="odds-item-input" id="odds-zhengxiao" value="2" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">合肖（2肖）</span>
+                            <input type="number" class="odds-item-input" id="odds-hexiao2" value="6" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">合肖（3肖）</span>
+                            <input type="number" class="odds-item-input" id="odds-hexiao3" value="4" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">合肖（4肖）</span>
+                            <input type="number" class="odds-item-input" id="odds-hexiao4" value="3" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">总和大</span>
+                            <input type="number" class="odds-item-input" id="odds-zongda" value="1.98" step="0.01">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">总和小</span>
+                            <input type="number" class="odds-item-input" id="odds-zongxiao" value="1.98" step="0.01">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">总和单</span>
+                            <input type="number" class="odds-item-input" id="odds-zongdan" value="1.98" step="0.01">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">总和双</span>
+                            <input type="number" class="odds-item-input" id="odds-zongshuang" value="1.98" step="0.01">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">家禽</span>
+                            <input type="number" class="odds-item-input" id="odds-jiaqin" value="1.98" step="0.01">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">野兽</span>
+                            <input type="number" class="odds-item-input" id="odds-yeshou" value="1.98" step="0.01">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">头数（0-4头）</span>
+                            <input type="number" class="odds-item-input" id="odds-toushu" value="4" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">尾数（0-9尾）</span>
+                            <input type="number" class="odds-item-input" id="odds-weishu" value="9" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">五行（金）</span>
+                            <input type="number" class="odds-item-input" id="odds-wuxing-jin" value="4.8" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">五行（木）</span>
+                            <input type="number" class="odds-item-input" id="odds-wuxing-mu" value="4.8" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">五行（水）</span>
+                            <input type="number" class="odds-item-input" id="odds-wuxing-shui" value="5.8" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">五行（火）</span>
+                            <input type="number" class="odds-item-input" id="odds-wuxing-huo" value="4" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">五行（土）</span>
+                            <input type="number" class="odds-item-input" id="odds-wuxing-tu" value="5.4" step="0.1">
                         </div>
                     </div>
                 </div>
@@ -3599,7 +3739,7 @@
         
         // 预处理：转换中文数字
         if (settings.cnNumber !== false) {
-            line = convertChineseNumber(line);
+        line = convertChineseNumber(line);
         }
         
         // 预处理：清理多余空格
@@ -3622,13 +3762,13 @@
         // "31.34各20" 或 "31 34各20" 或 "31,34各20"
         if (settings.tplMultiNum !== false) {
             const multiMatch = line.match(/^(\d+[\s.,，、]+\d+(?:[\s.,，、]+\d+)*)各(\d+)元?$/);
-            if (multiMatch) {
+        if (multiMatch) {
                 const nums = multiMatch[1].split(/[\s.,，、]+/).map(n => parseInt(n));
-                const amount = parseInt(multiMatch[2]);
-                for (const num of nums) {
+            const amount = parseInt(multiMatch[2]);
+            for (const num of nums) {
                     if (num >= 1 && num <= 49) {
-                        bets.push({ type: '特码', number: num, amount: amount, raw: line });
-                    }
+                bets.push({ type: '特码', number: num, amount: amount, raw: line });
+            }
                 }
                 if (bets.length) return bets;
             }
@@ -3638,9 +3778,9 @@
         // "特43 20元" "特码 05 100" "特43 20"
         if (settings.tplTema !== false) {
             const temaMatch = line.match(/特码?\s*(\d+)\s*[,，]?\s*(\d+)元?/);
-            if (temaMatch) {
-                bets.push({ type: '特码', number: parseInt(temaMatch[1]), amount: parseInt(temaMatch[2]), raw: line });
-                return bets;
+        if (temaMatch) {
+            bets.push({ type: '特码', number: parseInt(temaMatch[1]), amount: parseInt(temaMatch[2]), raw: line });
+            return bets;
             }
         }
         
@@ -3688,11 +3828,11 @@
             }
             
             // 单独生肖 "龙 200" "猪200"
-            for (const sx of shengxiaoList) {
+        for (const sx of shengxiaoList) {
                 const sxMatch = line.match(new RegExp(`^${sx}\\s*(\\d+)元?$`));
-                if (sxMatch) {
-                    bets.push({ type: '生肖', value: sx, amount: parseInt(sxMatch[1]), raw: line });
-                    return bets;
+            if (sxMatch) {
+                bets.push({ type: '生肖', value: sx, amount: parseInt(sxMatch[1]), raw: line });
+                return bets;
                 }
             }
         }
@@ -3743,9 +3883,9 @@
         // "红波 50" "红 50" "蓝波100"
         if (settings.tplBose !== false) {
             const boseMatch = line.match(/(红|蓝|绿)波?\s*(\d+)元?/);
-            if (boseMatch) {
-                bets.push({ type: '波色', value: boseMatch[1] + '波', amount: parseInt(boseMatch[2]), raw: line });
-                return bets;
+        if (boseMatch) {
+            bets.push({ type: '波色', value: boseMatch[1] + '波', amount: parseInt(boseMatch[2]), raw: line });
+            return bets;
             }
         }
         
@@ -3753,9 +3893,9 @@
         // "大 100" "小100" "单双各50"
         if (settings.tplDxds !== false) {
             const dxdsMatch = line.match(/^(大|小|单|双)\s*(\d+)元?$/);
-            if (dxdsMatch) {
-                bets.push({ type: '两面', value: dxdsMatch[1], amount: parseInt(dxdsMatch[2]), raw: line });
-                return bets;
+        if (dxdsMatch) {
+            bets.push({ type: '两面', value: dxdsMatch[1], amount: parseInt(dxdsMatch[2]), raw: line });
+            return bets;
             }
             
             // "单双各50"
@@ -3950,7 +4090,9 @@
             );
             
             if (useAI) {
+                // 【AI调试显示】开始 - 测试完成后告诉AI"删除AI调试显示代码"
                 showAutoCloseToast('🤖 AI正在解析...', 5000);
+                // 【AI调试显示】结束
                 try {
                     const aiResult = await parseWithAI(unparsedLines.join('\n'));
                     if (aiResult && aiResult.bets && aiResult.bets.length > 0) {
@@ -3971,11 +4113,15 @@
                                 parsedBets.push(bet);
                             }
                         }
+                        // 【AI调试显示】开始
                         showAutoCloseToast(`✅ AI成功解析 ${aiResult.bets.length} 条`);
+                        // 【AI调试显示】结束
                     }
                 } catch (e) {
                     console.error('AI解析失败:', e);
+                    // 【AI调试显示】开始
                     showAutoCloseToast('❌ AI解析失败: ' + e.message, 3000);
+                    // 【AI调试显示】结束
                 }
             }
         } else if (parsedBets.length === 0) {
@@ -3984,7 +4130,9 @@
             if (settings.aiEnabled && settings.aiApiKey) {
                 // 有AI配置，尝试用AI解析全部
                 if (confirm('本地未识别到有效下注，是否使用AI解析全部内容？')) {
+                    // 【AI调试显示】开始
                     showAutoCloseToast('🤖 AI正在解析...', 5000);
+                    // 【AI调试显示】结束
                     try {
                         const aiResult = await parseWithAI(input);
                         if (aiResult && aiResult.bets) {
@@ -4010,10 +4158,10 @@
                     }
                 }
             }
-            
-            if (parsedBets.length === 0) {
+        
+        if (parsedBets.length === 0) {
                 alert('❌ 未识别到有效的下注信息\n\n建议：\n1. 检查输入格式\n2. 在"自定义格式"中添加规则\n3. 启用AI智能解析');
-                return;
+            return;
             }
         }
         
@@ -4273,50 +4421,61 @@
         const tema = appState.lotteryNumbers?.[6] || '未知';
         const pingma = appState.lotteryNumbers?.slice(0, 6).join(',') || '未知';
         
-        // 优化的提示词：强调数据严谨性，防止幻觉
-        const prompt = `你是六合彩下注信息解析器。任务：将用户输入精确提取为JSON。
+        // ╔════════════════════════════════════════════════════════════════╗
+        // ║          【AI提示词开始】发送给大模型的提示词                    ║
+        // ║  AI只做语义识别（判断玩法类型），数值提取由程序完成              ║
+        // ║  这样更高效：AI运行快、程序计算准、稳定性高                      ║
+        // ╚════════════════════════════════════════════════════════════════╝
+        const prompt = `你是下注类型分类器。任务：识别每条下注属于什么玩法类型。
 
-【⚠️ 最重要规则 - 数据严谨性】
-1. 绝对禁止修改用户输入的任何数字！用户输入01就是01，不能变成1或02
-2. 绝对禁止修改用户输入的任何金额！用户输入20就是20，不能变成200
-3. 绝对禁止添加用户没有输入的内容！
-4. 如果无法识别，放入unparsed数组，不要猜测
-5. 宁可漏掉，不可编造
+【你只需要做一件事】判断玩法类型，不需要提取数字！
 
-【玩法类型对照表】
-- 特码: 猜特码号码(01-49)
-- 生肖: 鼠/牛/虎/兔/龙/蛇/马/羊/猴/鸡/狗/猪
-- 波色: 红波/蓝波/绿波
-- 平特生肖: 平码中的生肖
-- 尾数: 号码尾数(0-9)
-- 两面: 大/小/单/双
-- 多肖: 多个生肖组合
+【玩法类型】共22种：
+1. 特码 - 含"特"字或纯数字下注(01-49)
+2. 生肖 - 买单个生肖：鼠牛虎兔龙蛇马羊猴鸡狗猪
+3. 波色 - 含"红/蓝/绿"+"波"
+4. 半波 - 波色+大小/单双，如"红单""蓝双""绿大"
+5. 平特一肖 - 含"平特"或"一友"，买生肖
+6. 平特二连肖 - 含"二连肖"或"二友"
+7. 平特三连肖 - 含"三连肖"或"三友"
+8. 平特四连肖 - 含"四连肖"
+9. 平特五连肖 - 含"五连肖"
+10. 平特尾数 - 含"平特尾"或"平尾"
+11. 六肖 - 含"六肖"，买6个生肖
+12. 单平 - 含"单平"或"平码"（除特码外6个正码）
+13. 大小单双 - 单独的"大/小/单/双"
+14. 二中二 - 含"二中二"
+15. 三中三 - 含"三中三"
+16. 不中 - 含"X不中"如"五不中""十二不中"
+17. 合肖 - 含"合肖"或"X肖"（非六肖）
+18. 连码 - 含"二全中""三全中""二中特""三中特""特串"
+19. 正肖 - 含"正肖"
+20. 总和 - 含"总和大/小/单/双"
+21. 五行 - 含"金/木/水/火/土"
+22. 家野 - 含"家禽""野兽"
 
-【格式识别规则】
-- "X50"或"x50" → 金额是50
-- "各20" → 每个金额20
-- "买猪10" → 生肖猪，金额10
-- "特43 20" → 特码43，金额20
-- "5尾100" → 尾数5，金额100
+【别名映射】
+- 一友 = 平特一肖
+- 二友 = 平特二连肖
+- 三友 = 平特三连肖
+- 平码 = 单平
+- + = 十（如"+.39"表示"10.39"号码）
 
-【用户原始输入】
+【用户输入】
 ${userInput}
 
-【输出JSON格式】严格按此格式输出
-{
-  "bets": [
-    {"type": "玩法类型", "value": "原始值不修改", "amount": 数字金额}
-  ],
-  "unparsed": ["无法识别的原文"]
-}
+【输出格式】严格按此JSON格式：
+{"items":[{"type":"类型","raw":"原文"}]}
 
-【再次强调】
-- type只能是: 特码、生肖、波色、平特生肖、尾数、两面、多肖
-- value必须是用户原始输入的值，号码保持原格式如"01"不要变成"1"
-- amount必须是纯数字
-- 不确定的内容放unparsed，不要猜
+【示例】
+输入: "一友猪10 红单50 五不中01,02,03,04,05各100"
+输出: {"items":[{"type":"平特一肖","raw":"一友猪10"},{"type":"半波","raw":"红单50"},{"type":"不中","raw":"五不中01,02,03,04,05各100"}]}
 
-只输出JSON，无需解释。`;
+【规则】
+- type只能是上述22种之一
+- raw必须是用户原文，一字不改
+- 不确定的type写"未知"
+- 只输出JSON，无任何解释`;
 
         try {
             const result = await callAIAPI(prompt, settings.aiProvider, settings.aiApiKey);
@@ -4327,28 +4486,342 @@ ${userInput}
                     jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
                 }
                 
-                const parsed = JSON.parse(jsonStr);
+                const aiResult = JSON.parse(jsonStr);
                 
-                // 二次验证：检查数据合理性
-                if (parsed.bets && Array.isArray(parsed.bets)) {
-                    parsed.bets = parsed.bets.filter(bet => {
-                        // 过滤掉明显异常的数据
-                        if (!bet.type || !bet.amount) return false;
-                        if (bet.amount <= 0 || bet.amount > 1000000) return false; // 金额异常
-                        if (bet.type === '特码' && bet.value) {
-                            const num = parseInt(bet.value);
-                            if (num < 1 || num > 49) return false; // 号码范围异常
+                // 【核心】AI只返回类型，程序提取具体数值
+                const bets = [];
+                if (aiResult.items && Array.isArray(aiResult.items)) {
+                    for (const item of aiResult.items) {
+                        // 程序根据AI识别的类型，提取具体数值
+                        const extracted = extractValuesByType(item.type, item.raw);
+                        if (extracted && extracted.length > 0) {
+                            bets.push(...extracted);
                         }
-                        return true;
-                    });
+                    }
                 }
                 
-                return parsed;
+                return { bets, unparsed: [] };
             }
         } catch (e) {
             console.error('AI解析失败:', e);
         }
         return null;
+    }
+    
+    // ╔════════════════════════════════════════════════════════════════╗
+    // ║    【程序提取模块】根据AI识别的类型，用正则提取具体数值          ║
+    // ║    AI只负责分类，数值提取由程序完成，100%准确                   ║
+    // ╚════════════════════════════════════════════════════════════════╝
+    function extractValuesByType(type, rawText) {
+        const bets = [];
+        // 预处理：+号替换为10（用户习惯用+表示十）
+        let text = rawText.replace(/\+/g, '10');
+        text = convertChineseNumber(text); // 转换中文数字
+        const shengxiaoList = ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'];
+        
+        switch (type) {
+            case '特码': {
+                // 提取特码：数字(1-49) + 金额
+                // 模式1: "特43 20" "特码05 100"
+                const teMatch = text.match(/特码?\s*(\d+)\s*[,，]?\s*(\d+)/);
+                if (teMatch) {
+                    const num = parseInt(teMatch[1]);
+                    if (num >= 1 && num <= 49) {
+                        bets.push({ type: '特码', number: num, amount: parseInt(teMatch[2]), raw: rawText });
+                    }
+                    break;
+                }
+                // 模式2: "31.34各20" 多号码
+                const multiMatch = text.match(/(\d+(?:[.,，\s]+\d+)+)各(\d+)/);
+                if (multiMatch) {
+                    const nums = multiMatch[1].split(/[.,，\s]+/).map(n => parseInt(n)).filter(n => n >= 1 && n <= 49);
+                    const amount = parseInt(multiMatch[2]);
+                    nums.forEach(n => bets.push({ type: '特码', number: n, amount, raw: rawText }));
+                    break;
+                }
+                // 模式3: "46,45,X50" X表示金额
+                const xMatch = text.match(/(\d+(?:[,，\s]+\d+)*)[,，\s]*[Xx×](\d+)/);
+                if (xMatch) {
+                    const nums = xMatch[1].split(/[,，\s]+/).map(n => parseInt(n)).filter(n => n >= 1 && n <= 49);
+                    const amount = parseInt(xMatch[2]);
+                    nums.forEach(n => bets.push({ type: '特码', number: n, amount, raw: rawText }));
+                    break;
+                }
+                // 模式4: 简单 "43 20"
+                const simpleMatch = text.match(/(\d{1,2})\s+(\d+)/);
+                if (simpleMatch) {
+                    const num = parseInt(simpleMatch[1]);
+                    if (num >= 1 && num <= 49) {
+                        bets.push({ type: '特码', number: num, amount: parseInt(simpleMatch[2]), raw: rawText });
+                    }
+                }
+                break;
+            }
+            
+            case '生肖': {
+                // 提取生肖 + 金额
+                // 模式1: "买猪各10" "买龙虎20"
+                const buyMatch = text.match(/买?([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)各?(\d+)/);
+                if (buyMatch) {
+                    const animals = buyMatch[1].split('').filter(a => shengxiaoList.includes(a));
+                    const amount = parseInt(buyMatch[2]);
+                    animals.forEach(sx => bets.push({ type: '生肖', value: sx, amount, raw: rawText }));
+                    break;
+                }
+                // 模式2: "鸡鼠猴X10"
+                const xSxMatch = text.match(/([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)[Xx×](\d+)/);
+                if (xSxMatch) {
+                    const animals = xSxMatch[1].split('').filter(a => shengxiaoList.includes(a));
+                    const amount = parseInt(xSxMatch[2]);
+                    animals.forEach(sx => bets.push({ type: '生肖', value: sx, amount, raw: rawText }));
+                    break;
+                }
+                // 模式3: 单个生肖 "猪 100"
+                for (const sx of shengxiaoList) {
+                    const sxMatch = text.match(new RegExp(`${sx}\\s*(\\d+)`));
+                    if (sxMatch) {
+                        bets.push({ type: '生肖', value: sx, amount: parseInt(sxMatch[1]), raw: rawText });
+                    }
+                }
+                break;
+            }
+            
+            case '波色': {
+                // "红波50" "蓝波 100"
+                const boseMatch = text.match(/(红|蓝|绿)波?\s*(\d+)/);
+                if (boseMatch) {
+                    bets.push({ type: '波色', value: boseMatch[1] + '波', amount: parseInt(boseMatch[2]), raw: rawText });
+                }
+                break;
+            }
+            
+            case '半波': {
+                // "红单50" "蓝双100" "绿大200"
+                const banboMatch = text.match(/(红|蓝|绿)(大|小|单|双)\s*(\d+)/);
+                if (banboMatch) {
+                    bets.push({ type: '半波', value: banboMatch[1] + banboMatch[2], amount: parseInt(banboMatch[3]), raw: rawText });
+                }
+                break;
+            }
+            
+            case '平特一肖': {
+                // "平特猴鸡各200" "一友猪10"
+                const pingteMatch = text.match(/(?:平特|一友)([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)各?(\d+)/);
+                if (pingteMatch) {
+                    const animals = pingteMatch[1].split('').filter(a => shengxiaoList.includes(a));
+                    const amount = parseInt(pingteMatch[2]);
+                    animals.forEach(sx => bets.push({ type: '平特一肖', value: sx, amount, raw: rawText }));
+                }
+                break;
+            }
+            
+            case '平特二连肖': {
+                // "二连肖猴鸡200" "二友猴鸡200"
+                const pt2Match = text.match(/(?:二连肖|二友|平特二连)([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)\s*(\d+)/);
+                if (pt2Match) {
+                    const animals = pt2Match[1].split('').filter(a => shengxiaoList.includes(a));
+                    const amount = parseInt(pt2Match[2]);
+                    bets.push({ type: '平特二连肖', value: animals.join(''), amount, raw: rawText });
+                }
+                break;
+            }
+            
+            case '平特三连肖': {
+                // "三连肖猴鸡狗200" "三友猴鸡狗200"
+                const pt3Match = text.match(/(?:三连肖|三友|平特三连)([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)\s*(\d+)/);
+                if (pt3Match) {
+                    const animals = pt3Match[1].split('').filter(a => shengxiaoList.includes(a));
+                    const amount = parseInt(pt3Match[2]);
+                    bets.push({ type: '平特三连肖', value: animals.join(''), amount, raw: rawText });
+                }
+                break;
+            }
+            
+            case '平特四连肖': {
+                // "四连肖猴鸡狗猪200"
+                const pt4Match = text.match(/(?:四连肖|平特四连)([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)\s*(\d+)/);
+                if (pt4Match) {
+                    const animals = pt4Match[1].split('').filter(a => shengxiaoList.includes(a));
+                    const amount = parseInt(pt4Match[2]);
+                    bets.push({ type: '平特四连肖', value: animals.join(''), amount, raw: rawText });
+                }
+                break;
+            }
+            
+            case '平特五连肖': {
+                // "五连肖猴鸡狗猪鼠200"
+                const pt5Match = text.match(/(?:五连肖|平特五连)([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)\s*(\d+)/);
+                if (pt5Match) {
+                    const animals = pt5Match[1].split('').filter(a => shengxiaoList.includes(a));
+                    const amount = parseInt(pt5Match[2]);
+                    bets.push({ type: '平特五连肖', value: animals.join(''), amount, raw: rawText });
+                }
+                break;
+            }
+            
+            case '平特尾数': {
+                // "平特尾5 100" "平尾5 100"
+                const ptwMatch = text.match(/(?:平特尾|平尾)(\d)\s*(\d+)/);
+                if (ptwMatch) {
+                    bets.push({ type: '平特尾数', value: ptwMatch[1], amount: parseInt(ptwMatch[2]), raw: rawText });
+                }
+                break;
+            }
+            
+            case '六肖': {
+                // "六肖鼠牛虎兔龙蛇200"
+                const liuxiaoMatch = text.match(/六肖([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)\s*(\d+)/);
+                if (liuxiaoMatch) {
+                    const animals = liuxiaoMatch[1].split('').filter(a => shengxiaoList.includes(a));
+                    const amount = parseInt(liuxiaoMatch[2]);
+                    bets.push({ type: '六肖', value: animals.join(''), amount, raw: rawText });
+                }
+                break;
+            }
+            
+            case '单平': {
+                // "单平05 100" "平码05 100"
+                const danpingMatch = text.match(/(?:单平|平码)\s*(\d+)\s*(\d+)/);
+                if (danpingMatch) {
+                    const num = parseInt(danpingMatch[1]);
+                    if (num >= 1 && num <= 49) {
+                        bets.push({ type: '单平', number: num, amount: parseInt(danpingMatch[2]), raw: rawText });
+                    }
+                    break;
+                }
+                // 多号码: "单平05.08.12各100"
+                const multiDPMatch = text.match(/(?:单平|平码)\s*(\d+(?:[.,，\s]+\d+)+)各?(\d+)/);
+                if (multiDPMatch) {
+                    const nums = multiDPMatch[1].split(/[.,，\s]+/).map(n => parseInt(n)).filter(n => n >= 1 && n <= 49);
+                    const amount = parseInt(multiDPMatch[2]);
+                    nums.forEach(n => bets.push({ type: '单平', number: n, amount, raw: rawText }));
+                }
+                break;
+            }
+            
+            case '大小单双': {
+                // "大100" "小 50" "单双各20"
+                const dxdsMatch = text.match(/(大|小|单|双)\s*(\d+)/g);
+                if (dxdsMatch) {
+                    dxdsMatch.forEach(m => {
+                        const parts = m.match(/(大|小|单|双)\s*(\d+)/);
+                        if (parts) {
+                            bets.push({ type: '大小单双', value: parts[1], amount: parseInt(parts[2]), raw: rawText });
+                        }
+                    });
+                }
+                break;
+            }
+            
+            case '二中二': {
+                // "二中二 01,02,03 各100"
+                const ez2Match = text.match(/二中二\s*(\d+(?:[.,，\s]+\d+)+)各?(\d+)/);
+                if (ez2Match) {
+                    const nums = ez2Match[1].split(/[.,，\s]+/).map(n => parseInt(n)).filter(n => n >= 1 && n <= 49);
+                    const amount = parseInt(ez2Match[2]);
+                    bets.push({ type: '二中二', numbers: nums, amount, raw: rawText });
+                }
+                break;
+            }
+            
+            case '三中三': {
+                // "三中三 01,02,03,04 各100"
+                const sz3Match = text.match(/三中三\s*(\d+(?:[.,，\s]+\d+)+)各?(\d+)/);
+                if (sz3Match) {
+                    const nums = sz3Match[1].split(/[.,，\s]+/).map(n => parseInt(n)).filter(n => n >= 1 && n <= 49);
+                    const amount = parseInt(sz3Match[2]);
+                    bets.push({ type: '三中三', numbers: nums, amount, raw: rawText });
+                }
+                break;
+            }
+            
+            case '不中': {
+                // "五不中01,02,03,04,05各100" "十二不中01-12各100"
+                const bzMatch = text.match(/(五|六|七|八|九|十|十一|十二)不中\s*(\d+(?:[.,，\s]+\d+)+)各?(\d+)/);
+                if (bzMatch) {
+                    const countMap = {'五':5,'六':6,'七':7,'八':8,'九':9,'十':10,'十一':11,'十二':12};
+                    const count = countMap[bzMatch[1]] || 5;
+                    const nums = bzMatch[2].split(/[.,，\s]+/).map(n => parseInt(n)).filter(n => n >= 1 && n <= 49);
+                    const amount = parseInt(bzMatch[3]);
+                    bets.push({ type: '不中', subType: bzMatch[1] + '不中', numbers: nums, count, amount, raw: rawText });
+                }
+                break;
+            }
+            
+            case '合肖': {
+                // "合肖鼠牛200" "三肖鼠牛虎200"（非六肖）
+                const hxMatch = text.match(/(?:合肖|[二三四五]肖)([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)\s*(\d+)/);
+                if (hxMatch) {
+                    const animals = hxMatch[1].split('').filter(a => shengxiaoList.includes(a));
+                    const amount = parseInt(hxMatch[2]);
+                    bets.push({ type: '合肖', value: animals.join(''), count: animals.length, amount, raw: rawText });
+                }
+                break;
+            }
+            
+            case '连码': {
+                // "二全中01,02各100" "三全中01,02,03各100" "二中特01,02各100" "特串01,02各100"
+                const lianmaTypes = ['二全中', '三全中', '二中特', '三中特', '特串'];
+                for (const lt of lianmaTypes) {
+                    const lmMatch = text.match(new RegExp(`${lt}\\s*(\\d+(?:[.,，\\s]+\\d+)+)各?(\\d+)`));
+                    if (lmMatch) {
+                        const nums = lmMatch[1].split(/[.,，\s]+/).map(n => parseInt(n)).filter(n => n >= 1 && n <= 49);
+                        const amount = parseInt(lmMatch[2]);
+                        bets.push({ type: '连码', subType: lt, numbers: nums, amount, raw: rawText });
+                        break;
+                    }
+                }
+                break;
+            }
+            
+            case '正肖': {
+                // "正肖猪100" "正肖鼠牛各100"
+                const zxMatch = text.match(/正肖([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)各?(\d+)/);
+                if (zxMatch) {
+                    const animals = zxMatch[1].split('').filter(a => shengxiaoList.includes(a));
+                    const amount = parseInt(zxMatch[2]);
+                    animals.forEach(sx => bets.push({ type: '正肖', value: sx, amount, raw: rawText }));
+                }
+                break;
+            }
+            
+            case '总和': {
+                // "总和大100" "总和单100"
+                const zhMatch = text.match(/总和(大|小|单|双)\s*(\d+)/);
+                if (zhMatch) {
+                    bets.push({ type: '总和', value: '总和' + zhMatch[1], amount: parseInt(zhMatch[2]), raw: rawText });
+                }
+                break;
+            }
+            
+            case '五行': {
+                // "金100" "木100"
+                const wxMatch = text.match(/(金|木|水|火|土)\s*(\d+)/);
+                if (wxMatch) {
+                    bets.push({ type: '五行', value: wxMatch[1], amount: parseInt(wxMatch[2]), raw: rawText });
+                }
+                break;
+            }
+            
+            case '家野': {
+                // "家禽100" "野兽100"
+                const jyMatch = text.match(/(家禽|野兽)\s*(\d+)/);
+                if (jyMatch) {
+                    bets.push({ type: '家野', value: jyMatch[1], amount: parseInt(jyMatch[2]), raw: rawText });
+                }
+                break;
+            }
+            
+            default: {
+                // 未知类型，尝试通用提取
+                const numMatch = text.match(/(\d+)\s*[元块]?$/);
+                if (numMatch) {
+                    bets.push({ type: '未知', value: text, amount: parseInt(numMatch[1]), raw: rawText });
+                }
+            }
+        }
+        
+        return bets;
     }
     
     // ==================== 参数设置 ====================
