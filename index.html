@@ -1104,7 +1104,7 @@
             <div class="setting-group" style="padding:12px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
                     <div class="setting-group-title" style="margin-bottom:0;">📜 历史开奖记录（最近10期）</div>
-                    <button onclick="fetchHistoryData()" style="padding:5px 10px;background:linear-gradient(90deg,#9b59b6,#8e44ad);color:white;border:none;border-radius:5px;font-size:11px;cursor:pointer;">🔄 获取记录</button>
+                    <button onclick="fetchHistoryData()" style="padding:5px 10px;background:linear-gradient(90deg,#9b59b6,#8e44ad);color:white;border:none;border-radius:5px;font-size:11px;cursor:pointer;">🔄 手动获取</button>
                 </div>
                 
                 <!-- 彩种选择标签 -->
@@ -1115,7 +1115,7 @@
                 
                 <!-- 历史记录列表（可滑动） -->
                 <div id="history-list" style="max-height:220px;overflow-y:auto;background:rgba(0,0,0,0.2);border-radius:8px;padding:6px;-webkit-overflow-scrolling:touch;">
-                    <div style="text-align:center;color:#666;font-size:12px;padding:20px;">暂无历史记录，请点击上方"获取记录"按钮</div>
+                    <div style="text-align:center;color:#666;font-size:12px;padding:20px;">🔄 正在自动加载历史记录...</div>
                 </div>
                 
                 <!-- 开奖时间提示 -->
@@ -1791,6 +1791,14 @@
             // 如果没有数据，尝试自动获取（不阻塞）
             console.log('🔄 [init] 开始自动获取数据...');
             tryAutoFetchOnce();
+            
+            // 自动获取历史记录（新澳门和香港同步更新10条）
+            console.log('📜 [init] 自动获取历史开奖记录...');
+            fetchHistoryData().then(() => {
+                console.log('✅ [init] 历史记录获取完成');
+            }).catch(err => {
+                console.warn('⚠️ [init] 历史记录获取失败:', err);
+            });
             
             // 启动开奖时段自动刷新
             startLiveRefresh();
@@ -2940,7 +2948,7 @@
         const history = appState.lotteryHistory[currentHistoryType] || [];
         
         if (history.length === 0) {
-            container.innerHTML = '<div style="text-align:center;color:#666;font-size:12px;padding:20px;">暂无历史记录，请点击"获取记录"按钮</div>';
+            container.innerHTML = '<div style="text-align:center;color:#666;font-size:12px;padding:20px;">暂无历史记录，请点击"手动获取"按钮</div>';
             return;
         }
         
