@@ -1748,38 +1748,57 @@
     
     // ==================== 初始化 ====================
     async function init() {
-        // 生成机器码
-        appState.machineCode = await generateMachineCode();
-        document.getElementById('machine-code').textContent = appState.machineCode;
+        console.log('🚀 [init] 应用初始化开始...');
+        console.log('📍 [init] 当前URL:', window.location.href);
+        console.log('⏰ [init] 初始化时间:', new Date().toLocaleString('zh-CN'));
         
-        // 加载保存的配置
-        loadConfig();
-        
-        // 确保默认彩种为新澳门
-        if (!appState.currentLotteryType) {
-            appState.currentLotteryType = 'xam';
+        try {
+            // 生成机器码
+            console.log('🔑 [init] 生成机器码...');
+            appState.machineCode = await generateMachineCode();
+            document.getElementById('machine-code').textContent = appState.machineCode;
+            console.log('✅ [init] 机器码生成完成:', appState.machineCode);
+            
+            // 加载保存的配置
+            console.log('📂 [init] 加载本地配置...');
+            loadConfig();
+            console.log('✅ [init] 配置加载完成');
+            
+            // 确保默认彩种为新澳门
+            if (!appState.currentLotteryType) {
+                appState.currentLotteryType = 'xam';
+            }
+            console.log('🎯 [init] 当前彩种:', appState.currentLotteryType);
+            
+            // 加载赔率设置
+            console.log('💰 [init] 加载赔率设置...');
+            loadOddsFromStorage();
+            
+            // 检查激活状态
+            console.log('🔐 [init] 检查激活状态...');
+            checkLicense();
+            console.log('✅ [init] 激活状态:', appState.isActivated ? '已激活' : '未激活');
+            
+            // 渲染参照表
+            renderReferenceTables();
+            
+            // 更新显示
+            updateDisplay();
+            
+            // 更新切换按钮状态
+            updateSwitchButtons();
+            
+            // 如果没有数据，尝试自动获取（不阻塞）
+            console.log('🔄 [init] 开始自动获取数据...');
+            tryAutoFetchOnce();
+            
+            // 启动开奖时段自动刷新
+            startLiveRefresh();
+            
+            console.log('✅ [init] 应用初始化完成！');
+        } catch (error) {
+            console.error('❌ [init] 初始化出错:', error);
         }
-        
-        // 加载赔率设置
-        loadOddsFromStorage();
-        
-        // 检查激活状态
-        checkLicense();
-        
-        // 渲染参照表
-        renderReferenceTables();
-        
-        // 更新显示
-        updateDisplay();
-        
-        // 更新切换按钮状态
-        updateSwitchButtons();
-        
-        // 如果没有数据，尝试自动获取（不阻塞）
-        tryAutoFetchOnce();
-        
-        // 启动开奖时段自动刷新
-        startLiveRefresh();
     }
     
     // ==================== 开奖时段自动刷新（直播效果） ====================
@@ -1855,17 +1874,32 @@
     
     // 从 data.json 加载预获取的数据（GitHub Actions 方案）
     async function loadDataFromJSON() {
+        console.log('🔄 [loadDataFromJSON] 开始从 data.json 加载数据...');
         try {
-            const response = await fetch('./data.json?t=' + Date.now());
-            if (!response.ok) return false;
+            const url = './data.json?t=' + Date.now();
+            console.log('📡 [loadDataFromJSON] 请求URL:', url);
+            
+            const response = await fetch(url);
+            console.log('📥 [loadDataFromJSON] 响应状态:', response.status, response.statusText);
+            
+            if (!response.ok) {
+                console.warn('⚠️ [loadDataFromJSON] 响应不OK，返回false');
+                return false;
+            }
             
             const data = await response.json();
-            if (!data) return false;
+            console.log('📊 [loadDataFromJSON] 获取到的数据:', JSON.stringify(data, null, 2));
+            
+            if (!data) {
+                console.warn('⚠️ [loadDataFromJSON] 数据为空，返回false');
+                return false;
+            }
             
             let loaded = false;
             
             // 加载新澳门数据
             if (data.xam && data.xam.numbers && data.xam.numbers.length === 7) {
+                console.log('🎰 [loadDataFromJSON] 新澳门数据有效:', data.xam.numbers.join(','));
                 appState.lotteryData['xam'] = {
                     numbers: data.xam.numbers,
                     issue: data.xam.issue,
@@ -1874,10 +1908,13 @@
                 };
                 addToHistory('xam', data.xam);
                 loaded = true;
+            } else {
+                console.warn('⚠️ [loadDataFromJSON] 新澳门数据无效或不完整');
             }
             
             // 加载香港数据
             if (data.hk && data.hk.numbers && data.hk.numbers.length === 7) {
+                console.log('🎰 [loadDataFromJSON] 香港数据有效:', data.hk.numbers.join(','));
                 appState.lotteryData['hk'] = {
                     numbers: data.hk.numbers,
                     issue: data.hk.issue,
@@ -1886,25 +1923,32 @@
                 };
                 addToHistory('hk', data.hk);
                 loaded = true;
+            } else {
+                console.warn('⚠️ [loadDataFromJSON] 香港数据无效或不完整');
             }
             
             if (loaded) {
                 // 加载当前彩种数据
                 const currentData = appState.lotteryData[appState.currentLotteryType];
+                console.log('📌 [loadDataFromJSON] 当前彩种:', appState.currentLotteryType);
+                
                 if (currentData && currentData.numbers && currentData.numbers.length === 7) {
                     appState.lotteryNumbers = currentData.numbers;
+                    console.log('✅ [loadDataFromJSON] 设置当前号码:', appState.lotteryNumbers.join(','));
                 }
                 
                 saveConfig();
                 renderLotteryBalls();
                 renderHistoryList();
                 
-                console.log('✅ 从 data.json 加载数据成功，更新时间:', data.updateTime);
+                console.log('✅ [loadDataFromJSON] 数据加载成功，更新时间:', data.updateTime);
+            } else {
+                console.warn('⚠️ [loadDataFromJSON] 没有有效数据被加载');
             }
             
             return loaded;
         } catch (e) {
-            console.log('从 data.json 加载失败:', e.message);
+            console.error('❌ [loadDataFromJSON] 加载失败:', e.message, e);
             return false;
         }
     }
