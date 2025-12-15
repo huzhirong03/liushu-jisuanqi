@@ -30,18 +30,21 @@
 ║     说明: 告诉AI"删除AI调试显示代码"即可移除                               ║
 ║                                                                           ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
-║  【支持的玩法类型】共22种                                                   ║
+║  【支持的玩法类型】共23种                                                   ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
-║  特码类:     特码、大小单双                                                ║
+║  特码类:     特码、生肖特码（买X各Y）、大小单双                             ║
 ║  平特类:     平特一肖(一友)、平特二连肖(二友)、平特三连肖(三友)、           ║
 ║             平特四连肖、平特五连肖、平特尾数                               ║
 ║  生肖类:     生肖、六肖、合肖、正肖                                         ║
 ║  波色类:     波色、半波(红单/红双/蓝单/蓝双/绿大/绿小等)                    ║
 ║  平码类:     单平/平码                                                     ║
 ║  连码类:     二中二、三中三、二全中、三全中、二中特、三中特、特串           ║
-║  不中类:     五不中、六不中、七不中、八不中、九不中、十不中、               ║
-║             十一不中、十二不中                                             ║
-║  其他:       总和大小单双、五行(金木水火土)、家禽野兽、头尾数               ║
+║  不中类:     五不中~十二不中                                               ║
+║  其他:       总和大小单双、五行、家禽野兽、头尾数                           ║
+║                                                                           ║
+║  【重要区分】"买猪各10" vs "猪x10"                                          ║
+║  买猪各10 → 生肖特码：买猪的号码(7,19,31,43)各10元=40元，赔率43            ║
+║  猪x10   → 生肖：买猪生肖10元，赔率12                                      ║
 ║                                                                           ║
 ║  【别名映射】                                                              ║
 ║  一友=平特一肖  二友=平特二连肖  三友=平特三连肖  平码=单平  +=十(号码)     ║
@@ -4097,103 +4100,77 @@
             return;
         }
         
-        // 第一步：本地解析
-        parsedBets = parseBetInput(input);
-        
-        // 检查哪些行未能解析
-        const lines = input.split('\n').filter(line => line.trim());
-        const parsedLines = new Set(parsedBets.map(b => b.raw));
-        const unparsedLines = lines.filter(line => {
-            const converted = convertChineseNumber(line.trim());
-            return !parsedLines.has(line.trim()) && !parsedLines.has(converted);
-        });
-        
-        // 第二步：如果有未解析的行，尝试AI解析
         const settings = getFormatSettings();
-        if (unparsedLines.length > 0 && settings.aiEnabled && settings.aiApiKey) {
-            const useAI = confirm(
-                `📋 本地解析结果:\n` +
-                `✅ 成功识别 ${parsedBets.length} 条\n` +
-                `❌ 未识别 ${unparsedLines.length} 条:\n` +
-                unparsedLines.slice(0, 3).map(l => '  · ' + l).join('\n') +
-                (unparsedLines.length > 3 ? '\n  ...' : '') +
-                `\n\n是否使用AI智能解析未识别的内容？`
-            );
+        const lines = input.split('\n').filter(line => line.trim());
+        
+        // 【新架构】AI优先识别所有行的类型，程序负责数值提取
+        if (settings.aiEnabled && settings.aiApiKey) {
+            // 【AI调试显示】开始
+            showAutoCloseToast('🤖 AI正在识别玩法类型...', 5000);
+            // 【AI调试显示】结束
             
-            if (useAI) {
-                // 【AI调试显示】开始 - 测试完成后告诉AI"删除AI调试显示代码"
-                showAutoCloseToast('🤖 AI正在解析...', 5000);
+            try {
+                // AI识别所有行的类型
+                const aiResult = await parseWithAI(input);
+                
+                if (aiResult && aiResult.bets && aiResult.bets.length > 0) {
+                    parsedBets = [];
+                    let typeConflicts = []; // 记录类型冲突
+                    
+                    for (const aiBet of aiResult.bets) {
+                        // 程序也尝试识别这行，用于对比
+                        const localBets = parseBetLine(aiBet.raw || '');
+                        const localType = localBets.length > 0 ? localBets[0].type : '未识别';
+                        
+                        // 如果AI和程序识别的类型不同，记录下来
+                        if (localType !== '未识别' && localType !== aiBet.type) {
+                            typeConflicts.push({
+                                raw: aiBet.raw,
+                                aiType: aiBet.type,
+                                localType: localType
+                            });
+                        }
+                        
+                        // 根据AI识别的类型，用程序提取数值（以AI类型为准）
+                        const extracted = extractValuesByType(aiBet.type, aiBet.raw || '');
+                        if (extracted && extracted.length > 0) {
+                            // 标记来源
+                            extracted.forEach(bet => {
+                                bet.fromAI = true;
+                                bet.aiType = aiBet.type;
+                                if (localType !== aiBet.type && localType !== '未识别') {
+                                    bet.localType = localType; // 记录程序识别的类型（如果不同）
+                                }
+                            });
+                            parsedBets.push(...extracted);
+                        }
+                    }
+                    
+                    // 【AI调试显示】开始 - 显示识别结果和冲突
+                    if (typeConflicts.length > 0) {
+                        console.log('⚠️ AI与程序识别不一致:', typeConflicts);
+                        showAutoCloseToast(`⚠️ ${typeConflicts.length}条类型不一致，以AI为准`, 3000);
+                    } else {
+                        showAutoCloseToast(`✅ AI识别 ${aiResult.bets.length} 条`, 2000);
+                    }
+                    // 【AI调试显示】结束
+                }
+            } catch (e) {
+                console.error('AI解析失败:', e);
+                // 【AI调试显示】开始
+                showAutoCloseToast('❌ AI失败，使用本地解析', 2000);
                 // 【AI调试显示】结束
-                try {
-                    const aiResult = await parseWithAI(unparsedLines.join('\n'));
-                    if (aiResult && aiResult.bets && aiResult.bets.length > 0) {
-                        // 将AI解析结果转换为标准格式
-                        for (const aiBet of aiResult.bets) {
-                            const bet = {
-                                type: aiBet.type,
-                                amount: parseInt(aiBet.amount) || 0,
-                                raw: '[AI解析]',
-                                fromAI: true
-                            };
-                            if (aiBet.type === '特码') {
-                                bet.number = parseInt(aiBet.value);
-                            } else {
-                                bet.value = aiBet.value;
-                            }
-                            if (bet.amount > 0) {
-                                parsedBets.push(bet);
-                            }
-                        }
-                        // 【AI调试显示】开始
-                        showAutoCloseToast(`✅ AI成功解析 ${aiResult.bets.length} 条`);
-                        // 【AI调试显示】结束
-                    }
-                } catch (e) {
-                    console.error('AI解析失败:', e);
-                    // 【AI调试显示】开始
-                    showAutoCloseToast('❌ AI解析失败: ' + e.message, 3000);
-                    // 【AI调试显示】结束
-                }
+                // 回退到本地解析
+                parsedBets = parseBetInput(input);
             }
-        } else if (parsedBets.length === 0) {
-            // 完全无法解析
-            const settings = getFormatSettings();
-            if (settings.aiEnabled && settings.aiApiKey) {
-                // 有AI配置，尝试用AI解析全部
-                if (confirm('本地未识别到有效下注，是否使用AI解析全部内容？')) {
-                    // 【AI调试显示】开始
-                    showAutoCloseToast('🤖 AI正在解析...', 5000);
-                    // 【AI调试显示】结束
-                    try {
-                        const aiResult = await parseWithAI(input);
-                        if (aiResult && aiResult.bets) {
-                            for (const aiBet of aiResult.bets) {
-                                const bet = {
-                                    type: aiBet.type,
-                                    amount: parseInt(aiBet.amount) || 0,
-                                    raw: '[AI解析]',
-                                    fromAI: true
-                                };
-                                if (aiBet.type === '特码') {
-                                    bet.number = parseInt(aiBet.value);
-                                } else {
-                                    bet.value = aiBet.value;
-                                }
-                                if (bet.amount > 0) {
-                                    parsedBets.push(bet);
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        console.error('AI解析失败:', e);
-                    }
-                }
-            }
+        } else {
+            // 未启用AI，使用本地解析
+            parsedBets = parseBetInput(input);
+        }
         
         if (parsedBets.length === 0) {
-                alert('❌ 未识别到有效的下注信息\n\n建议：\n1. 检查输入格式\n2. 在"自定义格式"中添加规则\n3. 启用AI智能解析');
+            alert('❌ 未识别到有效的下注信息\n\n建议：\n1. 检查输入格式\n2. 在"自定义格式"中添加规则\n3. 启用AI智能解析');
             return;
-            }
         }
         
         // 计算每注结果
@@ -4214,7 +4191,15 @@
         for (const r of calcResults) {
             const status = r.isWin ? '🎯中' : '✗';
             const resultStr = r.netResult >= 0 ? `+${r.netResult}` : `${r.netResult}`;
-            resultText += `${status} ${r.type}${r.number || r.value || ''} 下注${r.amount} → ${resultStr}\n`;
+            // 显示类型识别信息
+            let typeInfo = r.type;
+            if (r.fromAI) {
+                typeInfo = `[AI]${r.type}`;
+                if (r.localType) {
+                    typeInfo += `(程序识别:${r.localType})`;
+                }
+            }
+            resultText += `${status} ${typeInfo}${r.number || r.value || ''} 下注${r.amount} → ${resultStr}\n`;
         }
         
         document.getElementById('result-content').textContent = resultText;
@@ -4249,12 +4234,21 @@
             const resultClass = r.netResult >= 0 ? 'lose' : 'win';
             const resultText = (r.netResult >= 0 ? '+' : '') + r.netResult;
             
+            // 显示AI与程序识别差异
+            let typeConflictHtml = '';
+            if (r.fromAI && r.localType) {
+                typeConflictHtml = `<div class="check-detail-info" style="color:#ffa500;font-size:11px;">⚠️ AI识别: ${r.aiType || r.type} | 程序识别: ${r.localType}</div>`;
+            } else if (r.fromAI) {
+                typeConflictHtml = `<div class="check-detail-info" style="color:#4CAF50;font-size:11px;">🤖 AI识别</div>`;
+            }
+            
             return `
                 <div class="check-detail-item ${statusClass}">
                     <div class="check-detail-header">
                         <span class="check-detail-type">${r.type} ${r.number ? String(r.number).padStart(2,'0') : (r.value || '')}</span>
                         <span class="check-detail-badge ${badgeClass}">${badge}</span>
                     </div>
+                    ${typeConflictHtml}
                     <div class="check-detail-info">下注金额：${r.amount}元</div>
                     <div class="check-detail-calc">${r.detail}</div>
                     ${r.isWin ? `<div class="check-detail-calc">中奖：${r.amount} × ${r.odds} = ${r.winAmount}</div>` : ''}
@@ -4461,29 +4455,34 @@
 
 【你只需要做一件事】判断玩法类型，不需要提取数字！
 
-【玩法类型】共22种：
+【玩法类型】共23种：
 1. 特码 - 含"特"字或纯数字下注(01-49)
-2. 生肖 - 买单个生肖：鼠牛虎兔龙蛇马羊猴鸡狗猪
-3. 波色 - 含"红/蓝/绿"+"波"
-4. 半波 - 波色+大小/单双，如"红单""蓝双""绿大"
-5. 平特一肖 - 含"平特"或"一友"，买生肖
-6. 平特二连肖 - 含"二连肖"或"二友"
-7. 平特三连肖 - 含"三连肖"或"三友"
-8. 平特四连肖 - 含"四连肖"
-9. 平特五连肖 - 含"五连肖"
-10. 平特尾数 - 含"平特尾"或"平尾"
-11. 六肖 - 含"六肖"，买6个生肖
-12. 单平 - 含"单平"或"平码"（除特码外6个正码）
-13. 大小单双 - 单独的"大/小/单/双"
-14. 二中二 - 含"二中二"
-15. 三中三 - 含"三中三"
-16. 不中 - 含"X不中"如"五不中""十二不中"
-17. 合肖 - 含"合肖"或"X肖"（非六肖）
-18. 连码 - 含"二全中""三全中""二中特""三中特""特串"
-19. 正肖 - 含"正肖"
-20. 总和 - 含"总和大/小/单/双"
-21. 五行 - 含"金/木/水/火/土"
-22. 家野 - 含"家禽""野兽"
+2. 生肖特码 - "买X各Y"格式，买某生肖的所有号码做特码，每个号码各Y元！！重要！！
+3. 生肖 - 单个生肖下注如"猪10""龙x10"（不含"买"和"各"）
+4. 波色 - 含"红/蓝/绿"+"波"
+5. 半波 - 波色+大小/单双，如"红单""蓝双""绿大"
+6. 平特一肖 - 含"平特"或"一友"，买生肖
+7. 平特二连肖 - 含"二连肖"或"二友"
+8. 平特三连肖 - 含"三连肖"或"三友"
+9. 平特四连肖 - 含"四连肖"
+10. 平特五连肖 - 含"五连肖"
+11. 平特尾数 - 含"平特尾"或"平尾"
+12. 六肖 - 含"六肖"，买6个生肖
+13. 单平 - 含"单平"或"平码"（除特码外6个正码）
+14. 大小单双 - 单独的"大/小/单/双"
+15. 二中二 - 含"二中二"
+16. 三中三 - 含"三中三"
+17. 不中 - 含"X不中"如"五不中""十二不中"
+18. 合肖 - 含"合肖"或"X肖"（非六肖）
+19. 连码 - 含"二全中""三全中""二中特""三中特""特串"
+20. 正肖 - 含"正肖"
+21. 总和 - 含"总和大/小/单/双"
+22. 五行 - 含"金/木/水/火/土"
+23. 家野 - 含"家禽""野兽"
+
+【关键区分】
+- "买猪各10" → 生肖特码（买猪的号码7,19,31,43各10元=40元，赔率43）
+- "猪10" 或 "猪x10" → 生肖（买猪生肖10元，赔率12）
 
 【别名映射】
 - 一友 = 平特一肖
@@ -4499,11 +4498,11 @@ ${userInput}
 {"items":[{"type":"类型","raw":"原文"}]}
 
 【示例】
-输入: "一友猪10 红单50 五不中01,02,03,04,05各100"
-输出: {"items":[{"type":"平特一肖","raw":"一友猪10"},{"type":"半波","raw":"红单50"},{"type":"不中","raw":"五不中01,02,03,04,05各100"}]}
+输入: "买猪各10 猪x20 五不中01,02,03,04,05各100"
+输出: {"items":[{"type":"生肖特码","raw":"买猪各10"},{"type":"生肖","raw":"猪x20"},{"type":"不中","raw":"五不中01,02,03,04,05各100"}]}
 
 【规则】
-- type只能是上述22种之一
+- type只能是上述23种之一
 - raw必须是用户原文，一字不改
 - 不确定的type写"未知"
 - 只输出JSON，无任何解释`;
@@ -4589,17 +4588,26 @@ ${userInput}
                 break;
             }
             
-            case '生肖': {
-                // 提取生肖 + 金额
-                // 模式1: "买猪各10" "买龙虎20"
-                const buyMatch = text.match(/买?([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)各?(\d+)/);
+            case '生肖特码': {
+                // 【重要】"买猪各10" = 买猪的号码(7,19,31,43)各10元做特码，用特码赔率43
+                const buyMatch = text.match(/买([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)各?(\d+)/);
                 if (buyMatch) {
                     const animals = buyMatch[1].split('').filter(a => shengxiaoList.includes(a));
                     const amount = parseInt(buyMatch[2]);
-                    animals.forEach(sx => bets.push({ type: '生肖', value: sx, amount, raw: rawText }));
-                    break;
+                    // 把每个生肖转换为对应的号码，每个号码都是一注特码
+                    for (const sx of animals) {
+                        const sxNums = LHC_DATA.shengxiao[sx] || [];
+                        sxNums.forEach(num => {
+                            bets.push({ type: '特码', number: num, amount, raw: rawText, fromShengxiao: sx });
+                        });
+                    }
                 }
-                // 模式2: "鸡鼠猴X10"
+                break;
+            }
+            
+            case '生肖': {
+                // 生肖玩法：买某生肖中奖，赔率12
+                // 模式1: "鸡鼠猴X10" "龙x10"
                 const xSxMatch = text.match(/([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)[Xx×](\d+)/);
                 if (xSxMatch) {
                     const animals = xSxMatch[1].split('').filter(a => shengxiaoList.includes(a));
@@ -4607,7 +4615,7 @@ ${userInput}
                     animals.forEach(sx => bets.push({ type: '生肖', value: sx, amount, raw: rawText }));
                     break;
                 }
-                // 模式3: 单个生肖 "猪 100"
+                // 模式2: 单个生肖 "猪 100" "猪100"
                 for (const sx of shengxiaoList) {
                     const sxMatch = text.match(new RegExp(`${sx}\\s*(\\d+)`));
                     if (sxMatch) {
@@ -5136,7 +5144,7 @@ ${userInput}
     }
     
     // ==================== 版本更新检测 ====================
-    const APP_VERSION = 'v1.0.1';  // 当前版本号，与 sw.js 保持一致
+    const APP_VERSION = 'v1.0.2';  // 当前版本号，与 sw.js 保持一致（缓存优先策略）
     
     // 注册 Service Worker 并检测更新
     if ('serviceWorker' in navigator) {
