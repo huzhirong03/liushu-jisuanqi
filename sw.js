@@ -1,6 +1,6 @@
 // Service Worker - 实现离线功能 + 版本更新检测
 // ⚠️ 每次更新程序时，修改这个版本号！
-const APP_VERSION = 'v1.0.1';
+const APP_VERSION = 'v1.0.2';  // 改为缓存优先策略，大幅减少流量
 const CACHE_NAME = 'liushu-rocket-' + APP_VERSION;
 
 const urlsToCache = [
@@ -58,14 +58,13 @@ self.addEventListener('activate', event => {
     self.clients.claim();
 });
 
-// 请求拦截 - 网络优先策略（确保获取最新内容）
+// 请求拦截 - 缓存优先策略（大幅减少流量消耗！）
 self.addEventListener('fetch', event => {
     // 对于 data.json，始终从网络获取最新数据
     if (event.request.url.includes('data.json')) {
         event.respondWith(
             fetch(event.request)
                 .then(response => {
-                    // 网络成功，更新缓存
                     const responseToCache = response.clone();
                     caches.open(CACHE_NAME).then(cache => {
                         cache.put(event.request, responseToCache);
@@ -73,23 +72,44 @@ self.addEventListener('fetch', event => {
                     return response;
                 })
                 .catch(() => {
-                    // 网络失败，使用缓存
                     return caches.match(event.request);
                 })
         );
         return;
     }
     
-    // 对于 API 请求，始终走网络
-    if (event.request.url.includes('api') || event.request.url.includes('marksix')) {
+    // 对于 API 请求，始终走网络（不缓存）
+    if (event.request.url.includes('api') || event.request.url.includes('marksix') || 
+        event.request.url.includes('corsproxy') || event.request.url.includes('allorigins')) {
         event.respondWith(fetch(event.request));
         return;
     }
     
-    // 对于其他资源，使用 网络优先 + 缓存兜底
+    // 【重要改动】对于静态资源，使用 缓存优先 + 网络更新
+    // 这样可以大幅减少流量消耗！
+    
+    // 过滤掉不支持的请求（如chrome-extension等）
+    if (!event.request.url.startsWith('http')) {
+        return;
+    }
+    
     event.respondWith(
-        fetch(event.request)
-            .then(response => {
+        caches.match(event.request).then(cachedResponse => {
+            // 如果缓存中有，直接返回缓存（不消耗流量！）
+            if (cachedResponse) {
+                // 后台静默更新缓存（不阻塞页面加载）
+                fetch(event.request).then(response => {
+                    if (response && response.status === 200) {
+                        caches.open(CACHE_NAME).then(cache => {
+                            cache.put(event.request, response);
+                        });
+                    }
+                }).catch(() => {});
+                return cachedResponse;
+            }
+            
+            // 缓存中没有，才去网络获取
+            return fetch(event.request).then(response => {
                 if (response && response.status === 200) {
                     const responseToCache = response.clone();
                     caches.open(CACHE_NAME).then(cache => {
@@ -97,12 +117,11 @@ self.addEventListener('fetch', event => {
                     });
                 }
                 return response;
-            })
-            .catch(() => {
-                return caches.match(event.request).then(response => {
-                    return response || caches.match('./index.html');
-                });
-            })
+            }).catch(() => {
+                // 网络也失败，返回离线页面
+                return caches.match('./index.html');
+            });
+        })
     );
 });
 
