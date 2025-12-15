@@ -4633,7 +4633,8 @@
     
     // AI解析下注信息（优化版：严格数据保护）
     async function parseWithAI(userInput) {
-        const settings = JSON.parse(localStorage.getItem('lhc_format_settings') || '{}');
+        // 使用 getFormatSettings() 获取带默认值的设置（确保 aiEnabled 和 apiKey 有默认值）
+        const settings = getFormatSettings();
         // #region agent log
         fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:parseWithAI',message:'AI设置检查',data:{aiEnabled:settings.aiEnabled,hasApiKey:!!settings.aiApiKey,provider:settings.aiProvider},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
         // #endregion
