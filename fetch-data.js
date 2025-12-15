@@ -1,8 +1,35 @@
 // 获取开奖数据并保存到 data.json
+// 智能检测：如果当期数据已完整，跳过更新
 const https = require('https');
 const fs = require('fs');
 
 const API_URL = 'https://marksix6.net/index.php?api=1';
+
+// 读取现有数据
+function loadExistingData() {
+    try {
+        if (fs.existsSync('data.json')) {
+            return JSON.parse(fs.readFileSync('data.json', 'utf8'));
+        }
+    } catch (e) {
+        console.log('读取现有数据失败:', e.message);
+    }
+    return null;
+}
+
+// 检查是否需要更新（同一期号且已有完整数据则跳过）
+function shouldUpdate(existingData, newData) {
+    if (!existingData || !existingData.xam) return true;
+    if (!newData || !newData.xam) return false;
+    
+    // 如果期号相同且已有完整7个号码，跳过更新
+    if (existingData.xam.issue === newData.issue && 
+        existingData.xam.numbers && 
+        existingData.xam.numbers.length === 7) {
+        return false;  // 不需要更新
+    }
+    return true;  // 需要更新
+}
 
 function fetchData() {
     return new Promise((resolve, reject) => {
@@ -64,11 +91,28 @@ async function main() {
     console.log('🚀 开始获取开奖数据...');
     console.log('⏰ 时间:', new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }));
     
+    // 读取现有数据
+    const existingData = loadExistingData();
+    if (existingData && existingData.xam) {
+        console.log(`📋 现有数据: 第${existingData.xam.issue}期`);
+    }
+    
     try {
         const apiData = await fetchData();
         console.log('✅ API 数据获取成功');
         
         const parsedData = parseData(apiData);
+        
+        // 智能检测：如果当期数据已完整，跳过更新
+        if (parsedData.xam && existingData && existingData.xam) {
+            if (existingData.xam.issue === parsedData.xam.issue && 
+                existingData.xam.numbers && 
+                existingData.xam.numbers.length === 7) {
+                console.log(`⏭️ 第${parsedData.xam.issue}期数据已完整，跳过更新`);
+                console.log('✅ 无需更新，退出');
+                return;  // 直接退出，不修改文件
+            }
+        }
         
         // 保存到 data.json
         fs.writeFileSync('data.json', JSON.stringify(parsedData, null, 2));
