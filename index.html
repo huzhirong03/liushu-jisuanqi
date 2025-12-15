@@ -4255,55 +4255,14 @@
                 console.log('AI返回结果:', aiResult); // 调试
                 
                 if (aiResult && aiResult.bets && aiResult.bets.length > 0) {
-                    let typeConflicts = []; // 记录类型冲突
+                    // parseWithAI 已经完成了类型识别和数值提取，直接使用结果
+                    parsedBets = aiResult.bets.map(bet => ({
+                        ...bet,
+                        fromAI: true
+                    }));
                     
-                    for (const aiBet of aiResult.bets) {
-                        console.log('处理AI识别:', aiBet); // 调试
-                        
-                        // 程序也尝试识别这行，用于对比
-                        const localBets = parseBetLine(aiBet.raw || '');
-                        const localType = localBets.length > 0 ? localBets[0].type : '未识别';
-                        
-                        // 如果AI和程序识别的类型不同，记录下来
-                        if (localType !== '未识别' && localType !== aiBet.type) {
-                            typeConflicts.push({
-                                raw: aiBet.raw,
-                                aiType: aiBet.type,
-                                localType: localType
-                            });
-                        }
-                        
-                        // 根据AI识别的类型，用程序提取数值（以AI类型为准）
-                        const extracted = extractValuesByType(aiBet.type, aiBet.raw || '');
-                        console.log('提取结果:', extracted); // 调试
-                        
-                        if (extracted && extracted.length > 0) {
-                            // 标记来源
-                            extracted.forEach(bet => {
-                                bet.fromAI = true;
-                                bet.aiType = aiBet.type;
-                                if (localType !== aiBet.type && localType !== '未识别') {
-                                    bet.localType = localType;
-                                }
-                            });
-                            parsedBets.push(...extracted);
-                        }
-                    }
-                    
-                    // 【AI调试显示】开始
-                    if (parsedBets.length > 0) {
-                        if (typeConflicts.length > 0) {
-                            console.log('⚠️ AI与程序识别不一致:', typeConflicts);
-                            showAutoCloseToast(`⚠️ ${typeConflicts.length}条类型不一致，以AI为准`, 3000);
-                        } else {
-                            showAutoCloseToast(`✅ AI识别 ${parsedBets.length} 条`, 2000);
-                        }
-                    } else {
-                        console.log('AI识别了类型但提取失败，回退本地解析');
-                        showAutoCloseToast('⚠️ AI提取失败，使用本地解析', 2000);
-                        parsedBets = parseBetInput(input);
-                    }
-                    // 【AI调试显示】结束
+                    console.log('AI解析成功，下注数:', parsedBets.length);
+                    showAutoCloseToast(`✅ AI识别 ${parsedBets.length} 条`, 2000);
                 } else {
                     // AI返回空结果，回退本地解析
                     console.log('AI返回空结果，回退本地解析');
