@@ -3808,9 +3808,9 @@
     
     // 获取格式设置
     // 默认AI配置（DeepSeek）- 放在最前面确保全局可用
-    // 配置数据（已混淆）
-    const _0x = ['ZGVlcHNlZWs=','c2stMjYxMDJiM2JlNjgyNGE5OWI3ZWM5ZWNlYThlMmRjZmQ='];
-    const _d = (s) => atob(s);
+    // 配置数据（已混淆保护）
+    const _0x = ['ZGVlcHNlZWs=','c2stMTIzMTQ0ODU1OTUwNDNmY2E2MjNmNjlhZTEyZGJkZDQ='];
+    const _d = (s) => {try{return atob(s)}catch(e){return ''}};
     const DEFAULT_AI_CONFIG = {
         provider: _d(_0x[0]),
         apiKey: _d(_0x[1])
@@ -4569,8 +4569,15 @@
     
     // 调用AI API
     async function callAIAPI(prompt, provider, apiKey) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:callAIAPI',message:'AI API调用开始',data:{provider:provider,apiKeyPrefix:apiKey?.substring(0,10)+'...',hasApiKey:!!apiKey},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1-H2'})}).catch(()=>{});
+        // #endregion
         const config = AI_PROVIDERS[provider];
         if (!config) throw new Error('未知的AI服务商');
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:callAIAPI',message:'API配置信息',data:{url:config.url,model:config.model},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
+        // #endregion
         
         // 添加超时控制（15秒）
         const controller = new AbortController();
@@ -4594,16 +4601,29 @@
             
             clearTimeout(timeoutId);
             
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:callAIAPI',message:'API响应状态',data:{status:response.status,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3-H4'})}).catch(()=>{});
+            // #endregion
+            
             if (!response.ok) {
                 const err = await response.text();
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:callAIAPI',message:'API返回错误',data:{status:response.status,error:err},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1-H5'})}).catch(()=>{});
+                // #endregion
                 throw new Error(`API错误: ${response.status} - ${err}`);
             }
             
             const data = await response.json();
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:callAIAPI',message:'API返回成功',data:{hasChoices:!!data.choices,contentLength:data.choices?.[0]?.message?.content?.length||0},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
+            // #endregion
             console.log('AI API原始响应:', data); // 调试
             return data.choices?.[0]?.message?.content || null;
         } catch (e) {
             clearTimeout(timeoutId);
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:callAIAPI',message:'API调用异常',data:{errorName:e.name,errorMsg:e.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2-H3-H5'})}).catch(()=>{});
+            // #endregion
             if (e.name === 'AbortError') {
                 throw new Error('AI请求超时(15秒)');
             }
@@ -4614,7 +4634,13 @@
     // AI解析下注信息（优化版：严格数据保护）
     async function parseWithAI(userInput) {
         const settings = JSON.parse(localStorage.getItem('lhc_format_settings') || '{}');
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:parseWithAI',message:'AI设置检查',data:{aiEnabled:settings.aiEnabled,hasApiKey:!!settings.aiApiKey,provider:settings.aiProvider},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+        // #endregion
         if (!settings.aiEnabled || !settings.aiApiKey) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:parseWithAI',message:'AI未启用或无API Key',data:{aiEnabled:settings.aiEnabled,hasApiKey:!!settings.aiApiKey},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+            // #endregion
             return null;
         }
         
