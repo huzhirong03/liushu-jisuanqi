@@ -4241,7 +4241,9 @@
         debugInfo.lastError = '';
         
         // 【新架构】AI优先识别所有行的类型，程序负责数值提取
-        if (settings.aiEnabled && settings.aiApiKey) {
+        // 使用代理模式时不需要前端有 apiKey（apiKey 在 Worker 环境变量中）
+        const useProxy = shouldUseProxy() && AI_PROXY_URL && !AI_PROXY_URL.includes('你的账号');
+        if (settings.aiEnabled && (useProxy || settings.aiApiKey)) {
             // 【AI调试显示】开始
             showAutoCloseToast('🤖 AI正在识别玩法类型...', 8000);
             // 【AI调试显示】结束
@@ -4646,7 +4648,9 @@
     async function parseWithAI(userInput) {
         // 使用 getFormatSettings() 获取带默认值的设置（确保 aiEnabled 和 apiKey 有默认值）
         const settings = getFormatSettings();
-        if (!settings.aiEnabled || !settings.aiApiKey) {
+        // 使用代理模式时不需要前端有 apiKey（apiKey 在 Worker 环境变量中）
+        const useProxy = shouldUseProxy() && AI_PROXY_URL && !AI_PROXY_URL.includes('你的账号');
+        if (!settings.aiEnabled || (!useProxy && !settings.aiApiKey)) {
             return null;
         }
         
