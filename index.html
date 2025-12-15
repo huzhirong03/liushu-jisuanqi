@@ -4103,21 +4103,26 @@
         const settings = getFormatSettings();
         const lines = input.split('\n').filter(line => line.trim());
         
+        // 初始化
+        parsedBets = [];
+        
         // 【新架构】AI优先识别所有行的类型，程序负责数值提取
         if (settings.aiEnabled && settings.aiApiKey) {
             // 【AI调试显示】开始
-            showAutoCloseToast('🤖 AI正在识别玩法类型...', 5000);
+            showAutoCloseToast('🤖 AI正在识别玩法类型...', 8000);
             // 【AI调试显示】结束
             
             try {
                 // AI识别所有行的类型
                 const aiResult = await parseWithAI(input);
+                console.log('AI返回结果:', aiResult); // 调试
                 
                 if (aiResult && aiResult.bets && aiResult.bets.length > 0) {
-                    parsedBets = [];
                     let typeConflicts = []; // 记录类型冲突
                     
                     for (const aiBet of aiResult.bets) {
+                        console.log('处理AI识别:', aiBet); // 调试
+                        
                         // 程序也尝试识别这行，用于对比
                         const localBets = parseBetLine(aiBet.raw || '');
                         const localType = localBets.length > 0 ? localBets[0].type : '未识别';
@@ -4133,32 +4138,45 @@
                         
                         // 根据AI识别的类型，用程序提取数值（以AI类型为准）
                         const extracted = extractValuesByType(aiBet.type, aiBet.raw || '');
+                        console.log('提取结果:', extracted); // 调试
+                        
                         if (extracted && extracted.length > 0) {
                             // 标记来源
                             extracted.forEach(bet => {
                                 bet.fromAI = true;
                                 bet.aiType = aiBet.type;
                                 if (localType !== aiBet.type && localType !== '未识别') {
-                                    bet.localType = localType; // 记录程序识别的类型（如果不同）
+                                    bet.localType = localType;
                                 }
                             });
                             parsedBets.push(...extracted);
                         }
                     }
                     
-                    // 【AI调试显示】开始 - 显示识别结果和冲突
-                    if (typeConflicts.length > 0) {
-                        console.log('⚠️ AI与程序识别不一致:', typeConflicts);
-                        showAutoCloseToast(`⚠️ ${typeConflicts.length}条类型不一致，以AI为准`, 3000);
+                    // 【AI调试显示】开始
+                    if (parsedBets.length > 0) {
+                        if (typeConflicts.length > 0) {
+                            console.log('⚠️ AI与程序识别不一致:', typeConflicts);
+                            showAutoCloseToast(`⚠️ ${typeConflicts.length}条类型不一致，以AI为准`, 3000);
+                        } else {
+                            showAutoCloseToast(`✅ AI识别 ${parsedBets.length} 条`, 2000);
+                        }
                     } else {
-                        showAutoCloseToast(`✅ AI识别 ${aiResult.bets.length} 条`, 2000);
+                        console.log('AI识别了类型但提取失败，回退本地解析');
+                        showAutoCloseToast('⚠️ AI提取失败，使用本地解析', 2000);
+                        parsedBets = parseBetInput(input);
                     }
                     // 【AI调试显示】结束
+                } else {
+                    // AI返回空结果，回退本地解析
+                    console.log('AI返回空结果，回退本地解析');
+                    showAutoCloseToast('⚠️ AI无结果，使用本地解析', 2000);
+                    parsedBets = parseBetInput(input);
                 }
             } catch (e) {
                 console.error('AI解析失败:', e);
                 // 【AI调试显示】开始
-                showAutoCloseToast('❌ AI失败，使用本地解析', 2000);
+                showAutoCloseToast('❌ AI失败: ' + e.message, 3000);
                 // 【AI调试显示】结束
                 // 回退到本地解析
                 parsedBets = parseBetInput(input);
@@ -4167,6 +4185,8 @@
             // 未启用AI，使用本地解析
             parsedBets = parseBetInput(input);
         }
+        
+        console.log('最终解析结果:', parsedBets); // 调试
         
         if (parsedBets.length === 0) {
             alert('❌ 未识别到有效的下注信息\n\n建议：\n1. 检查输入格式\n2. 在"自定义格式"中添加规则\n3. 启用AI智能解析');
@@ -4413,27 +4433,43 @@
         const config = AI_PROVIDERS[provider];
         if (!config) throw new Error('未知的AI服务商');
         
-        const response = await fetch(config.url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: config.model,
-                messages: [{ role: 'user', content: prompt }],
-                temperature: 0.1,
-                max_tokens: 2000
-            })
-        });
+        // 添加超时控制（15秒）
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         
-        if (!response.ok) {
-            const err = await response.text();
-            throw new Error(`API错误: ${response.status} - ${err}`);
+        try {
+            const response = await fetch(config.url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: config.model,
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: 0.1,
+                    max_tokens: 2000
+                }),
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) {
+                const err = await response.text();
+                throw new Error(`API错误: ${response.status} - ${err}`);
+            }
+            
+            const data = await response.json();
+            console.log('AI API原始响应:', data); // 调试
+            return data.choices?.[0]?.message?.content || null;
+        } catch (e) {
+            clearTimeout(timeoutId);
+            if (e.name === 'AbortError') {
+                throw new Error('AI请求超时(15秒)');
+            }
+            throw e;
         }
-        
-        const data = await response.json();
-        return data.choices?.[0]?.message?.content || null;
     }
     
     // AI解析下注信息（优化版：严格数据保护）
@@ -4508,7 +4544,10 @@ ${userInput}
 - 只输出JSON，无任何解释`;
 
         try {
+            console.log('🤖 开始调用AI API...');
             const result = await callAIAPI(prompt, settings.aiProvider, settings.aiApiKey);
+            console.log('🤖 AI返回原始结果:', result);
+            
             if (result) {
                 // 提取JSON（处理可能的markdown代码块）
                 let jsonStr = result.trim();
@@ -4516,24 +4555,31 @@ ${userInput}
                     jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
                 }
                 
+                console.log('🤖 解析JSON:', jsonStr);
                 const aiResult = JSON.parse(jsonStr);
+                console.log('🤖 AI识别结果:', aiResult);
                 
                 // 【核心】AI只返回类型，程序提取具体数值
                 const bets = [];
                 if (aiResult.items && Array.isArray(aiResult.items)) {
                     for (const item of aiResult.items) {
+                        console.log('🤖 处理项:', item);
                         // 程序根据AI识别的类型，提取具体数值
                         const extracted = extractValuesByType(item.type, item.raw);
+                        console.log('🤖 提取结果:', extracted);
                         if (extracted && extracted.length > 0) {
                             bets.push(...extracted);
                         }
                     }
                 }
                 
+                console.log('🤖 最终bets:', bets);
                 return { bets, unparsed: [] };
+            } else {
+                console.log('🤖 AI返回空结果');
             }
         } catch (e) {
-            console.error('AI解析失败:', e);
+            console.error('🤖 AI解析失败:', e);
         }
         return null;
     }
