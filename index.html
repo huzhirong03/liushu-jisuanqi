@@ -3963,14 +3963,45 @@
         return str;
     }
     
-    // 转换中文数字
+    // 转换中文数字（智能版：正确处理各种中文数字格式）
     function convertChineseNumber(str) {
-        const cnNums = {'零':0,'一':1,'二':2,'两':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10,
-                        '二十':20,'三十':30,'四十':40,'五十':50,'六十':60,'七十':70,'八十':80,'九十':90,'百':100};
+        // 定义中文数字映射
+        const digitMap = {'零':0,'一':1,'二':2,'两':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9};
         
-        for (const [cn, num] of Object.entries(cnNums)) {
-            str = str.replace(new RegExp(cn, 'g'), num);
+        // 处理完整的中文数字（如"二十五"、"一百二十"等）
+        function parseChineseNum(cnStr) {
+            let result = 0;
+            let temp = 0;
+            
+            for (let i = 0; i < cnStr.length; i++) {
+                const char = cnStr[i];
+                if (digitMap[char] !== undefined) {
+                    temp = digitMap[char];
+                } else if (char === '十') {
+                    if (temp === 0 && i === 0) temp = 1; // "十"开头表示10
+                    result += temp * 10;
+                    temp = 0;
+                } else if (char === '百') {
+                    result += temp * 100;
+                    temp = 0;
+                } else if (char === '千') {
+                    result += temp * 1000;
+                    temp = 0;
+                }
+            }
+            result += temp; // 加上最后的个位数
+            return result;
         }
+        
+        // 匹配中文数字串并替换
+        // 匹配模式：连续的中文数字字符
+        const cnNumPattern = /[零一二两三四五六七八九十百千]+/g;
+        
+        str = str.replace(cnNumPattern, (match) => {
+            const num = parseChineseNum(match);
+            return num.toString();
+        });
+        
         return str;
     }
     
