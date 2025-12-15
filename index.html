@@ -1054,7 +1054,11 @@
             <div class="input-section" style="flex:1;display:flex;flex-direction:column;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                     <div class="input-section-title" style="margin-bottom:0;">粘贴下注信息</div>
-                    <div style="display:flex;gap:6px;">
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <!-- 调试按钮 -->
+                        <button onclick="showAIDebug()" style="padding:4px 8px;background:linear-gradient(90deg,#9b59b6,#8e44ad);color:white;border:none;border-radius:4px;font-size:10px;cursor:pointer;" title="查看AI识别详情">🤖AI</button>
+                        <button onclick="showLocalDebug()" style="padding:4px 8px;background:linear-gradient(90deg,#27ae60,#229954);color:white;border:none;border-radius:4px;font-size:10px;cursor:pointer;" title="查看程序识别详情">📋程序</button>
+                        <!-- 原有按钮 -->
                         <button onclick="showCheckDetail()" style="padding:6px 12px;background:linear-gradient(90deg,#3498db,#2980b9);color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">🔍 核对</button>
                         <button onclick="clearInput()" style="padding:6px 12px;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.2);border-radius:6px;font-size:12px;cursor:pointer;">清空</button>
                         <button onclick="calculateBets()" style="padding:6px 12px;background:linear-gradient(90deg,#e94560,#c23a51);color:white;border:none;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;">📊 开始计算</button>
@@ -1963,6 +1967,132 @@
         isActivated: false,
         trialDaysLeft: 7
     };
+    
+    // ==================== 调试信息存储 ====================
+    let debugInfo = {
+        aiInput: '',           // AI输入
+        aiOutput: '',          // AI原始输出
+        aiParsed: null,        // AI解析后的JSON
+        aiBets: [],            // AI识别的下注列表
+        localBets: [],         // 程序识别的下注列表
+        lastError: ''          // 最后一次错误
+    };
+    
+    // 显示AI识别详情
+    function showAIDebug() {
+        let content = `<div style="max-height:70vh;overflow:auto;font-size:13px;line-height:1.6;">`;
+        content += `<h3 style="color:#9b59b6;margin:0 0 10px;">🤖 AI识别详情</h3>`;
+        
+        if (debugInfo.lastError) {
+            content += `<div style="background:#c0392b;padding:10px;border-radius:6px;margin-bottom:10px;">
+                <strong>❌ 错误：</strong>${debugInfo.lastError}
+            </div>`;
+        }
+        
+        content += `<div style="background:rgba(155,89,182,0.2);padding:10px;border-radius:6px;margin-bottom:10px;">
+            <strong>📤 AI输入（用户原文）：</strong><br>
+            <pre style="white-space:pre-wrap;margin:5px 0;background:rgba(0,0,0,0.3);padding:8px;border-radius:4px;">${debugInfo.aiInput || '无'}</pre>
+        </div>`;
+        
+        content += `<div style="background:rgba(155,89,182,0.2);padding:10px;border-radius:6px;margin-bottom:10px;">
+            <strong>📥 AI原始输出：</strong><br>
+            <pre style="white-space:pre-wrap;margin:5px 0;background:rgba(0,0,0,0.3);padding:8px;border-radius:4px;max-height:200px;overflow:auto;">${debugInfo.aiOutput || '无'}</pre>
+        </div>`;
+        
+        content += `<div style="background:rgba(155,89,182,0.2);padding:10px;border-radius:6px;margin-bottom:10px;">
+            <strong>🔍 AI识别结果：</strong><br>`;
+        if (debugInfo.aiParsed && debugInfo.aiParsed.items) {
+            content += `<table style="width:100%;border-collapse:collapse;margin-top:8px;">
+                <tr style="background:rgba(0,0,0,0.3);"><th style="padding:6px;border:1px solid #555;">原文</th><th style="padding:6px;border:1px solid #555;">AI识别类型</th></tr>`;
+            for (const item of debugInfo.aiParsed.items) {
+                content += `<tr><td style="padding:6px;border:1px solid #555;">${item.raw || ''}</td><td style="padding:6px;border:1px solid #555;color:#9b59b6;font-weight:bold;">${item.type || ''}</td></tr>`;
+            }
+            content += `</table>`;
+        } else {
+            content += `<span style="color:#888;">无识别结果</span>`;
+        }
+        content += `</div>`;
+        
+        content += `<div style="background:rgba(155,89,182,0.2);padding:10px;border-radius:6px;">
+            <strong>📊 最终提取的下注（${debugInfo.aiBets.length}条）：</strong><br>`;
+        if (debugInfo.aiBets.length > 0) {
+            content += `<pre style="white-space:pre-wrap;margin:5px 0;background:rgba(0,0,0,0.3);padding:8px;border-radius:4px;max-height:200px;overflow:auto;">${JSON.stringify(debugInfo.aiBets, null, 2)}</pre>`;
+        } else {
+            content += `<span style="color:#888;">无</span>`;
+        }
+        content += `</div></div>`;
+        
+        showDebugModal('🤖 AI识别详情', content);
+    }
+    
+    // 显示程序识别详情
+    function showLocalDebug() {
+        const input = document.getElementById('bet-input').value.trim();
+        
+        // 重新执行本地解析
+        const localBets = parseBetInput(input);
+        debugInfo.localBets = localBets;
+        
+        let content = `<div style="max-height:70vh;overflow:auto;font-size:13px;line-height:1.6;">`;
+        content += `<h3 style="color:#27ae60;margin:0 0 10px;">📋 程序本地识别详情</h3>`;
+        
+        content += `<div style="background:rgba(39,174,96,0.2);padding:10px;border-radius:6px;margin-bottom:10px;">
+            <strong>📤 输入（用户原文）：</strong><br>
+            <pre style="white-space:pre-wrap;margin:5px 0;background:rgba(0,0,0,0.3);padding:8px;border-radius:4px;">${input || '无'}</pre>
+        </div>`;
+        
+        content += `<div style="background:rgba(39,174,96,0.2);padding:10px;border-radius:6px;margin-bottom:10px;">
+            <strong>🔍 逐行识别结果：</strong><br>`;
+        const lines = input.split('\n').filter(l => l.trim());
+        if (lines.length > 0) {
+            content += `<table style="width:100%;border-collapse:collapse;margin-top:8px;">
+                <tr style="background:rgba(0,0,0,0.3);"><th style="padding:6px;border:1px solid #555;">原文</th><th style="padding:6px;border:1px solid #555;">程序识别类型</th></tr>`;
+            for (const line of lines) {
+                const lineBets = parseBetLine(line.trim());
+                const types = lineBets.map(b => b.type).join(', ') || '未识别';
+                content += `<tr><td style="padding:6px;border:1px solid #555;">${line}</td><td style="padding:6px;border:1px solid #555;color:#27ae60;font-weight:bold;">${types}</td></tr>`;
+            }
+            content += `</table>`;
+        } else {
+            content += `<span style="color:#888;">无输入</span>`;
+        }
+        content += `</div>`;
+        
+        content += `<div style="background:rgba(39,174,96,0.2);padding:10px;border-radius:6px;">
+            <strong>📊 最终提取的下注（${localBets.length}条）：</strong><br>`;
+        if (localBets.length > 0) {
+            content += `<pre style="white-space:pre-wrap;margin:5px 0;background:rgba(0,0,0,0.3);padding:8px;border-radius:4px;max-height:200px;overflow:auto;">${JSON.stringify(localBets, null, 2)}</pre>`;
+        } else {
+            content += `<span style="color:#888;">无</span>`;
+        }
+        content += `</div></div>`;
+        
+        showDebugModal('📋 程序识别详情', content);
+    }
+    
+    // 显示调试弹窗
+    function showDebugModal(title, content) {
+        // 移除已有弹窗
+        const existing = document.getElementById('debug-modal');
+        if (existing) existing.remove();
+        
+        const modal = document.createElement('div');
+        modal.id = 'debug-modal';
+        modal.innerHTML = `
+            <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:99999;display:flex;justify-content:center;align-items:center;padding:20px;">
+                <div style="background:#1a1a2e;border-radius:12px;max-width:600px;width:100%;max-height:90vh;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.5);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:15px 20px;background:rgba(0,0,0,0.3);border-bottom:1px solid rgba(255,255,255,0.1);">
+                        <span style="font-weight:bold;font-size:16px;">${title}</span>
+                        <button onclick="document.getElementById('debug-modal').remove()" style="background:none;border:none;color:white;font-size:24px;cursor:pointer;padding:0 5px;">×</button>
+                    </div>
+                    <div style="padding:20px;overflow:auto;max-height:calc(90vh - 60px);">
+                        ${content}
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
     
     // ==================== 初始化 ====================
     async function init() {
@@ -4106,6 +4236,13 @@
         // 初始化
         parsedBets = [];
         
+        // 重置调试信息
+        debugInfo.aiInput = input;
+        debugInfo.aiOutput = '';
+        debugInfo.aiParsed = null;
+        debugInfo.aiBets = [];
+        debugInfo.lastError = '';
+        
         // 【新架构】AI优先识别所有行的类型，程序负责数值提取
         if (settings.aiEnabled && settings.aiApiKey) {
             // 【AI调试显示】开始
@@ -4170,11 +4307,13 @@
                 } else {
                     // AI返回空结果，回退本地解析
                     console.log('AI返回空结果，回退本地解析');
+                    debugInfo.lastError = 'AI返回空结果或解析失败';
                     showAutoCloseToast('⚠️ AI无结果，使用本地解析', 2000);
                     parsedBets = parseBetInput(input);
                 }
             } catch (e) {
                 console.error('AI解析失败:', e);
+                debugInfo.lastError = e.message || String(e);
                 // 【AI调试显示】开始
                 showAutoCloseToast('❌ AI失败: ' + e.message, 3000);
                 // 【AI调试显示】结束
@@ -4543,10 +4682,17 @@ ${userInput}
 - 不确定的type写"未知"
 - 只输出JSON，无任何解释`;
 
+        // 保存输入到调试信息
+        debugInfo.aiInput = userInput;
+        debugInfo.lastError = '';
+        
         try {
             console.log('🤖 开始调用AI API...');
             const result = await callAIAPI(prompt, settings.aiProvider, settings.aiApiKey);
             console.log('🤖 AI返回原始结果:', result);
+            
+            // 保存AI原始输出
+            debugInfo.aiOutput = result || '(空)';
             
             if (result) {
                 // 提取JSON（处理可能的markdown代码块）
@@ -4558,6 +4704,9 @@ ${userInput}
                 console.log('🤖 解析JSON:', jsonStr);
                 const aiResult = JSON.parse(jsonStr);
                 console.log('🤖 AI识别结果:', aiResult);
+                
+                // 保存解析后的JSON
+                debugInfo.aiParsed = aiResult;
                 
                 // 【核心】AI只返回类型，程序提取具体数值
                 const bets = [];
@@ -4574,12 +4723,15 @@ ${userInput}
                 }
                 
                 console.log('🤖 最终bets:', bets);
+                debugInfo.aiBets = bets;
                 return { bets, unparsed: [] };
             } else {
                 console.log('🤖 AI返回空结果');
+                debugInfo.lastError = 'AI返回空结果';
             }
         } catch (e) {
             console.error('🤖 AI解析失败:', e);
+            debugInfo.lastError = e.message || String(e);
         }
         return null;
     }
