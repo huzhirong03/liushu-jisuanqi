@@ -1403,24 +1403,78 @@
                 <div class="page-title">自定义格式</div>
             </div>
             
-            <div class="setting-group">
-                <div class="setting-group-title">格式解析规则</div>
-                <div style="font-size:12px;color:#888;margin-bottom:15px;">
-                    当默认解析无法识别时，可在此添加自定义规则
+            <!-- AI智能解析设置（简化版 - 对用户隐藏技术细节） -->
+            <div class="setting-group" style="background:linear-gradient(135deg,rgba(102,126,234,0.2),rgba(118,75,162,0.2));border:1px solid rgba(102,126,234,0.3);">
+                <div class="setting-group-title" style="color:#a78bfa;">🤖 AI智能解析</div>
+                <div style="font-size:12px;color:#888;margin-bottom:12px;">
+                    开启后可自动识别各种复杂格式，无需手动配置
                 </div>
                 
                 <div class="setting-item">
-                    <span class="setting-item-label">X/x 表示金额</span>
-                    <input type="checkbox" id="format-x-amount" checked style="width:20px;height:20px;">
+                    <span class="setting-item-label">启用AI智能解析</span>
+                    <input type="checkbox" id="ai-parse-enabled" checked style="width:20px;height:20px;">
+                </div>
+                
+                <div style="margin-top:10px;padding:10px;background:rgba(76,175,80,0.1);border-radius:6px;font-size:12px;color:#81c784;">
+                    ✨ 会员专享功能，支持识别各种自由格式输入
+                </div>
+                
+                <!-- 隐藏的配置（用户不可见） -->
+                <div style="display:none;">
+                    <select id="ai-provider"><option value="deepseek" selected>DeepSeek</option></select>
+                    <input type="hidden" id="ai-api-key" value="sk-26102b3be6824a99b7ec9ecea8e2dcfd">
+                </div>
+            </div>
+            
+            <!-- 预设格式模板 -->
+            <div class="setting-group">
+                <div class="setting-group-title">📋 预设格式模板</div>
+                <div style="font-size:12px;color:#888;margin-bottom:12px;">
+                    常用下注格式，勾选启用对应解析规则
+                </div>
+                
+                <div class="setting-item">
+                    <span class="setting-item-label" style="font-size:12px;">31.34各20 → 多号各下注</span>
+                    <input type="checkbox" id="tpl-multi-num" checked style="width:18px;height:18px;">
                 </div>
                 <div class="setting-item">
-                    <span class="setting-item-label">"各"表示每个相同金额</span>
-                    <input type="checkbox" id="format-ge-each" checked style="width:20px;height:20px;">
+                    <span class="setting-item-label" style="font-size:12px;">特43 20元 → 特码下注</span>
+                    <input type="checkbox" id="tpl-tema" checked style="width:18px;height:18px;">
                 </div>
                 <div class="setting-item">
-                    <span class="setting-item-label">"买"字头自动识别</span>
-                    <input type="checkbox" id="format-mai-prefix" checked style="width:20px;height:20px;">
+                    <span class="setting-item-label" style="font-size:12px;">买猪各10 → 生肖下注</span>
+                    <input type="checkbox" id="tpl-shengxiao" checked style="width:18px;height:18px;">
                 </div>
+                <div class="setting-item">
+                    <span class="setting-item-label" style="font-size:12px;">46,45,X50 → X表示金额</span>
+                    <input type="checkbox" id="tpl-x-amount" checked style="width:18px;height:18px;">
+                </div>
+                <div class="setting-item">
+                    <span class="setting-item-label" style="font-size:12px;">5尾100 → 尾数下注</span>
+                    <input type="checkbox" id="tpl-wei" checked style="width:18px;height:18px;">
+                </div>
+                <div class="setting-item">
+                    <span class="setting-item-label" style="font-size:12px;">六肖鼠牛虎200 → 多肖下注</span>
+                    <input type="checkbox" id="tpl-duoxiao" checked style="width:18px;height:18px;">
+                </div>
+                <div class="setting-item">
+                    <span class="setting-item-label" style="font-size:12px;">平特猴鸡各200 → 平特生肖</span>
+                    <input type="checkbox" id="tpl-pingte" checked style="width:18px;height:18px;">
+                </div>
+                <div class="setting-item">
+                    <span class="setting-item-label" style="font-size:12px;">红波/蓝波/绿波 50 → 波色</span>
+                    <input type="checkbox" id="tpl-bose" checked style="width:18px;height:18px;">
+                </div>
+                <div class="setting-item">
+                    <span class="setting-item-label" style="font-size:12px;">大/小/单/双 100 → 两面</span>
+                    <input type="checkbox" id="tpl-dxds" checked style="width:18px;height:18px;">
+                </div>
+            </div>
+            
+            <!-- 基础解析规则 -->
+            <div class="setting-group">
+                <div class="setting-group-title">⚙️ 基础解析规则</div>
+                
                 <div class="setting-item">
                     <span class="setting-item-label">中文数字转阿拉伯</span>
                     <input type="checkbox" id="format-cn-number" checked style="width:20px;height:20px;">
@@ -1429,22 +1483,43 @@
                     <span class="setting-item-label">忽略多余空格/标点</span>
                     <input type="checkbox" id="format-ignore-space" checked style="width:20px;height:20px;">
                 </div>
+                <div class="setting-item">
+                    <span class="setting-item-label">自动纠正同音字</span>
+                    <input type="checkbox" id="format-auto-correct" checked style="width:20px;height:20px;">
+                </div>
             </div>
             
+            <!-- 自定义关键词映射 -->
             <div class="setting-group">
-                <div class="setting-group-title">自定义关键词</div>
+                <div class="setting-group-title">🏷️ 自定义关键词</div>
                 <div style="font-size:12px;color:#888;margin-bottom:10px;">
-                    添加特殊关键词识别（如：一友=特码、二友=正码等）
+                    添加特殊关键词识别（每行一个，格式：关键词=玩法）
                 </div>
-                <textarea id="custom-keywords" style="width:100%;height:100px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;padding:10px;font-size:13px;resize:none;" placeholder="格式：关键词=玩法
-例如：
+                <textarea id="custom-keywords" style="width:100%;height:100px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;padding:10px;font-size:13px;resize:none;" placeholder="示例：
 一友=特码
 二友=正码
-三友=正码特"></textarea>
+三友=正码特
+新奥=特码
+平特=平特生肖"></textarea>
+            </div>
+            
+            <!-- 自定义正则模板 -->
+            <div class="setting-group">
+                <div class="setting-group-title">📝 自定义解析模板（高级）</div>
+                <div style="font-size:12px;color:#888;margin-bottom:10px;">
+                    添加自定义正则解析规则（格式：模板名|正则|玩法类型）
+                </div>
+                <textarea id="custom-templates" style="width:100%;height:80px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;padding:10px;font-size:12px;resize:none;font-family:monospace;" placeholder="示例：
+龙虎|([龙虎])(\d+)|龙虎
+连码|连码?(\d+(?:[,，]\d+)+)\s*(\d+)|连码"></textarea>
             </div>
             
             <button onclick="saveFormatSettings()" style="width:100%;padding:12px;background:linear-gradient(90deg,#e94560,#c23a51);color:white;border:none;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;margin-top:15px;">
-                保存设置
+                💾 保存设置
+            </button>
+            
+            <button onclick="resetFormatSettings()" style="width:100%;padding:10px;background:transparent;color:#888;border:1px solid rgba(255,255,255,0.2);border-radius:8px;font-size:13px;cursor:pointer;margin-top:10px;">
+                🔄 恢复默认设置
             </button>
         </div>
         
@@ -3458,56 +3533,291 @@
         return bets;
     }
     
-    // 解析单行下注
+    // 获取格式设置
+    // 默认AI配置（DeepSeek）- 放在最前面确保全局可用
+    const DEFAULT_AI_CONFIG = {
+        provider: 'deepseek',
+        apiKey: 'sk-26102b3be6824a99b7ec9ecea8e2dcfd'
+    };
+    
+    function getFormatSettings() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('lhc_format_settings') || '{}');
+            // 始终使用内置API配置，默认启用AI
+            saved.aiApiKey = DEFAULT_AI_CONFIG.apiKey;
+            saved.aiProvider = DEFAULT_AI_CONFIG.provider;
+            if (saved.aiEnabled === undefined) {
+                saved.aiEnabled = true; // 默认启用
+            }
+            return saved;
+        } catch(e) {
+            return {
+                aiEnabled: true,
+                aiApiKey: DEFAULT_AI_CONFIG.apiKey,
+                aiProvider: 'deepseek'
+            };
+        }
+    }
+    
+    // 解析自定义关键词
+    function parseCustomKeywords(line, settings) {
+        const bets = [];
+        const keywords = (settings.customKeywords || '').split('\n').filter(k => k.trim());
+        
+        for (const kw of keywords) {
+            const [key, playType] = kw.split('=').map(s => s.trim());
+            if (key && playType && line.includes(key)) {
+                // 提取关键词后面的数字作为金额
+                const amountMatch = line.match(new RegExp(key + '.*?(\\d+)'));
+                if (amountMatch) {
+                    // 提取可能的号码或生肖
+                    const numMatch = line.match(/(\d+)/g);
+                    if (numMatch && numMatch.length >= 2) {
+                        bets.push({ 
+                            type: playType, 
+                            value: numMatch[0], 
+                            number: parseInt(numMatch[0]),
+                            amount: parseInt(numMatch[numMatch.length - 1]), 
+                            raw: line 
+                        });
+                        return bets;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+    
+    // 增强版解析单行下注
     function parseBetLine(line) {
         const bets = [];
-        
-        // 转换中文数字
-        line = convertChineseNumber(line);
-        
-        // 模式1: "31.34各20" 或 "31 34各20" 或 "31,34各20"
-        const multiMatch = line.match(/^(\d+[\s.,，]+\d+(?:[\s.,，]+\d+)*)各(\d+)$/);
-        if (multiMatch) {
-            const nums = multiMatch[1].split(/[\s.,，]+/).map(n => parseInt(n));
-            const amount = parseInt(multiMatch[2]);
-            for (const num of nums) {
-                bets.push({ type: '特码', number: num, amount: amount, raw: line });
-            }
-            return bets;
-        }
-        
-        // 模式2: "特码 05 100" 或 "特码05 100"
-        const temaMatch = line.match(/特码?\s*(\d+)\s+(\d+)/);
-        if (temaMatch) {
-            bets.push({ type: '特码', number: parseInt(temaMatch[1]), amount: parseInt(temaMatch[2]), raw: line });
-            return bets;
-        }
-        
-        // 模式3: "生肖 龙 200" 或 "龙 200"
+        const settings = getFormatSettings();
         const shengxiaoList = ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'];
-        for (const sx of shengxiaoList) {
-            const sxMatch = line.match(new RegExp(`(?:生肖)?\\s*${sx}\\s+(\\d+)`));
-            if (sxMatch) {
-                bets.push({ type: '生肖', value: sx, amount: parseInt(sxMatch[1]), raw: line });
+        
+        // 预处理：转换中文数字
+        if (settings.cnNumber !== false) {
+            line = convertChineseNumber(line);
+        }
+        
+        // 预处理：清理多余空格
+        if (settings.ignoreSpace !== false) {
+            line = line.replace(/\s+/g, ' ').trim();
+        }
+        
+        // 预处理：同音字纠正
+        if (settings.autoCorrect !== false) {
+            line = correctHomophones(line);
+        }
+        
+        // 优先检查自定义关键词
+        const customResult = parseCustomKeywords(line, settings);
+        if (customResult && customResult.length > 0) {
+            return customResult;
+        }
+        
+        // ========== 模式1: 多号码各下注 ==========
+        // "31.34各20" 或 "31 34各20" 或 "31,34各20"
+        if (settings.tplMultiNum !== false) {
+            const multiMatch = line.match(/^(\d+[\s.,，、]+\d+(?:[\s.,，、]+\d+)*)各(\d+)元?$/);
+            if (multiMatch) {
+                const nums = multiMatch[1].split(/[\s.,，、]+/).map(n => parseInt(n));
+                const amount = parseInt(multiMatch[2]);
+                for (const num of nums) {
+                    if (num >= 1 && num <= 49) {
+                        bets.push({ type: '特码', number: num, amount: amount, raw: line });
+                    }
+                }
+                if (bets.length) return bets;
+            }
+        }
+        
+        // ========== 模式2: 特码下注 ==========
+        // "特43 20元" "特码 05 100" "特43 20"
+        if (settings.tplTema !== false) {
+            const temaMatch = line.match(/特码?\s*(\d+)\s*[,，]?\s*(\d+)元?/);
+            if (temaMatch) {
+                bets.push({ type: '特码', number: parseInt(temaMatch[1]), amount: parseInt(temaMatch[2]), raw: line });
                 return bets;
             }
         }
         
-        // 模式4: "红波 50" 或 "红 50"
-        const boseMatch = line.match(/(红|蓝|绿)波?\s*(\d+)/);
-        if (boseMatch) {
-            bets.push({ type: '波色', value: boseMatch[1] + '波', amount: parseInt(boseMatch[2]), raw: line });
-            return bets;
+        // ========== 模式3: X表示金额 ==========
+        // "46,45,X50" "22，33，X15" "鸡鼠猴X10"
+        if (settings.tplXAmount !== false) {
+            // 数字+X金额
+            const xNumMatch = line.match(/(\d+(?:[,，、\s]+\d+)*)[,，、\s]*[Xx](\d+)/);
+            if (xNumMatch) {
+                const nums = xNumMatch[1].split(/[,，、\s]+/).map(n => parseInt(n)).filter(n => n >= 1 && n <= 49);
+                const amount = parseInt(xNumMatch[2]);
+                for (const num of nums) {
+                    bets.push({ type: '特码', number: num, amount: amount, raw: line });
+                }
+                if (bets.length) return bets;
+            }
+            
+            // 生肖+X金额
+            const xSxMatch = line.match(/([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)[Xx](\d+)/);
+            if (xSxMatch) {
+                const animals = xSxMatch[1].split('');
+                const amount = parseInt(xSxMatch[2]);
+                for (const sx of animals) {
+                    if (shengxiaoList.includes(sx)) {
+                        bets.push({ type: '生肖', value: sx, amount: amount, raw: line });
+                    }
+                }
+                if (bets.length) return bets;
+            }
         }
         
-        // 模式5: "大 100" 或 "小 100" 或 "单 100" 或 "双 100"
-        const dxdsMatch = line.match(/^(大|小|单|双)\s*(\d+)$/);
-        if (dxdsMatch) {
-            bets.push({ type: '两面', value: dxdsMatch[1], amount: parseInt(dxdsMatch[2]), raw: line });
-            return bets;
+        // ========== 模式4: 买生肖 ==========
+        // "买猪各10" "买龙各20" "买猪10"
+        if (settings.tplShengxiao !== false) {
+            const buyMatch = line.match(/买([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)各?(\d+)元?/);
+            if (buyMatch) {
+                const animals = buyMatch[1].split('');
+                const amount = parseInt(buyMatch[2]);
+                for (const sx of animals) {
+                    if (shengxiaoList.includes(sx)) {
+                        bets.push({ type: '生肖', value: sx, amount: amount, raw: line });
+                    }
+                }
+                if (bets.length) return bets;
+            }
+            
+            // 单独生肖 "龙 200" "猪200"
+            for (const sx of shengxiaoList) {
+                const sxMatch = line.match(new RegExp(`^${sx}\\s*(\\d+)元?$`));
+                if (sxMatch) {
+                    bets.push({ type: '生肖', value: sx, amount: parseInt(sxMatch[1]), raw: line });
+                    return bets;
+                }
+            }
+        }
+        
+        // ========== 模式5: 尾数下注 ==========
+        // "5尾100" "尾5 100"
+        if (settings.tplWei !== false) {
+            const weiMatch = line.match(/(\d)尾\s*(\d+)元?/) || line.match(/尾(\d)\s*(\d+)元?/);
+            if (weiMatch) {
+                bets.push({ type: '尾数', value: weiMatch[1], amount: parseInt(weiMatch[2]), raw: line });
+                return bets;
+            }
+        }
+        
+        // ========== 模式6: 多肖下注 ==========
+        // "六肖鼠羊鸡牛马二200" "三肖龙虎蛇100"
+        if (settings.tplDuoxiao !== false) {
+            const duoxiaoMatch = line.match(/([一二三四五六七八九十]+肖|肖)([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)\s*(\d+)元?/);
+            if (duoxiaoMatch) {
+                const animals = duoxiaoMatch[2].split('');
+                const amount = parseInt(duoxiaoMatch[3]);
+                for (const sx of animals) {
+                    if (shengxiaoList.includes(sx)) {
+                        bets.push({ type: '多肖', value: sx, amount: amount, raw: line });
+                    }
+                }
+                if (bets.length) return bets;
+            }
+        }
+        
+        // ========== 模式7: 平特生肖 ==========
+        // "平特猴鸡各200" "平特猪100"
+        if (settings.tplPingte !== false) {
+            const pingteMatch = line.match(/平特([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)各?(\d+)元?/);
+            if (pingteMatch) {
+                const animals = pingteMatch[1].split('');
+                const amount = parseInt(pingteMatch[2]);
+                for (const sx of animals) {
+                    if (shengxiaoList.includes(sx)) {
+                        bets.push({ type: '平特生肖', value: sx, amount: amount, raw: line });
+                    }
+                }
+                if (bets.length) return bets;
+            }
+        }
+        
+        // ========== 模式8: 波色 ==========
+        // "红波 50" "红 50" "蓝波100"
+        if (settings.tplBose !== false) {
+            const boseMatch = line.match(/(红|蓝|绿)波?\s*(\d+)元?/);
+            if (boseMatch) {
+                bets.push({ type: '波色', value: boseMatch[1] + '波', amount: parseInt(boseMatch[2]), raw: line });
+                return bets;
+            }
+        }
+        
+        // ========== 模式9: 两面（大小单双） ==========
+        // "大 100" "小100" "单双各50"
+        if (settings.tplDxds !== false) {
+            const dxdsMatch = line.match(/^(大|小|单|双)\s*(\d+)元?$/);
+            if (dxdsMatch) {
+                bets.push({ type: '两面', value: dxdsMatch[1], amount: parseInt(dxdsMatch[2]), raw: line });
+                return bets;
+            }
+            
+            // "单双各50"
+            const dxdsGeMatch = line.match(/(大小|单双)各(\d+)元?/);
+            if (dxdsGeMatch) {
+                const types = dxdsGeMatch[1].split('');
+                const amount = parseInt(dxdsGeMatch[2]);
+                for (const t of types) {
+                    bets.push({ type: '两面', value: t, amount: amount, raw: line });
+                }
+                if (bets.length) return bets;
+            }
+        }
+        
+        // ========== 模式10: 纯数字+金额 ==========
+        // "43 20" 简写形式
+        const simpleMatch = line.match(/^(\d{1,2})\s+(\d+)元?$/);
+        if (simpleMatch) {
+            const num = parseInt(simpleMatch[1]);
+            if (num >= 1 && num <= 49) {
+                bets.push({ type: '特码', number: num, amount: parseInt(simpleMatch[2]), raw: line });
+                return bets;
+            }
+        }
+        
+        // ========== 模式11: 多生肖各下注 ==========
+        // "鼠羊鸡牛马各200"
+        const multiSxMatch = line.match(/^([鼠牛虎兔龙蛇马羊猴鸡狗猪]{2,})各(\d+)元?$/);
+        if (multiSxMatch) {
+            const animals = multiSxMatch[1].split('');
+            const amount = parseInt(multiSxMatch[2]);
+            for (const sx of animals) {
+                if (shengxiaoList.includes(sx)) {
+                    bets.push({ type: '生肖', value: sx, amount: amount, raw: line });
+                }
+            }
+            if (bets.length) return bets;
         }
         
         return null;
+    }
+    
+    // 同音字纠正
+    function correctHomophones(str) {
+        const corrections = {
+            '猪': ['主', '朱', '珠', '诸'],
+            '牛': ['妞', '纽', '钮'],
+            '虎': ['户', '沪', '护'],
+            '龙': ['隆', '聋', '笼'],
+            '蛇': ['舍', '涉', '设'],
+            '马': ['妈', '码', '玛'],
+            '羊': ['阳', '扬', '杨', '洋'],
+            '猴': ['侯', '候', '喉'],
+            '鸡': ['机', '基', '激', '及'],
+            '狗': ['够', '购', '构', '沟'],
+            '鼠': ['暑', '数', '属', '署'],
+            '兔': ['吐', '图', '土', '途']
+        };
+        
+        for (const [correct, wrongs] of Object.entries(corrections)) {
+            for (const wrong of wrongs) {
+                str = str.replace(new RegExp(wrong, 'g'), correct);
+            }
+        }
+        return str;
     }
     
     // 转换中文数字
@@ -3545,11 +3855,18 @@
             odds = parseFloat(savedOdds['odds-tema']) || 43;
             isWin = bet.number === tema;
             detail = `特码 ${String(bet.number).padStart(2,'0')} vs 开奖特码 ${String(tema).padStart(2,'0')}`;
-        } else if (bet.type === '生肖') {
+        } else if (bet.type === '生肖' || bet.type === '多肖') {
             odds = parseFloat(savedOdds['odds-shengxiao']) || 12;
             const sxNums = LHC_DATA.shengxiao[bet.value] || [];
             isWin = sxNums.includes(tema);
             detail = `生肖 ${bet.value} (${sxNums.join(',')}) vs 特码 ${tema}`;
+        } else if (bet.type === '平特生肖') {
+            // 平特生肖：检查平码中是否有该生肖
+            odds = parseFloat(savedOdds['odds-pingte']) || 12;
+            const sxNums = LHC_DATA.shengxiao[bet.value] || [];
+            isWin = pingma.some(num => sxNums.includes(num));
+            const matchNums = pingma.filter(num => sxNums.includes(num));
+            detail = `平特 ${bet.value} (${sxNums.join(',')}) vs 平码 [${pingma.join(',')}]${matchNums.length > 0 ? ' 中' + matchNums.join(',') : ''}`;
         } else if (bet.type === '波色') {
             const colorKey = bet.value === '红波' ? 'odds-red' : bet.value === '蓝波' ? 'odds-blue' : 'odds-green';
             odds = parseFloat(savedOdds[colorKey]) || 2.8;
@@ -3563,6 +3880,21 @@
             else if (bet.value === '单') isWin = tema % 2 === 1;
             else if (bet.value === '双') isWin = tema % 2 === 0;
             detail = `${bet.value} vs 特码 ${tema}`;
+        } else if (bet.type === '尾数') {
+            // 尾数：检查特码尾数
+            odds = parseFloat(savedOdds['odds-weishu']) || 9.8;
+            const temaWei = tema % 10;
+            isWin = parseInt(bet.value) === temaWei;
+            detail = `${bet.value}尾 vs 特码 ${tema} (尾数${temaWei})`;
+        } else if (bet.type === '连码') {
+            // 连码：检查所有号码是否都在开奖号码中
+            odds = parseFloat(savedOdds['odds-lianma']) || 20;
+            const nums = String(bet.value).split(',').map(n => parseInt(n));
+            isWin = nums.every(n => allNumbers.includes(n));
+            detail = `连码 [${nums.join(',')}] vs 开奖 [${allNumbers.join(',')}]`;
+        } else {
+            // 未知玩法，默认不中奖
+            detail = `未知玩法: ${bet.type} ${bet.value || bet.number}`;
         }
         
         if (isWin) {
@@ -3579,7 +3911,7 @@
         };
     }
     
-    function calculateBets() {
+    async function calculateBets() {
         const input = document.getElementById('bet-input').value.trim();
         if (!input) {
             alert('请先粘贴下注信息');
@@ -3591,12 +3923,95 @@
             return;
         }
         
-        // 解析下注
+        // 第一步：本地解析
         parsedBets = parseBetInput(input);
         
-        if (parsedBets.length === 0) {
-            alert('未识别到有效的下注信息，请检查格式');
-            return;
+        // 检查哪些行未能解析
+        const lines = input.split('\n').filter(line => line.trim());
+        const parsedLines = new Set(parsedBets.map(b => b.raw));
+        const unparsedLines = lines.filter(line => {
+            const converted = convertChineseNumber(line.trim());
+            return !parsedLines.has(line.trim()) && !parsedLines.has(converted);
+        });
+        
+        // 第二步：如果有未解析的行，尝试AI解析
+        const settings = getFormatSettings();
+        if (unparsedLines.length > 0 && settings.aiEnabled && settings.aiApiKey) {
+            const useAI = confirm(
+                `📋 本地解析结果:\n` +
+                `✅ 成功识别 ${parsedBets.length} 条\n` +
+                `❌ 未识别 ${unparsedLines.length} 条:\n` +
+                unparsedLines.slice(0, 3).map(l => '  · ' + l).join('\n') +
+                (unparsedLines.length > 3 ? '\n  ...' : '') +
+                `\n\n是否使用AI智能解析未识别的内容？`
+            );
+            
+            if (useAI) {
+                showAutoCloseToast('🤖 AI正在解析...', 5000);
+                try {
+                    const aiResult = await parseWithAI(unparsedLines.join('\n'));
+                    if (aiResult && aiResult.bets && aiResult.bets.length > 0) {
+                        // 将AI解析结果转换为标准格式
+                        for (const aiBet of aiResult.bets) {
+                            const bet = {
+                                type: aiBet.type,
+                                amount: parseInt(aiBet.amount) || 0,
+                                raw: '[AI解析]',
+                                fromAI: true
+                            };
+                            if (aiBet.type === '特码') {
+                                bet.number = parseInt(aiBet.value);
+                            } else {
+                                bet.value = aiBet.value;
+                            }
+                            if (bet.amount > 0) {
+                                parsedBets.push(bet);
+                            }
+                        }
+                        showAutoCloseToast(`✅ AI成功解析 ${aiResult.bets.length} 条`);
+                    }
+                } catch (e) {
+                    console.error('AI解析失败:', e);
+                    showAutoCloseToast('❌ AI解析失败: ' + e.message, 3000);
+                }
+            }
+        } else if (parsedBets.length === 0) {
+            // 完全无法解析
+            const settings = getFormatSettings();
+            if (settings.aiEnabled && settings.aiApiKey) {
+                // 有AI配置，尝试用AI解析全部
+                if (confirm('本地未识别到有效下注，是否使用AI解析全部内容？')) {
+                    showAutoCloseToast('🤖 AI正在解析...', 5000);
+                    try {
+                        const aiResult = await parseWithAI(input);
+                        if (aiResult && aiResult.bets) {
+                            for (const aiBet of aiResult.bets) {
+                                const bet = {
+                                    type: aiBet.type,
+                                    amount: parseInt(aiBet.amount) || 0,
+                                    raw: '[AI解析]',
+                                    fromAI: true
+                                };
+                                if (aiBet.type === '特码') {
+                                    bet.number = parseInt(aiBet.value);
+                                } else {
+                                    bet.value = aiBet.value;
+                                }
+                                if (bet.amount > 0) {
+                                    parsedBets.push(bet);
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error('AI解析失败:', e);
+                    }
+                }
+            }
+            
+            if (parsedBets.length === 0) {
+                alert('❌ 未识别到有效的下注信息\n\n建议：\n1. 检查输入格式\n2. 在"自定义格式"中添加规则\n3. 启用AI智能解析');
+                return;
+            }
         }
         
         // 计算每注结果
@@ -3677,32 +4092,260 @@
     }
     
     // ==================== 自定义格式设置 ====================
+    
+    
     function saveFormatSettings() {
         const settings = {
-            xAmount: document.getElementById('format-x-amount').checked,
-            geEach: document.getElementById('format-ge-each').checked,
-            maiPrefix: document.getElementById('format-mai-prefix').checked,
-            cnNumber: document.getElementById('format-cn-number').checked,
-            ignoreSpace: document.getElementById('format-ignore-space').checked,
-            customKeywords: document.getElementById('custom-keywords').value
+            // AI设置（默认启用，API Key使用内置）
+            aiEnabled: document.getElementById('ai-parse-enabled')?.checked !== false,
+            aiProvider: 'deepseek',
+            aiApiKey: DEFAULT_AI_CONFIG.apiKey,
+            
+            // 预设模板
+            tplMultiNum: document.getElementById('tpl-multi-num')?.checked !== false,
+            tplTema: document.getElementById('tpl-tema')?.checked !== false,
+            tplShengxiao: document.getElementById('tpl-shengxiao')?.checked !== false,
+            tplXAmount: document.getElementById('tpl-x-amount')?.checked !== false,
+            tplWei: document.getElementById('tpl-wei')?.checked !== false,
+            tplDuoxiao: document.getElementById('tpl-duoxiao')?.checked !== false,
+            tplPingte: document.getElementById('tpl-pingte')?.checked !== false,
+            tplBose: document.getElementById('tpl-bose')?.checked !== false,
+            tplDxds: document.getElementById('tpl-dxds')?.checked !== false,
+            
+            // 基础规则
+            cnNumber: document.getElementById('format-cn-number')?.checked !== false,
+            ignoreSpace: document.getElementById('format-ignore-space')?.checked !== false,
+            autoCorrect: document.getElementById('format-auto-correct')?.checked !== false,
+            
+            // 自定义内容
+            customKeywords: document.getElementById('custom-keywords')?.value || '',
+            customTemplates: document.getElementById('custom-templates')?.value || ''
         };
         localStorage.setItem('lhc_format_settings', JSON.stringify(settings));
-        alert('✅ 格式设置已保存！');
+        showAutoCloseToast('✅ 格式设置已保存！');
     }
     
     function loadFormatSettings() {
         const saved = localStorage.getItem('lhc_format_settings');
         if (saved) {
-            const settings = JSON.parse(saved);
-            if (document.getElementById('format-x-amount')) {
-                document.getElementById('format-x-amount').checked = settings.xAmount !== false;
-                document.getElementById('format-ge-each').checked = settings.geEach !== false;
-                document.getElementById('format-mai-prefix').checked = settings.maiPrefix !== false;
-                document.getElementById('format-cn-number').checked = settings.cnNumber !== false;
-                document.getElementById('format-ignore-space').checked = settings.ignoreSpace !== false;
-                document.getElementById('custom-keywords').value = settings.customKeywords || '';
+            try {
+                const s = JSON.parse(saved);
+                
+                // AI设置（默认启用）
+                const aiCheckbox = document.getElementById('ai-parse-enabled');
+                if (aiCheckbox) {
+                    aiCheckbox.checked = s.aiEnabled !== false; // 默认true
+                }
+                
+                // 预设模板
+                if (document.getElementById('tpl-multi-num')) document.getElementById('tpl-multi-num').checked = s.tplMultiNum !== false;
+                if (document.getElementById('tpl-tema')) document.getElementById('tpl-tema').checked = s.tplTema !== false;
+                if (document.getElementById('tpl-shengxiao')) document.getElementById('tpl-shengxiao').checked = s.tplShengxiao !== false;
+                if (document.getElementById('tpl-x-amount')) document.getElementById('tpl-x-amount').checked = s.tplXAmount !== false;
+                if (document.getElementById('tpl-wei')) document.getElementById('tpl-wei').checked = s.tplWei !== false;
+                if (document.getElementById('tpl-duoxiao')) document.getElementById('tpl-duoxiao').checked = s.tplDuoxiao !== false;
+                if (document.getElementById('tpl-pingte')) document.getElementById('tpl-pingte').checked = s.tplPingte !== false;
+                if (document.getElementById('tpl-bose')) document.getElementById('tpl-bose').checked = s.tplBose !== false;
+                if (document.getElementById('tpl-dxds')) document.getElementById('tpl-dxds').checked = s.tplDxds !== false;
+                
+                // 基础规则
+                if (document.getElementById('format-cn-number')) document.getElementById('format-cn-number').checked = s.cnNumber !== false;
+                if (document.getElementById('format-ignore-space')) document.getElementById('format-ignore-space').checked = s.ignoreSpace !== false;
+                if (document.getElementById('format-auto-correct')) document.getElementById('format-auto-correct').checked = s.autoCorrect !== false;
+                
+                // 自定义内容
+                if (document.getElementById('custom-keywords')) document.getElementById('custom-keywords').value = s.customKeywords || '';
+                if (document.getElementById('custom-templates')) document.getElementById('custom-templates').value = s.customTemplates || '';
+            } catch(e) {
+                console.error('加载格式设置失败:', e);
+                // 出错时加载默认值
+                loadDefaultAIConfig();
             }
+        } else {
+            // 首次加载，使用默认配置
+            loadDefaultAIConfig();
         }
+    }
+    
+    // 加载默认AI配置（默认启用AI解析）
+    function loadDefaultAIConfig() {
+        const aiCheckbox = document.getElementById('ai-parse-enabled');
+        if (aiCheckbox) {
+            aiCheckbox.checked = true; // 默认启用
+        }
+    }
+    
+    function resetFormatSettings() {
+        if (confirm('确定要恢复默认设置吗？')) {
+            localStorage.removeItem('lhc_format_settings');
+            location.reload();
+        }
+    }
+    
+    // ==================== AI智能解析模块 ====================
+    
+    // AI服务商配置
+    const AI_PROVIDERS = {
+        deepseek: {
+            name: 'DeepSeek',
+            url: 'https://api.deepseek.com/v1/chat/completions',
+            model: 'deepseek-chat'
+        },
+        qwen: {
+            name: '通义千问',
+            url: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+            model: 'qwen-turbo'
+        },
+        glm: {
+            name: '智谱GLM',
+            url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+            model: 'glm-4-flash'
+        },
+        openai: {
+            name: 'OpenAI',
+            url: 'https://api.openai.com/v1/chat/completions',
+            model: 'gpt-3.5-turbo'
+        }
+    };
+    
+    // 测试AI连接
+    async function testAIConnection() {
+        const provider = document.getElementById('ai-provider').value;
+        const apiKey = document.getElementById('ai-api-key').value;
+        
+        if (!apiKey) {
+            alert('请先输入API Key');
+            return;
+        }
+        
+        showAutoCloseToast('🔄 正在测试连接...', 5000);
+        
+        try {
+            const result = await callAIAPI('测试连接，请回复"连接成功"', provider, apiKey);
+            if (result) {
+                showAutoCloseToast('✅ AI连接成功！');
+            } else {
+                alert('❌ 连接失败，请检查API Key');
+            }
+        } catch (e) {
+            alert('❌ 连接失败: ' + e.message);
+        }
+    }
+    
+    // 调用AI API
+    async function callAIAPI(prompt, provider, apiKey) {
+        const config = AI_PROVIDERS[provider];
+        if (!config) throw new Error('未知的AI服务商');
+        
+        const response = await fetch(config.url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: config.model,
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.1,
+                max_tokens: 2000
+            })
+        });
+        
+        if (!response.ok) {
+            const err = await response.text();
+            throw new Error(`API错误: ${response.status} - ${err}`);
+        }
+        
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content || null;
+    }
+    
+    // AI解析下注信息（优化版：严格数据保护）
+    async function parseWithAI(userInput) {
+        const settings = JSON.parse(localStorage.getItem('lhc_format_settings') || '{}');
+        if (!settings.aiEnabled || !settings.aiApiKey) {
+            return null;
+        }
+        
+        const tema = appState.lotteryNumbers?.[6] || '未知';
+        const pingma = appState.lotteryNumbers?.slice(0, 6).join(',') || '未知';
+        
+        // 优化的提示词：强调数据严谨性，防止幻觉
+        const prompt = `你是六合彩下注信息解析器。任务：将用户输入精确提取为JSON。
+
+【⚠️ 最重要规则 - 数据严谨性】
+1. 绝对禁止修改用户输入的任何数字！用户输入01就是01，不能变成1或02
+2. 绝对禁止修改用户输入的任何金额！用户输入20就是20，不能变成200
+3. 绝对禁止添加用户没有输入的内容！
+4. 如果无法识别，放入unparsed数组，不要猜测
+5. 宁可漏掉，不可编造
+
+【玩法类型对照表】
+- 特码: 猜特码号码(01-49)
+- 生肖: 鼠/牛/虎/兔/龙/蛇/马/羊/猴/鸡/狗/猪
+- 波色: 红波/蓝波/绿波
+- 平特生肖: 平码中的生肖
+- 尾数: 号码尾数(0-9)
+- 两面: 大/小/单/双
+- 多肖: 多个生肖组合
+
+【格式识别规则】
+- "X50"或"x50" → 金额是50
+- "各20" → 每个金额20
+- "买猪10" → 生肖猪，金额10
+- "特43 20" → 特码43，金额20
+- "5尾100" → 尾数5，金额100
+
+【用户原始输入】
+${userInput}
+
+【输出JSON格式】严格按此格式输出
+{
+  "bets": [
+    {"type": "玩法类型", "value": "原始值不修改", "amount": 数字金额}
+  ],
+  "unparsed": ["无法识别的原文"]
+}
+
+【再次强调】
+- type只能是: 特码、生肖、波色、平特生肖、尾数、两面、多肖
+- value必须是用户原始输入的值，号码保持原格式如"01"不要变成"1"
+- amount必须是纯数字
+- 不确定的内容放unparsed，不要猜
+
+只输出JSON，无需解释。`;
+
+        try {
+            const result = await callAIAPI(prompt, settings.aiProvider, settings.aiApiKey);
+            if (result) {
+                // 提取JSON（处理可能的markdown代码块）
+                let jsonStr = result.trim();
+                if (jsonStr.startsWith('```')) {
+                    jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+                }
+                
+                const parsed = JSON.parse(jsonStr);
+                
+                // 二次验证：检查数据合理性
+                if (parsed.bets && Array.isArray(parsed.bets)) {
+                    parsed.bets = parsed.bets.filter(bet => {
+                        // 过滤掉明显异常的数据
+                        if (!bet.type || !bet.amount) return false;
+                        if (bet.amount <= 0 || bet.amount > 1000000) return false; // 金额异常
+                        if (bet.type === '特码' && bet.value) {
+                            const num = parseInt(bet.value);
+                            if (num < 1 || num > 49) return false; // 号码范围异常
+                        }
+                        return true;
+                    });
+                }
+                
+                return parsed;
+            }
+        } catch (e) {
+            console.error('AI解析失败:', e);
+        }
+        return null;
     }
     
     // ==================== 参数设置 ====================
