@@ -3807,21 +3807,18 @@
     }
     
     // 获取格式设置
-    // 默认AI配置（DeepSeek）- 放在最前面确保全局可用
-    // 配置数据（已混淆保护）
-    const _0x = ['ZGVlcHNlZWs=','c2stMTIzMTQ0ODU1OTUwNDNmY2E2MjNmNjlhZTEyZGJkZDQ='];
-    const _d = (s) => {try{return atob(s)}catch(e){return ''}};
+    // 默认AI配置（API Key 存储在 Cloudflare Worker 环境变量中，更安全）
     const DEFAULT_AI_CONFIG = {
-        provider: _d(_0x[0]),
-        apiKey: _d(_0x[1])
+        provider: 'deepseek',
+        apiKey: '' // 留空，由 Worker 使用环境变量中的 Key
     };
     
     function getFormatSettings() {
         try {
             const saved = JSON.parse(localStorage.getItem('lhc_format_settings') || '{}');
-            // 始终使用内置API配置，默认启用AI
-            saved.aiApiKey = DEFAULT_AI_CONFIG.apiKey;
-            saved.aiProvider = DEFAULT_AI_CONFIG.provider;
+            // 使用默认配置，API Key 由 Worker 提供
+            if (!saved.aiApiKey) saved.aiApiKey = DEFAULT_AI_CONFIG.apiKey;
+            if (!saved.aiProvider) saved.aiProvider = DEFAULT_AI_CONFIG.provider;
             if (saved.aiEnabled === undefined) {
                 saved.aiEnabled = true; // 默认启用
             }
@@ -4567,63 +4564,77 @@
         }
     }
     
+    // Cloudflare Worker 代理地址（解决 CORS 问题）
+    // 请在 Cloudflare 创建 Worker 后，将下面的 URL 替换为你的 Worker 地址
+    const AI_PROXY_URL = 'https://ai-proxy.huzhirong6.workers.dev';
+    
+    // 判断是否需要使用代理（线上环境需要，本地不需要）
+    function shouldUseProxy() {
+        const host = window.location.hostname;
+        // 本地开发环境不使用代理
+        return host !== 'localhost' && host !== '127.0.0.1' && !host.startsWith('192.168.');
+    }
+    
     // 调用AI API
     async function callAIAPI(prompt, provider, apiKey) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:callAIAPI',message:'AI API调用开始',data:{provider:provider,apiKeyPrefix:apiKey?.substring(0,10)+'...',hasApiKey:!!apiKey},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1-H2'})}).catch(()=>{});
-        // #endregion
         const config = AI_PROVIDERS[provider];
         if (!config) throw new Error('未知的AI服务商');
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:callAIAPI',message:'API配置信息',data:{url:config.url,model:config.model},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-        // #endregion
         
         // 添加超时控制（15秒）
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
         
         try {
-            const response = await fetch(config.url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: config.model,
-                    messages: [{ role: 'user', content: prompt }],
-                    temperature: 0.1,
-                    max_tokens: 2000
-                }),
-                signal: controller.signal
-            });
+            let response;
+            
+            // 判断是否使用代理
+            if (shouldUseProxy() && AI_PROXY_URL && !AI_PROXY_URL.includes('你的账号')) {
+                // 线上环境：通过 Cloudflare Worker 代理
+                console.log('使用代理模式调用AI API');
+                response = await fetch(AI_PROXY_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        provider: provider,
+                        apiKey: apiKey,
+                        prompt: prompt,
+                        model: config.model
+                    }),
+                    signal: controller.signal
+                });
+            } else {
+                // 本地环境：直接调用 API
+                console.log('使用直连模式调用AI API');
+                response = await fetch(config.url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: config.model,
+                        messages: [{ role: 'user', content: prompt }],
+                        temperature: 0.1,
+                        max_tokens: 2000
+                    }),
+                    signal: controller.signal
+                });
+            }
             
             clearTimeout(timeoutId);
             
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:callAIAPI',message:'API响应状态',data:{status:response.status,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3-H4'})}).catch(()=>{});
-            // #endregion
-            
             if (!response.ok) {
                 const err = await response.text();
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:callAIAPI',message:'API返回错误',data:{status:response.status,error:err},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1-H5'})}).catch(()=>{});
-                // #endregion
                 throw new Error(`API错误: ${response.status} - ${err}`);
             }
             
             const data = await response.json();
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:callAIAPI',message:'API返回成功',data:{hasChoices:!!data.choices,contentLength:data.choices?.[0]?.message?.content?.length||0},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
-            // #endregion
-            console.log('AI API原始响应:', data); // 调试
+            console.log('AI API原始响应:', data);
             return data.choices?.[0]?.message?.content || null;
         } catch (e) {
             clearTimeout(timeoutId);
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:callAIAPI',message:'API调用异常',data:{errorName:e.name,errorMsg:e.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2-H3-H5'})}).catch(()=>{});
-            // #endregion
             if (e.name === 'AbortError') {
                 throw new Error('AI请求超时(15秒)');
             }
@@ -4635,13 +4646,7 @@
     async function parseWithAI(userInput) {
         // 使用 getFormatSettings() 获取带默认值的设置（确保 aiEnabled 和 apiKey 有默认值）
         const settings = getFormatSettings();
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:parseWithAI',message:'AI设置检查',data:{aiEnabled:settings.aiEnabled,hasApiKey:!!settings.aiApiKey,provider:settings.aiProvider},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
         if (!settings.aiEnabled || !settings.aiApiKey) {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:parseWithAI',message:'AI未启用或无API Key',data:{aiEnabled:settings.aiEnabled,hasApiKey:!!settings.aiApiKey},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-            // #endregion
             return null;
         }
         
