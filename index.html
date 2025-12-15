@@ -2144,14 +2144,20 @@
             const config = JSON.parse(saved);
             appState = { ...appState, ...config };
             
-            // 恢复赔率输入框
-            document.getElementById('odds-tema').value = appState.odds.tema;
-            document.getElementById('odds-shengxiao').value = appState.odds.shengxiao;
-            document.getElementById('odds-red').value = appState.odds.red;
-            document.getElementById('odds-blue').value = appState.odds.blue;
-            document.getElementById('odds-green').value = appState.odds.green;
-            document.getElementById('odds-daxiao').value = appState.odds.daxiao;
-            document.getElementById('odds-danshuang').value = appState.odds.danshuang;
+            // 恢复赔率输入框（安全检查元素是否存在）
+            const setInputValue = (id, value) => {
+                const el = document.getElementById(id);
+                if (el && value !== undefined) el.value = value;
+            };
+            if (appState.odds) {
+                setInputValue('odds-tema', appState.odds.tema);
+                setInputValue('odds-shengxiao', appState.odds.shengxiao);
+                setInputValue('odds-red', appState.odds.red);
+                setInputValue('odds-blue', appState.odds.blue);
+                setInputValue('odds-green', appState.odds.green);
+                setInputValue('odds-daxiao', appState.odds.daxiao);
+                setInputValue('odds-danshuang', appState.odds.danshuang);
+            }
         }
         
         // 确保lotteryData结构存在
