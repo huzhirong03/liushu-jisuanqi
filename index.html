@@ -1,0 +1,4015 @@
+<!DOCTYPE html>
+<!--
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                      六叔火箭计算器 - 代码索引                              ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║                                                                           ║
+║  【查找方法】按 Ctrl+F 搜索关键词                                          ║
+║                                                                           ║
+║  1. 默认开奖号码（测试用）                                                  ║
+║     搜索: 【测试用】默认开奖号码                                            ║
+║     位置: 约第 1510 行                                                     ║
+║                                                                           ║
+║  2. 格式解析模块（解析下注文本）                                            ║
+║     搜索: 【模块1】格式解析模块                                             ║
+║     位置: 约第 1820 行                                                     ║
+║                                                                           ║
+║  3. 计算逻辑模块（计算中奖结果）                                            ║
+║     搜索: 【模块2】计算逻辑模块                                             ║
+║     位置: 约第 1910 行                                                     ║
+║                                                                           ║
+║  4. 赔率设置模块（赔率读写导入导出）                                        ║
+║     搜索: 【模块3】赔率设置模块                                             ║
+║     位置: 约第 2080 行                                                     ║
+║                                                                           ║
+║  5. 导出/导入赔率按钮                                                      ║
+║     位置: 激活会员页面 → 赔率配置备份                                       ║
+║                                                                           ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+-->
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="六叔火箭计算器">
+    <meta name="theme-color" content="#1a1a2e">
+    
+    <title>六叔火箭计算器</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 15px;
+            padding-top: max(15px, env(safe-area-inset-top));
+            padding-bottom: max(15px, env(safe-area-inset-bottom));
+        }
+        
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        /* 顶部标题 */
+        .header {
+            text-align: center;
+            padding: 15px 0;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            color: #e94560;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .header h1::before {
+            content: '';
+            width: 20px;
+            height: 20px;
+            background: #e94560;
+            border-radius: 4px;
+        }
+        
+        /* 信息卡片 */
+        .info-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .info-card {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .info-card.large {
+            flex: 2;
+        }
+        
+        .info-card-label {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        
+        .info-card-value {
+            font-size: 13px;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+        }
+        
+        .info-card-value.highlight {
+            color: #fbbf24;
+            font-weight: bold;
+        }
+        
+        /* 功能按钮区 */
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 10px 8px;
+            border: none;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            max-width: 100px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        
+        .btn:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-icon {
+            font-size: 16px;
+        }
+        
+        .btn-row {
+            justify-content: center;
+        }
+        
+        /* 开奖显示区 */
+        .lottery-display {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .lottery-title {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+        
+        .lottery-balls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: nowrap;
+            gap: 6px;
+            overflow-x: auto;
+        }
+        
+        .ball-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1px;
+            flex-shrink: 0;
+        }
+        
+        .ball {
+            width: 34px;
+            height: 34px;
+            min-width: 34px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3), inset 0 -3px 6px rgba(0,0,0,0.2), inset 0 3px 6px rgba(255,255,255,0.3);
+            /* 动画效果 */
+            opacity: 0;
+            transform: scale(0.5);
+            animation: ballAppear 0.4s ease-out forwards;
+            animation-delay: var(--delay, 0s);
+        }
+        
+        @keyframes ballAppear {
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        /* 禁用动画时立即显示 */
+        .ball.no-anim {
+            opacity: 1;
+            transform: scale(1);
+            animation: none;
+        }
+        
+        .ball.red { background: linear-gradient(145deg, #ff6b6b, #c0392b); }
+        .ball.blue { background: linear-gradient(145deg, #4dabf7, #2980b9); }
+        .ball.green { background: linear-gradient(145deg, #51cf66, #27ae60); }
+        
+        .ball-info {
+            font-size: 10px;
+            color: #aaa;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+        
+        .ball-plus {
+            font-size: 14px;
+            color: #666;
+            margin: 0 1px;
+            flex-shrink: 0;
+        }
+        
+        .lottery-empty {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+            font-size: 14px;
+        }
+        
+        /* 输入框区 */
+        .input-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .input-section-title {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 10px;
+        }
+        
+        .input-textarea {
+            width: 100%;
+            height: 200px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+            color: #fff;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+            resize: none;
+            outline: none;
+        }
+        
+        .input-textarea::placeholder {
+            color: #666;
+        }
+        
+        .input-textarea:focus {
+            border-color: #e94560;
+        }
+        
+        /* 操作按钮 */
+        .action-row {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn-calculate {
+            flex: 2;
+            background: linear-gradient(90deg, #e94560, #ff6b6b);
+            color: white;
+            padding: 16px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .btn-clear {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .btn-check {
+            flex: 1;
+            padding: 16px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #9b59b6, #8e44ad);
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        /* 核对详情页样式 */
+        .check-summary {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .check-summary-item {
+            text-align: center;
+        }
+        
+        .check-summary-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        
+        .check-summary-value {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .check-summary-value.win {
+            color: #e74c3c;
+        }
+        
+        .check-summary-value.lose {
+            color: #2ecc71;
+        }
+        
+        .check-detail-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .check-detail-item {
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 12px;
+            border-left: 3px solid #666;
+        }
+        
+        .check-detail-item.win {
+            border-left-color: #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+        }
+        
+        .check-detail-item.lose {
+            border-left-color: #2ecc71;
+            background: rgba(46, 204, 113, 0.1);
+        }
+        
+        .check-detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .check-detail-type {
+            font-size: 13px;
+            color: #fff;
+            font-weight: bold;
+        }
+        
+        .check-detail-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .check-detail-badge.miss {
+            background: #666;
+        }
+        
+        .check-detail-info {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        
+        .check-detail-calc {
+            font-size: 12px;
+            color: #aaa;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .check-detail-result {
+            font-size: 16px;
+            font-weight: bold;
+            text-align: right;
+            margin-top: 8px;
+        }
+        
+        .check-detail-result.win {
+            color: #e74c3c;
+        }
+        
+        .check-detail-result.lose {
+            color: #2ecc71;
+        }
+        
+        /* 页面切换 */
+        .page {
+            display: none;
+        }
+        
+        .page.active {
+            display: block;
+        }
+        
+        /* 子页面头部 */
+        .page-header {
+            display: flex;
+            align-items: center;
+            padding: 15px 0;
+            margin-bottom: 15px;
+        }
+        
+        .btn-back {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 5px 15px 5px 0;
+        }
+        
+        .page-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        /* 设置项 */
+        .setting-group {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .setting-group-title {
+            font-size: 14px;
+            color: #e94560;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+        
+        .setting-label {
+            font-size: 14px;
+        }
+        
+        .setting-input {
+            width: 100px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: #fbbf24;
+            font-size: 14px;
+            text-align: right;
+            outline: none;
+        }
+        
+        .setting-input:focus {
+            border-color: #e94560;
+        }
+        
+        /* 参照表 */
+        .ref-table-wrap {
+            overflow-x: auto;
+            margin-top: 5px;
+        }
+        
+        .ref-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        
+        .ref-table th {
+            background: rgba(233, 69, 96, 0.3);
+            padding: 10px 8px;
+            text-align: left;
+            color: #fff;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        
+        .ref-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            color: #ddd;
+        }
+        
+        .ref-table tr:nth-child(even) {
+            background: rgba(255, 255, 255, 0.03);
+        }
+        
+        .ref-table .num-red { color: #e74c3c; font-weight: bold; }
+        .ref-table .num-blue { color: #3498db; font-weight: bold; }
+        .ref-table .num-green { color: #2ecc71; font-weight: bold; }
+        
+        /* 激活页面 */
+        .machine-code-display {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        
+        .machine-code-value {
+            font-family: 'Courier New', monospace;
+            font-size: 20px;
+            color: #fbbf24;
+            letter-spacing: 2px;
+        }
+        
+        .license-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 15px;
+            color: #fff;
+            font-size: 16px;
+            font-family: 'Courier New', monospace;
+            text-align: center;
+            outline: none;
+            margin-bottom: 15px;
+        }
+        
+        .btn-activate {
+            width: 100%;
+            background: linear-gradient(90deg, #27ae60, #2ecc71);
+            color: white;
+            padding: 16px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .status-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .status-label {
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .status-value {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        
+        .status-value.active { color: #2ecc71; }
+        .status-value.trial { color: #f39c12; }
+        .status-value.expired { color: #e74c3c; }
+        
+        /* 结果显示 */
+        .result-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: none;
+        }
+        
+        .result-section.show {
+            display: block;
+        }
+        
+        .result-title {
+            font-size: 14px;
+            color: #e94560;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        
+        .result-content {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .btn-copy-result {
+            width: 100%;
+            background: linear-gradient(90deg, #3498db, #2980b9);
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        /* 开奖输入 */
+        .lottery-input-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .lottery-num-input {
+            width: 45px;
+            height: 45px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            outline: none;
+        }
+        
+        .lottery-num-input:focus {
+            border-color: #e94560;
+        }
+        
+        .lottery-num-input.special {
+            border-color: #fbbf24;
+            color: #fbbf24;
+        }
+        
+        .plus-sign {
+            display: flex;
+            align-items: center;
+            font-size: 20px;
+            color: #666;
+        }
+        
+        .num-input-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .num-label {
+            font-size: 10px;
+            color: #888;
+        }
+        
+        .lottery-num-input {
+            width: 40px;
+            height: 40px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            outline: none;
+        }
+        
+        .lottery-num-input:focus {
+            border-color: #e94560;
+        }
+        
+        .lottery-num-input.special {
+            border-color: #fbbf24;
+            color: #fbbf24;
+        }
+        
+        .lottery-num-input.special:focus {
+            border-color: #fbbf24;
+            box-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
+        }
+        
+        .lottery-input-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        
+        /* 导入导出按钮 */
+        .config-btn-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            justify-content: center;
+        }
+        
+        .btn-config {
+            padding: 8px 16px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        
+        .btn-config:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-export {
+            border-color: #3498db;
+            color: #3498db;
+        }
+        
+        .btn-import {
+            border-color: #2ecc71;
+            color: #2ecc71;
+        }
+        
+        /* 导入弹窗 */
+        .import-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .import-modal.show {
+            display: flex;
+        }
+        
+        .import-modal-content {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 20px;
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .import-modal-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #2ecc71;
+        }
+        
+        .import-textarea {
+            width: 100%;
+            height: 150px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: #fff;
+            padding: 10px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            resize: none;
+            margin-bottom: 15px;
+        }
+        
+        .import-modal-btns {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .import-modal-btns button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .btn-import-confirm {
+            background: linear-gradient(90deg, #2ecc71, #27ae60);
+            color: white;
+        }
+        
+        .btn-import-cancel {
+            background: rgba(255,255,255,0.1);
+            color: #888;
+        }
+        
+        /* 赔率设置新布局 */
+        .odds-layout {
+            display: flex;
+            height: calc(100vh - 120px);
+            gap: 0;
+        }
+        
+        .odds-menu {
+            width: 90px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px 0 0 10px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+        
+        .odds-menu-item {
+            padding: 15px 10px;
+            text-align: center;
+            font-size: 13px;
+            color: #888;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            transition: all 0.3s;
+        }
+        
+        .odds-menu-item:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .odds-menu-item.active {
+            background: rgba(233, 69, 96, 0.2);
+            color: #e94560;
+            border-left: 3px solid #e94560;
+        }
+        
+        .odds-content {
+            flex: 1;
+            background: rgba(0,0,0,0.2);
+            border-radius: 0 10px 10px 0;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        
+        .odds-panel {
+            display: none;
+        }
+        
+        .odds-panel.active {
+            display: block;
+        }
+        
+        .odds-panel-title {
+            font-size: 14px;
+            color: #e94560;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .odds-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .odds-item-label {
+            font-size: 13px;
+            color: #ccc;
+        }
+        
+        .odds-item-input {
+            width: 80px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            color: #fff;
+            padding: 8px;
+            font-size: 14px;
+            text-align: center;
+        }
+        
+        .odds-save-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(90deg, #e94560, #c23a51);
+            color: white;
+            padding: 12px 40px;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 主页面 -->
+        <div class="page active" id="page-main">
+            <div class="header">
+                <h1 style="color:#e94560;">🚀六叔火箭计算器</h1>
+            </div>
+            
+            <!-- 功能按钮 - 4个 -->
+            <div class="btn-row">
+                <button class="btn btn-primary" onclick="showPage('page-lottery')">
+                    <span class="btn-icon">🎯</span>
+                    <span>开奖设置</span>
+                </button>
+                <button class="btn btn-success" onclick="showPage('page-odds')">
+                    <span class="btn-icon">⚙️</span>
+                    <span>赔率设置</span>
+                </button>
+                <button class="btn" onclick="showPage('page-format')" style="background:linear-gradient(135deg,#e91e63,#9c27b0);">
+                    <span class="btn-icon">✏️</span>
+                    <span>自定义格式</span>
+                </button>
+                <button class="btn btn-warning" onclick="showPage('page-params')">
+                    <span class="btn-icon">🔧</span>
+                    <span>参数设置</span>
+                </button>
+            </div>
+            
+            <!-- 开奖显示 - 上下布局 -->
+            <div class="lottery-display" style="padding:10px;">
+                <!-- 顶部：标题 + 切换按钮 -->
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span id="lottery-type-name" style="color:#e94560;font-weight:bold;font-size:15px;">新澳</span>
+                        <span id="lottery-issue" style="color:#888;font-size:12px;">第xxx期</span>
+                        <span style="color:#888;font-size:12px;">开奖结果</span>
+                    </div>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <button id="btn-hk" onclick="switchLotteryType('hk')" class="lottery-switch-btn" style="padding:5px 12px;border-radius:5px;font-size:12px;font-weight:bold;cursor:pointer;border:2px solid #4CAF50;background:transparent;color:#4CAF50;">香港</button>
+                        <button id="btn-xam" onclick="switchLotteryType('xam')" class="lottery-switch-btn active" style="padding:5px 12px;border-radius:5px;font-size:12px;font-weight:bold;cursor:pointer;border:2px solid #e94560;background:transparent;color:#e94560;">新澳</button>
+                    </div>
+                </div>
+                <!-- 下方：开奖号码（紧凑布局）+ 复制按钮 -->
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="lottery-balls" id="lottery-balls" style="gap:4px;justify-content:flex-start;flex:1;">
+                        <div class="lottery-empty">请先设置开奖号码</div>
+                    </div>
+                    <button onclick="copyLotteryResult()" style="padding:6px 12px;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.2);border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;">复制</button>
+                </div>
+            </div>
+            
+            <!-- 输入框 - 标题行带按钮 -->
+            <div class="input-section" style="flex:1;display:flex;flex-direction:column;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <div class="input-section-title" style="margin-bottom:0;">粘贴下注信息</div>
+                    <div style="display:flex;gap:6px;">
+                        <button onclick="showCheckDetail()" style="padding:6px 12px;background:linear-gradient(90deg,#3498db,#2980b9);color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">🔍 核对</button>
+                        <button onclick="clearInput()" style="padding:6px 12px;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.2);border-radius:6px;font-size:12px;cursor:pointer;">清空</button>
+                        <button onclick="calculateBets()" style="padding:6px 12px;background:linear-gradient(90deg,#e94560,#c23a51);color:white;border:none;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;">📊 开始计算</button>
+                    </div>
+                </div>
+                <textarea class="input-textarea" id="bet-input" style="flex:1;min-height:200px;" placeholder="在此粘贴用户发送的下注信息...
+
+示例：
+31.34各二十
+小数各20
+买猪各10
+特43 20元
+10 12 20 22 23 25 33 40 43 44 30各20
+龙x10
+狗x80，猴鸡x50"></textarea>
+            </div>
+            
+            <!-- 结果显示 -->
+            <div class="result-section" id="result-section">
+                <div class="result-title">计算结果</div>
+                <div class="result-content" id="result-content"></div>
+                <button class="btn-copy-result" onclick="copyResult()">📋 复制结果</button>
+            </div>
+        </div>
+        
+        <!-- 开奖设置页面 -->
+        <div class="page" id="page-lottery">
+            <div class="page-header">
+                <button class="btn-back" onclick="showPage('page-main')">←</button>
+                <div class="page-title">开奖设置</div>
+            </div>
+            
+            <!-- 快速粘贴解析 -->
+            <div class="setting-group" style="padding:12px;">
+                <!-- 标题行：标题 + 按钮 -->
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <div class="setting-group-title" style="margin-bottom:0;">快速粘贴开奖号码</div>
+                    <button onclick="parseLotteryInput()" style="padding:6px 15px;background:linear-gradient(90deg,#e94560,#c23a51);color:white;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer;">
+                        🔍 解析并填入
+                    </button>
+                </div>
+                <!-- 大输入框 -->
+                <textarea id="paste-lottery-input" placeholder="示范输入格式：&#10;01 08 09 15 24 26 特27&#10;01.08.09.15.24.26.27&#10;01,08,09,15,24,26 特27" style="width:100%;height:100px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;padding:12px;font-size:15px;resize:none;line-height:1.6;"></textarea>
+                <!-- 解析预览 -->
+                <div id="parse-preview" style="display:none;margin-top:8px;padding:8px;background:rgba(0,0,0,0.3);border-radius:8px;text-align:center;">
+                    <div id="parse-preview-balls" style="display:flex;justify-content:center;align-items:center;gap:5px;flex-wrap:nowrap;"></div>
+                </div>
+            </div>
+            
+            <div class="setting-group" style="padding:12px;">
+                <!-- 标题行：标题 + 按钮 -->
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <div class="setting-group-title" style="margin-bottom:0;">开奖号码</div>
+                    <button onclick="saveLotteryNumbers()" style="padding:6px 15px;background:linear-gradient(90deg,#e94560,#c23a51);color:white;border:none;border-radius:6px;font-size:13px;cursor:pointer;">保存开奖号码</button>
+                </div>
+                <!-- 单行显示7个输入框 -->
+                <div style="display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:nowrap;">
+                    <input type="text" class="lottery-num-input" id="num1" maxlength="2" oninput="formatNumInput(this)" onblur="padNumInput(this)" style="width:36px;height:36px;border-radius:50%;text-align:center;font-size:14px;font-weight:bold;background:#333;border:2px solid #555;color:#fff;">
+                    <input type="text" class="lottery-num-input" id="num2" maxlength="2" oninput="formatNumInput(this)" onblur="padNumInput(this)" style="width:36px;height:36px;border-radius:50%;text-align:center;font-size:14px;font-weight:bold;background:#333;border:2px solid #555;color:#fff;">
+                    <input type="text" class="lottery-num-input" id="num3" maxlength="2" oninput="formatNumInput(this)" onblur="padNumInput(this)" style="width:36px;height:36px;border-radius:50%;text-align:center;font-size:14px;font-weight:bold;background:#333;border:2px solid #555;color:#fff;">
+                    <input type="text" class="lottery-num-input" id="num4" maxlength="2" oninput="formatNumInput(this)" onblur="padNumInput(this)" style="width:36px;height:36px;border-radius:50%;text-align:center;font-size:14px;font-weight:bold;background:#333;border:2px solid #555;color:#fff;">
+                    <input type="text" class="lottery-num-input" id="num5" maxlength="2" oninput="formatNumInput(this)" onblur="padNumInput(this)" style="width:36px;height:36px;border-radius:50%;text-align:center;font-size:14px;font-weight:bold;background:#333;border:2px solid #555;color:#fff;">
+                    <input type="text" class="lottery-num-input" id="num6" maxlength="2" oninput="formatNumInput(this)" onblur="padNumInput(this)" style="width:36px;height:36px;border-radius:50%;text-align:center;font-size:14px;font-weight:bold;background:#333;border:2px solid #555;color:#fff;">
+                    <span style="color:#e94560;font-weight:bold;font-size:16px;margin:0 2px;">+</span>
+                    <input type="text" class="lottery-num-input special" id="num-special" maxlength="2" oninput="formatNumInput(this)" onblur="padNumInput(this)" style="width:36px;height:36px;border-radius:50%;text-align:center;font-size:14px;font-weight:bold;background:#333;border:2px solid #f5a623;color:#f5a623;">
+                </div>
+                <div style="display:flex;justify-content:center;gap:4px;margin-top:4px;font-size:10px;color:#666;">
+                    <span style="width:36px;text-align:center;">平码</span>
+                    <span style="width:36px;text-align:center;">平码</span>
+                    <span style="width:36px;text-align:center;">平码</span>
+                    <span style="width:36px;text-align:center;">平码</span>
+                    <span style="width:36px;text-align:center;">平码</span>
+                    <span style="width:36px;text-align:center;">平码</span>
+                    <span style="width:20px;"></span>
+                    <span style="width:36px;text-align:center;color:#f5a623;">特</span>
+                </div>
+            </div>
+            
+            <!-- 历史记录选择 -->
+            <div class="setting-group" style="padding:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <div class="setting-group-title" style="margin-bottom:0;">📜 历史开奖记录（最近10期）</div>
+                    <button onclick="fetchHistoryData()" style="padding:5px 10px;background:linear-gradient(90deg,#9b59b6,#8e44ad);color:white;border:none;border-radius:5px;font-size:11px;cursor:pointer;">🔄 获取记录</button>
+                </div>
+                
+                <!-- 彩种选择标签 -->
+                <div style="display:flex;gap:6px;margin-bottom:10px;">
+                    <button id="history-btn-xam" onclick="switchHistoryType('xam')" class="history-type-btn active" style="flex:1;padding:8px;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;border:2px solid #e94560;background:rgba(233,69,96,0.2);color:#e94560;">新澳门</button>
+                    <button id="history-btn-hk" onclick="switchHistoryType('hk')" class="history-type-btn" style="flex:1;padding:8px;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;border:2px solid #4CAF50;background:transparent;color:#4CAF50;">香港</button>
+                </div>
+                
+                <!-- 历史记录列表（可滑动） -->
+                <div id="history-list" style="max-height:220px;overflow-y:auto;background:rgba(0,0,0,0.2);border-radius:8px;padding:6px;-webkit-overflow-scrolling:touch;">
+                    <div style="text-align:center;color:#666;font-size:12px;padding:20px;">暂无历史记录，请点击上方"获取记录"按钮</div>
+                </div>
+                
+                <!-- 开奖时间提示 -->
+                <div style="font-size:10px;color:#666;text-align:center;margin-top:8px;">
+                    ⏰ 开奖时间：新澳门 21:30 | 香港 21:30（周二四六）| 澳门 22:30
+                </div>
+            </div>
+            
+            <!-- 自动获取开奖 -->
+            <div class="setting-group" style="padding:12px;">
+                <div class="setting-group-title" style="margin-bottom:10px;">📡 自动获取开奖数据</div>
+                
+                <!-- 彩种选择 -->
+                <div style="display:flex;gap:8px;margin-bottom:10px;">
+                    <select id="lottery-type-select" style="flex:1;padding:10px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;font-size:14px;">
+                        <option value="xam" selected>🇲🇴 新澳门六合彩</option>
+                        <option value="hk">🇭🇰 香港六合彩</option>
+                        <option value="am">🇲🇴 ㊣澳门六合彩</option>
+                    </select>
+                    <button onclick="fetchLotteryData()" style="padding:10px 20px;background:linear-gradient(90deg,#4CAF50,#45a049);color:white;border:none;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;white-space:nowrap;">
+                        📡 获取最新
+                    </button>
+                </div>
+                
+                <!-- 获取状态显示 -->
+                <div id="fetch-status" style="display:none;padding:10px;background:rgba(0,0,0,0.3);border-radius:8px;font-size:13px;text-align:center;"></div>
+                
+                <!-- API来源提示 -->
+                <div style="font-size:11px;color:#666;text-align:center;margin-top:8px;">
+                    数据来源：Marksix6（自动获取）
+                </div>
+            </div>
+            
+            <div class="setting-group">
+                <div class="setting-group-title">属性参照表</div>
+                <button class="btn btn-primary" onclick="showPage('page-reference')" style="width:100%;max-width:none;">
+                    <span>📖 查看生肖/波色/五行对照表</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- 赔率设置页面 -->
+        <div class="page" id="page-odds">
+            <div class="page-header">
+                <button class="btn-back" onclick="showPage('page-main')">←</button>
+                <div class="page-title">赔率设置</div>
+            </div>
+            
+            <div class="odds-layout">
+                <!-- 左侧菜单 -->
+                <div class="odds-menu">
+                    <div class="odds-menu-item active" onclick="showOddsPanel('tema')">特码</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('tema2')">特码两面</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('tematou')">特码头尾数</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('bose')">色波半波</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('shengxiao')">十二生肖</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('hexiao')">合肖</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('wuxing')">五行</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('zhengma')">正码</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('zhengmate')">正码特</div>
+                    <div class="odds-menu-item" onclick="showOddsPanel('zhengxiao')">正肖</div>
+                </div>
+                
+                <!-- 右侧内容 -->
+                <div class="odds-content">
+                    <!-- 特码 -->
+                    <div class="odds-panel active" id="panel-tema">
+                        <div class="odds-panel-title">特码赔率</div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">特码</span>
+                            <input type="number" class="odds-item-input" id="odds-tema" value="43">
+                        </div>
+                    </div>
+                    
+                    <!-- 特码两面 -->
+                    <div class="odds-panel" id="panel-tema2">
+                        <div class="odds-panel-title">特码两面赔率</div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">大</span>
+                            <input type="number" class="odds-item-input" id="odds-tema-da" value="2" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">小</span>
+                            <input type="number" class="odds-item-input" id="odds-tema-xiao" value="2" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">单</span>
+                            <input type="number" class="odds-item-input" id="odds-tema-dan" value="2" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">双</span>
+                            <input type="number" class="odds-item-input" id="odds-tema-shuang" value="2" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">合大</span>
+                            <input type="number" class="odds-item-input" id="odds-tema-heda" value="2" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">合小</span>
+                            <input type="number" class="odds-item-input" id="odds-tema-hexiao" value="2" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">合单</span>
+                            <input type="number" class="odds-item-input" id="odds-tema-hedan" value="2" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">合双</span>
+                            <input type="number" class="odds-item-input" id="odds-tema-heshuang" value="2" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <!-- 特码头尾数 -->
+                    <div class="odds-panel" id="panel-tematou">
+                        <div class="odds-panel-title">特码头尾数赔率</div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">头数0</span>
+                            <input type="number" class="odds-item-input" id="odds-tou0" value="4" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">头数1</span>
+                            <input type="number" class="odds-item-input" id="odds-tou1" value="4" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">头数2</span>
+                            <input type="number" class="odds-item-input" id="odds-tou2" value="4" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">头数3</span>
+                            <input type="number" class="odds-item-input" id="odds-tou3" value="4" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">头数4</span>
+                            <input type="number" class="odds-item-input" id="odds-tou4" value="4" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">尾数0-9</span>
+                            <input type="number" class="odds-item-input" id="odds-wei" value="4" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <!-- 色波半波 -->
+                    <div class="odds-panel" id="panel-bose">
+                        <div class="odds-panel-title">色波半波赔率</div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">红波</span>
+                            <input type="number" class="odds-item-input" id="odds-red" value="2.8" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">蓝波</span>
+                            <input type="number" class="odds-item-input" id="odds-blue" value="2.8" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">绿波</span>
+                            <input type="number" class="odds-item-input" id="odds-green" value="2.8" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">红大</span>
+                            <input type="number" class="odds-item-input" id="odds-red-da" value="5" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">红小</span>
+                            <input type="number" class="odds-item-input" id="odds-red-xiao" value="5" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">红单</span>
+                            <input type="number" class="odds-item-input" id="odds-red-dan" value="5" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">红双</span>
+                            <input type="number" class="odds-item-input" id="odds-red-shuang" value="5" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <!-- 十二生肖 -->
+                    <div class="odds-panel" id="panel-shengxiao">
+                        <div class="odds-panel-title">十二生肖赔率</div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">生肖（单个）</span>
+                            <input type="number" class="odds-item-input" id="odds-shengxiao" value="12">
+                        </div>
+                    </div>
+                    
+                    <!-- 合肖 -->
+                    <div class="odds-panel" id="panel-hexiao">
+                        <div class="odds-panel-title">合肖赔率</div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">二肖</span>
+                            <input type="number" class="odds-item-input" id="odds-hexiao2" value="6" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">三肖</span>
+                            <input type="number" class="odds-item-input" id="odds-hexiao3" value="4" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">四肖</span>
+                            <input type="number" class="odds-item-input" id="odds-hexiao4" value="3" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">五肖</span>
+                            <input type="number" class="odds-item-input" id="odds-hexiao5" value="2.4" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <!-- 五行 -->
+                    <div class="odds-panel" id="panel-wuxing">
+                        <div class="odds-panel-title">五行赔率</div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">金</span>
+                            <input type="number" class="odds-item-input" id="odds-jin" value="4.8" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">木</span>
+                            <input type="number" class="odds-item-input" id="odds-mu" value="4.8" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">水</span>
+                            <input type="number" class="odds-item-input" id="odds-shui" value="5.8" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">火</span>
+                            <input type="number" class="odds-item-input" id="odds-huo" value="4" step="0.1">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">土</span>
+                            <input type="number" class="odds-item-input" id="odds-tu" value="5.4" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <!-- 正码 -->
+                    <div class="odds-panel" id="panel-zhengma">
+                        <div class="odds-panel-title">正码赔率</div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">正码</span>
+                            <input type="number" class="odds-item-input" id="odds-zhengma" value="8">
+                        </div>
+                    </div>
+                    
+                    <!-- 正码特 -->
+                    <div class="odds-panel" id="panel-zhengmate">
+                        <div class="odds-panel-title">正码特赔率</div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">正一特</span>
+                            <input type="number" class="odds-item-input" id="odds-zheng1te" value="43">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">正二特</span>
+                            <input type="number" class="odds-item-input" id="odds-zheng2te" value="43">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">正三特</span>
+                            <input type="number" class="odds-item-input" id="odds-zheng3te" value="43">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">正四特</span>
+                            <input type="number" class="odds-item-input" id="odds-zheng4te" value="43">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">正五特</span>
+                            <input type="number" class="odds-item-input" id="odds-zheng5te" value="43">
+                        </div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">正六特</span>
+                            <input type="number" class="odds-item-input" id="odds-zheng6te" value="43">
+                        </div>
+                    </div>
+                    
+                    <!-- 正肖 -->
+                    <div class="odds-panel" id="panel-zhengxiao">
+                        <div class="odds-panel-title">正肖赔率</div>
+                        <div class="odds-item">
+                            <span class="odds-item-label">正肖</span>
+                            <input type="number" class="odds-item-input" id="odds-zhengxiao" value="2" step="0.1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="odds-save-btn" onclick="saveOdds()">💾 保存赔率</button>
+        </div>
+        
+        <!-- 自定义格式页面 -->
+        <div class="page" id="page-format">
+            <div class="page-header">
+                <button class="btn-back" onclick="showPage('page-main')">←</button>
+                <div class="page-title">自定义格式</div>
+            </div>
+            
+            <div class="setting-group">
+                <div class="setting-group-title">格式解析规则</div>
+                <div style="font-size:12px;color:#888;margin-bottom:15px;">
+                    当默认解析无法识别时，可在此添加自定义规则
+                </div>
+                
+                <div class="setting-item">
+                    <span class="setting-item-label">X/x 表示金额</span>
+                    <input type="checkbox" id="format-x-amount" checked style="width:20px;height:20px;">
+                </div>
+                <div class="setting-item">
+                    <span class="setting-item-label">"各"表示每个相同金额</span>
+                    <input type="checkbox" id="format-ge-each" checked style="width:20px;height:20px;">
+                </div>
+                <div class="setting-item">
+                    <span class="setting-item-label">"买"字头自动识别</span>
+                    <input type="checkbox" id="format-mai-prefix" checked style="width:20px;height:20px;">
+                </div>
+                <div class="setting-item">
+                    <span class="setting-item-label">中文数字转阿拉伯</span>
+                    <input type="checkbox" id="format-cn-number" checked style="width:20px;height:20px;">
+                </div>
+                <div class="setting-item">
+                    <span class="setting-item-label">忽略多余空格/标点</span>
+                    <input type="checkbox" id="format-ignore-space" checked style="width:20px;height:20px;">
+                </div>
+            </div>
+            
+            <div class="setting-group">
+                <div class="setting-group-title">自定义关键词</div>
+                <div style="font-size:12px;color:#888;margin-bottom:10px;">
+                    添加特殊关键词识别（如：一友=特码、二友=正码等）
+                </div>
+                <textarea id="custom-keywords" style="width:100%;height:100px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;padding:10px;font-size:13px;resize:none;" placeholder="格式：关键词=玩法
+例如：
+一友=特码
+二友=正码
+三友=正码特"></textarea>
+            </div>
+            
+            <button onclick="saveFormatSettings()" style="width:100%;padding:12px;background:linear-gradient(90deg,#e94560,#c23a51);color:white;border:none;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;margin-top:15px;">
+                保存设置
+            </button>
+        </div>
+        
+        <!-- 参数设置页面 -->
+        <div class="page" id="page-params">
+            <div class="page-header">
+                <button class="btn-back" onclick="showPage('page-main')">←</button>
+                <div class="page-title">参数设置</div>
+            </div>
+            
+            <div class="setting-group">
+                <div class="setting-group-title">计算容错设置</div>
+                <div style="font-size:12px;color:#888;margin-bottom:15px;">
+                    调整计算的宽容度，避免因小错误导致计算失败
+                </div>
+                
+                <div class="setting-item">
+                    <span class="setting-item-label">允许省略"元"字</span>
+                    <input type="checkbox" id="param-omit-yuan" checked style="width:20px;height:20px;">
+                </div>
+                <div class="setting-item">
+                    <span class="setting-item-label">允许省略"码"字</span>
+                    <input type="checkbox" id="param-omit-ma" checked style="width:20px;height:20px;">
+                </div>
+                <div class="setting-item">
+                    <span class="setting-item-label">自动纠正同音字</span>
+                    <input type="checkbox" id="param-auto-correct" checked style="width:20px;height:20px;">
+                </div>
+                <div class="setting-item">
+                    <span class="setting-item-label">模糊匹配生肖</span>
+                    <input type="checkbox" id="param-fuzzy-shengxiao" checked style="width:20px;height:20px;">
+                </div>
+            </div>
+            
+            <div class="setting-group">
+                <div class="setting-group-title">金额单位设置</div>
+                <div class="setting-item">
+                    <span class="setting-item-label">默认单位</span>
+                    <select id="param-default-unit" style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;padding:8px 12px;font-size:13px;">
+                        <option value="1">元</option>
+                        <option value="10">十元</option>
+                        <option value="100">百元</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="setting-group">
+                <div class="setting-group-title">特殊计算规则</div>
+                <textarea id="custom-calc-rules" style="width:100%;height:80px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;padding:10px;font-size:13px;resize:none;" placeholder="添加特殊计算规则..."></textarea>
+            </div>
+            
+            <button onclick="saveParamSettings()" style="width:100%;padding:12px;background:linear-gradient(90deg,#e94560,#c23a51);color:white;border:none;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;margin-top:15px;">
+                保存设置
+            </button>
+            
+            <!-- 导入导出配置 -->
+            <div class="setting-group" style="margin-top:20px;">
+                <div class="setting-group-title">配置备份与恢复</div>
+                <div style="font-size:12px;color:#888;margin-bottom:12px;">
+                    导出赔率配置可在其他设备导入使用
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button onclick="showExportOptions()" style="flex:1;padding:12px;background:linear-gradient(90deg,#3498db,#2980b9);color:white;border:none;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;">
+                        📤 导出配置
+                    </button>
+                    <button onclick="showImportModal()" style="flex:1;padding:12px;background:linear-gradient(90deg,#2ecc71,#27ae60);color:white;border:none;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;">
+                        📥 导入配置
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 激活页面 -->
+        <div class="page" id="page-activate">
+            <div class="page-header">
+                <button class="btn-back" onclick="showPage('page-main')">←</button>
+                <div class="page-title">激活会员</div>
+            </div>
+            
+            <div class="status-card">
+                <div class="status-label">授权状态</div>
+                <div class="status-value trial" id="license-status">试用期剩余 7 天</div>
+            </div>
+            
+            <div class="setting-group">
+                <div class="setting-group-title">设备机器码</div>
+                <div class="machine-code-display">
+                    <div class="machine-code-value" id="machine-code">生成中...</div>
+                </div>
+                <button class="btn btn-primary" onclick="copyMachineCode()" style="width:100%;">
+                    <span>📋 复制机器码</span>
+                </button>
+            </div>
+            
+            <div class="setting-group">
+                <div class="setting-group-title">输入激活码</div>
+                <input type="text" class="license-input" id="license-input" placeholder="XXXX-XXXX-XXXX-XXXX">
+                <button class="btn-activate" onclick="activateLicense()">🔓 激活</button>
+            </div>
+            
+            <div class="setting-group">
+                <div class="setting-group-title">赔率配置备份</div>
+                <div class="config-btn-row">
+                <button class="btn-config btn-export" onclick="showExportOptions()">📤 导出配置</button>
+                <button class="btn-config btn-import" onclick="showImportModal()">📥 导入配置</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 核对详情页面 -->
+        <div class="page" id="page-check">
+            <div class="page-header">
+                <button class="btn-back" onclick="showPage('page-main')">←</button>
+                <div class="page-title">核对详情</div>
+            </div>
+            
+            <!-- 汇总信息 -->
+            <div class="check-summary">
+                <div class="check-summary-item">
+                    <div class="check-summary-label">总下注</div>
+                    <div class="check-summary-value" id="check-total-bet">0</div>
+                </div>
+                <div class="check-summary-item">
+                    <div class="check-summary-label">中奖注数</div>
+                    <div class="check-summary-value" id="check-win-count">0</div>
+                </div>
+                <div class="check-summary-item">
+                    <div class="check-summary-label">结算结果</div>
+                    <div class="check-summary-value" id="check-result">0</div>
+                </div>
+            </div>
+            
+            <!-- 详细列表 -->
+            <div class="setting-group">
+                <div class="setting-group-title">下注明细</div>
+                <div class="check-detail-list" id="check-detail-list">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- 参照表页面 -->
+        <div class="page" id="page-reference">
+            <div class="page-header">
+                <button class="btn-back" onclick="showPage('page-lottery')">←</button>
+                <div class="page-title">属性参照</div>
+            </div>
+            
+            <div class="setting-group">
+                <div class="setting-group-title">生肖参照表</div>
+                <div class="ref-table-wrap">
+                    <table class="ref-table" id="ref-shengxiao"></table>
+                </div>
+            </div>
+            
+            <div class="setting-group">
+                <div class="setting-group-title">五行参照表</div>
+                <div class="ref-table-wrap">
+                    <table class="ref-table" id="ref-wuxing"></table>
+                </div>
+            </div>
+            
+            <div class="setting-group">
+                <div class="setting-group-title">波色参照表</div>
+                <div class="ref-table-wrap">
+                    <table class="ref-table" id="ref-bose"></table>
+                </div>
+            </div>
+            
+            <div class="setting-group">
+                <div class="setting-group-title">家禽野兽参照表</div>
+                <div class="ref-table-wrap">
+                    <table class="ref-table" id="ref-jiaqin"></table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 导出选项弹窗 -->
+    <div class="import-modal" id="export-modal">
+        <div class="import-modal-content">
+            <div class="import-modal-title">📤 导出配置</div>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <button onclick="exportCopy()" style="width:100%;padding:15px;background:linear-gradient(90deg,#2ecc71,#27ae60);color:white;border:none;border-radius:10px;font-size:14px;font-weight:bold;cursor:pointer;">
+                    📋 复制配置文本（推荐）
+                </button>
+                <div style="color:#888;font-size:12px;text-align:center;">
+                    复制后可直接粘贴到微信发送
+                </div>
+                <button onclick="exportDownload()" style="width:100%;padding:15px;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.2);border-radius:10px;font-size:14px;cursor:pointer;">
+                    💾 下载为文件
+                </button>
+            </div>
+            <button onclick="hideExportModal()" style="width:100%;padding:12px;background:transparent;color:#666;border:none;font-size:14px;cursor:pointer;margin-top:15px;">
+                取消
+            </button>
+        </div>
+    </div>
+    
+    <!-- 导入配置弹窗 -->
+    <div class="import-modal" id="import-modal">
+        <div class="import-modal-content">
+            <div class="import-modal-title">📥 导入配置</div>
+            
+            <div style="background:rgba(46,204,113,0.1);border:1px solid rgba(46,204,113,0.3);border-radius:8px;padding:12px;margin-bottom:15px;">
+                <div style="color:#2ecc71;font-size:13px;font-weight:bold;margin-bottom:8px;">💡 推荐方式：粘贴导入</div>
+                <div style="color:#888;font-size:12px;">
+                    1. 在微信打开收到的配置文件<br>
+                    2. 长按内容 → 全选 → 复制<br>
+                    3. 回到这里粘贴到下方输入框
+                </div>
+            </div>
+            
+            <textarea class="import-textarea" id="import-textarea" placeholder="长按此处粘贴配置内容...&#10;&#10;（从微信复制的配置文本）" style="height:120px;"></textarea>
+            
+            <button onclick="importConfig()" style="width:100%;padding:14px;background:linear-gradient(90deg,#2ecc71,#27ae60);color:white;border:none;border-radius:8px;font-size:15px;font-weight:bold;cursor:pointer;margin:10px 0;">
+                ✅ 确认导入
+            </button>
+            
+            <div style="text-align:center;color:#666;font-size:12px;margin:15px 0;">— 或者选择文件 —</div>
+            
+            <!-- 文件选择 - 只接受文本文件，避免显示拍照选项 -->
+            <input type="file" id="import-file" accept=".txt,.json,text/plain,application/json" style="display:none;" onchange="handleFileSelect(event)">
+            <button onclick="document.getElementById('import-file').click()" style="width:100%;padding:12px;background:rgba(255,255,255,0.1);color:#aaa;border:1px solid rgba(255,255,255,0.2);border-radius:8px;font-size:13px;cursor:pointer;">
+                📁 从文件App选择
+            </button>
+            
+            <button onclick="hideImportModal()" style="width:100%;padding:12px;background:transparent;color:#666;border:none;font-size:13px;cursor:pointer;margin-top:10px;">
+                取消
+            </button>
+        </div>
+    </div>
+    
+    <script>
+    // ==================== 六合彩数据 ====================
+    const LHC_DATA = {
+        // 生肖对应号码（2024年为基准）
+        shengxiao: {
+            '鼠': [6, 18, 30, 42],
+            '牛': [5, 17, 29, 41],
+            '虎': [4, 16, 28, 40],
+            '兔': [3, 15, 27, 39],
+            '龙': [2, 14, 26, 38],
+            '蛇': [1, 13, 25, 37, 49],
+            '马': [12, 24, 36, 48],
+            '羊': [11, 23, 35, 47],
+            '猴': [10, 22, 34, 46],
+            '鸡': [9, 21, 33, 45],
+            '狗': [8, 20, 32, 44],
+            '猪': [7, 19, 31, 43]
+        },
+        
+        // 五行对应号码
+        wuxing: {
+            '金': [3, 4, 11, 12, 25, 26, 33, 34, 41, 42],
+            '木': [7, 8, 15, 16, 23, 24, 37, 38, 45, 46],
+            '水': [13, 14, 21, 22, 29, 30, 43, 44],
+            '火': [1, 2, 9, 10, 17, 18, 31, 32, 39, 40, 47, 48],
+            '土': [5, 6, 19, 20, 27, 28, 35, 36, 49]
+        },
+        
+        // 波色对应号码
+        bose: {
+            '红波': [1, 2, 7, 8, 12, 13, 18, 19, 23, 24, 29, 30, 34, 35, 40, 45, 46],
+            '蓝波': [3, 4, 9, 10, 14, 15, 20, 25, 26, 31, 36, 37, 41, 42, 47, 48],
+            '绿波': [5, 6, 11, 16, 17, 21, 22, 27, 28, 32, 33, 38, 39, 43, 44, 49]
+        },
+        
+        // 家禽野兽
+        jiaqin: {
+            '家禽': ['牛', '马', '羊', '鸡', '狗', '猪'],
+            '野兽': ['鼠', '虎', '兔', '龙', '蛇', '猴']
+        }
+    };
+    
+    // ==================== 状态管理 ====================
+    let appState = {
+        lotteryNumbers: [],  // 当前显示的开奖号码 [1,2,3,4,5,6,特码]
+        currentLotteryType: 'xam',  // 当前选中的彩种：xam=新澳门, hk=香港
+        lotteryData: {
+            xam: { numbers: [], issue: '', time: '', source: '' },  // 新澳门数据
+            hk: { numbers: [], issue: '', time: '', source: '' }    // 香港数据
+        },
+        lotteryHistory: {
+            xam: [],  // 新澳门历史记录，最多10期 [{numbers, issue, time, source}, ...]
+            hk: []    // 香港历史记录，最多10期
+        },
+        odds: {
+            tema: 43,
+            shengxiao: 12,
+            red: 2.8,
+            blue: 2.8,
+            green: 2.8,
+            daxiao: 2,
+            danshuang: 2
+        },
+        machineCode: '',
+        isActivated: false,
+        trialDaysLeft: 7
+    };
+    
+    // ==================== 初始化 ====================
+    async function init() {
+        // 生成机器码
+        appState.machineCode = await generateMachineCode();
+        document.getElementById('machine-code').textContent = appState.machineCode;
+        
+        // 加载保存的配置
+        loadConfig();
+        
+        // 确保默认彩种为新澳门
+        if (!appState.currentLotteryType) {
+            appState.currentLotteryType = 'xam';
+        }
+        
+        // 加载赔率设置
+        loadOddsFromStorage();
+        
+        // 检查激活状态
+        checkLicense();
+        
+        // 渲染参照表
+        renderReferenceTables();
+        
+        // 更新显示
+        updateDisplay();
+        
+        // 更新切换按钮状态
+        updateSwitchButtons();
+        
+        // 如果没有数据，尝试自动获取（不阻塞）
+        tryAutoFetchOnce();
+        
+        // 启动开奖时段自动刷新
+        startLiveRefresh();
+    }
+    
+    // ==================== 开奖时段自动刷新（直播效果） ====================
+    let liveRefreshInterval = null;
+    let checkLiveInterval = null;
+    
+    // 检查是否在开奖时段（21:29 - 21:40）
+    function isLiveTime() {
+        const now = new Date();
+        const hours = now.getHours();
+        const minutes = now.getMinutes();
+        // 21:29 到 21:40
+        if (hours === 21 && minutes >= 29 && minutes <= 40) {
+            return true;
+        }
+        return false;
+    }
+    
+    // 启动开奖时段自动刷新（参考 index2.html：开奖时段每5秒刷新）
+    function startLiveRefresh() {
+        // 每分钟检查是否进入开奖时段
+        checkLiveInterval = setInterval(() => {
+            if (isLiveTime()) {
+                // 进入开奖时段，开始高频刷新
+                if (!liveRefreshInterval) {
+                    console.log('📡 进入开奖时段，开始每5秒自动刷新...');
+                    showLiveToast('📡 开奖直播模式已开启');
+                    liveRefreshInterval = setInterval(async () => {
+                        try {
+                            // 启用直播动画
+                            window.isLiveAnimationEnabled = true;
+                            await fetchAllLotteryData();
+                        } catch (e) {
+                            console.log('直播刷新失败', e);
+                        }
+                    }, 5000); // 每5秒刷新一次（与index2.html一致）
+                }
+            } else {
+                // 退出开奖时段，停止高频刷新
+                if (liveRefreshInterval) {
+                    console.log('⏹️ 开奖时段结束，停止自动刷新');
+                    clearInterval(liveRefreshInterval);
+                    liveRefreshInterval = null;
+                }
+            }
+        }, 60000); // 每分钟检查一次
+        
+        // 立即检查一次
+        if (isLiveTime() && !liveRefreshInterval) {
+            console.log('📡 当前在开奖时段，开始自动刷新...');
+            showLiveToast('📡 开奖直播模式已开启');
+            liveRefreshInterval = setInterval(async () => {
+                try {
+                    // 启用直播动画
+                    window.isLiveAnimationEnabled = true;
+                    await fetchAllLotteryData();
+                } catch (e) {
+                    console.log('直播刷新失败', e);
+                }
+            }, 5000); // 每5秒刷新一次
+        }
+    }
+    
+    // 显示直播提示
+    function showLiveToast(msg) {
+        const toast = document.createElement('div');
+        toast.innerHTML = msg;
+        toast.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,#e94560,#c23a51);color:white;padding:12px 20px;border-radius:8px;font-size:13px;z-index:9999;box-shadow:0 4px 15px rgba(233,69,96,0.4);';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+    
+    
+    // 从 data.json 加载预获取的数据（GitHub Actions 方案）
+    async function loadDataFromJSON() {
+        try {
+            const response = await fetch('./data.json?t=' + Date.now());
+            if (!response.ok) return false;
+            
+            const data = await response.json();
+            if (!data) return false;
+            
+            let loaded = false;
+            
+            // 加载新澳门数据
+            if (data.xam && data.xam.numbers && data.xam.numbers.length === 7) {
+                appState.lotteryData['xam'] = {
+                    numbers: data.xam.numbers,
+                    issue: data.xam.issue,
+                    time: data.xam.time,
+                    source: 'data.json'
+                };
+                addToHistory('xam', data.xam);
+                loaded = true;
+            }
+            
+            // 加载香港数据
+            if (data.hk && data.hk.numbers && data.hk.numbers.length === 7) {
+                appState.lotteryData['hk'] = {
+                    numbers: data.hk.numbers,
+                    issue: data.hk.issue,
+                    time: data.hk.time,
+                    source: 'data.json'
+                };
+                addToHistory('hk', data.hk);
+                loaded = true;
+            }
+            
+            if (loaded) {
+                // 加载当前彩种数据
+                const currentData = appState.lotteryData[appState.currentLotteryType];
+                if (currentData && currentData.numbers && currentData.numbers.length === 7) {
+                    appState.lotteryNumbers = currentData.numbers;
+                }
+                
+                saveConfig();
+                renderLotteryBalls();
+                renderHistoryList();
+                
+                console.log('✅ 从 data.json 加载数据成功，更新时间:', data.updateTime);
+            }
+            
+            return loaded;
+        } catch (e) {
+            console.log('从 data.json 加载失败:', e.message);
+            return false;
+        }
+    }
+    
+    // 首次自动获取数据（优先从 data.json 读取）
+    async function tryAutoFetchOnce() {
+        // 检查新澳门是否有数据
+        const xamData = appState.lotteryData['xam'];
+        const hkData = appState.lotteryData['hk'];
+        
+        // 如果都没有数据，尝试获取
+        if ((!xamData || !xamData.numbers || xamData.numbers.length < 7) &&
+            (!hkData || !hkData.numbers || hkData.numbers.length < 7)) {
+            
+            console.log('首次加载，尝试获取开奖数据...');
+            showAutoFetchStatus('🔄 正在加载开奖数据...');
+            
+            // 方案1：优先从 data.json 读取（GitHub Actions 预获取的数据）
+            const jsonLoaded = await loadDataFromJSON();
+            if (jsonLoaded) {
+                showAutoFetchStatus('✅ 开奖数据已加载', 'success');
+                setTimeout(hideAutoFetchStatus, 2000);
+                return;
+            }
+            
+            // 方案2：data.json 失败，尝试直接调用 API（备选方案）
+            console.log('data.json 加载失败，尝试调用 API...');
+            showAutoFetchStatus('🔄 正在获取最新数据...');
+            
+            let success = false;
+            for (let retry = 0; retry < 2 && !success; retry++) {
+                try {
+                    if (retry > 0) {
+                        showAutoFetchStatus(`🔄 重试获取中...(${retry}/2)`);
+                        await new Promise(r => setTimeout(r, 1000));
+                    }
+                    await fetchAllLotteryData();
+                    
+                    const newXamData = appState.lotteryData['xam'];
+                    const newHkData = appState.lotteryData['hk'];
+                    if ((newXamData && newXamData.numbers && newXamData.numbers.length === 7) ||
+                        (newHkData && newHkData.numbers && newHkData.numbers.length === 7)) {
+                        success = true;
+                        showAutoFetchStatus('✅ 开奖数据已更新', 'success');
+                    }
+                } catch (e) {
+                    console.log(`API获取失败(尝试${retry + 1}):`, e.message);
+                }
+            }
+            
+            if (!success) {
+                showAutoFetchStatus('⚠️ 获取失败，请手动获取', 'warning');
+            }
+            
+            setTimeout(hideAutoFetchStatus, 3000);
+        }
+    }
+    
+    // 显示自动获取状态
+    function showAutoFetchStatus(msg, type = 'loading') {
+        let statusDiv = document.getElementById('auto-fetch-status');
+        if (!statusDiv) {
+            statusDiv = document.createElement('div');
+            statusDiv.id = 'auto-fetch-status';
+            statusDiv.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;font-size:13px;z-index:9999;transition:opacity 0.3s;';
+            document.body.appendChild(statusDiv);
+        }
+        
+        statusDiv.innerHTML = msg;
+        statusDiv.style.opacity = '1';
+        
+        if (type === 'success') {
+            statusDiv.style.background = 'linear-gradient(90deg,#2ecc71,#27ae60)';
+            statusDiv.style.color = 'white';
+        } else if (type === 'warning') {
+            statusDiv.style.background = 'linear-gradient(90deg,#f39c12,#e67e22)';
+            statusDiv.style.color = 'white';
+        } else {
+            statusDiv.style.background = 'linear-gradient(90deg,#667eea,#764ba2)';
+            statusDiv.style.color = 'white';
+        }
+    }
+    
+    // 隐藏自动获取状态
+    function hideAutoFetchStatus() {
+        const statusDiv = document.getElementById('auto-fetch-status');
+        if (statusDiv) {
+            statusDiv.style.opacity = '0';
+            setTimeout(() => statusDiv.remove(), 300);
+        }
+    }
+    
+    // 获取所有彩种数据
+    async function fetchAllLotteryData() {
+        const api = LOTTERY_APIS.marksix6;
+        
+        // 获取数据（可能抛出异常）
+        const data = await fetchWithProxy(api.url);
+        
+        let hasValidData = false;
+        
+        // 解析新澳门数据
+        const xamResult = api.parse(data, 'xam');
+        if (xamResult && xamResult.numbers && xamResult.numbers.length === 7) {
+            appState.lotteryData['xam'] = {
+                numbers: xamResult.numbers,
+                issue: xamResult.issue,
+                time: xamResult.time,
+                source: xamResult.source
+            };
+            // 添加到历史记录
+            addToHistory('xam', xamResult);
+            hasValidData = true;
+        }
+        
+        // 解析香港数据
+        const hkResult = api.parse(data, 'hk');
+        if (hkResult && hkResult.numbers && hkResult.numbers.length === 7) {
+            appState.lotteryData['hk'] = {
+                numbers: hkResult.numbers,
+                issue: hkResult.issue,
+                time: hkResult.time,
+                source: hkResult.source
+            };
+            // 添加到历史记录
+            addToHistory('hk', hkResult);
+            hasValidData = true;
+        }
+        
+        // 如果没有获取到任何有效数据，抛出错误
+        if (!hasValidData) {
+            throw new Error('数据解析失败，未获取到有效开奖号码');
+        }
+        
+        // 加载当前彩种的数据
+        const currentData = appState.lotteryData[appState.currentLotteryType];
+        if (currentData && currentData.numbers && currentData.numbers.length === 7) {
+            appState.lotteryNumbers = currentData.numbers;
+        }
+        
+        // 保存并刷新显示
+        saveConfig();
+        renderLotteryBalls();
+        renderHistoryList();  // 刷新历史记录列表
+        
+        return true; // 返回成功标志
+    }
+    
+    // ==================== 机器码生成 ====================
+    async function generateMachineCode() {
+        const components = [];
+        
+        // Canvas指纹
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillText('LHC', 2, 2);
+            components.push(canvas.toDataURL().slice(-50));
+        } catch (e) {
+            components.push('no-canvas');
+        }
+        
+        // 屏幕信息
+        components.push(`${screen.width}x${screen.height}x${screen.colorDepth}`);
+        components.push(Intl.DateTimeFormat().resolvedOptions().timeZone);
+        components.push(navigator.language);
+        components.push(navigator.platform);
+        components.push(navigator.hardwareConcurrency || 'unknown');
+        
+        const raw = components.join('|');
+        const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+        
+        return `${hashHex.slice(0, 4)}-${hashHex.slice(4, 8)}-${hashHex.slice(8, 12)}-${hashHex.slice(12, 16)}`;
+    }
+    
+    // ==================== 页面切换 ====================
+    function showPage(pageId) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        
+        // 打开开奖设置页面时，更新输入框显示和历史记录
+        if (pageId === 'page-lottery') {
+            updateLotteryInputsDisplay();
+            renderHistoryList();
+        }
+        
+        // 打开参照表页面时，重新渲染表格
+        if (pageId === 'page-reference') {
+            renderReferenceTables();
+        }
+        
+        // 打开自定义格式页面时，加载设置
+        if (pageId === 'page-format') {
+            loadFormatSettings();
+        }
+        
+        // 打开参数设置页面时，加载设置
+        if (pageId === 'page-params') {
+            loadParamSettings();
+        }
+    }
+    
+    // 更新开奖设置页面的输入框显示
+    function updateLotteryInputsDisplay() {
+        if (appState.lotteryNumbers && appState.lotteryNumbers.length >= 7) {
+            for (let i = 0; i < 6; i++) {
+                const num = appState.lotteryNumbers[i];
+                const input = document.getElementById('num' + (i + 1));
+                if (num > 0) {
+                    input.value = String(num).padStart(2, '0');
+                    updateInputColor(input, num, false);
+                }
+            }
+            const specialNum = appState.lotteryNumbers[6];
+            const specialInput = document.getElementById('num-special');
+            if (specialNum > 0) {
+                specialInput.value = String(specialNum).padStart(2, '0');
+                updateInputColor(specialInput, specialNum, true);
+            }
+        }
+        // 隐藏预览
+        hideParsePreview();
+    }
+    
+    // ==================== 配置保存/加载 ====================
+    function saveConfig() {
+        localStorage.setItem('lhc_config', JSON.stringify(appState));
+    }
+    
+    function loadConfig() {
+        const saved = localStorage.getItem('lhc_config');
+        if (saved) {
+            const config = JSON.parse(saved);
+            appState = { ...appState, ...config };
+            
+            // 恢复赔率输入框
+            document.getElementById('odds-tema').value = appState.odds.tema;
+            document.getElementById('odds-shengxiao').value = appState.odds.shengxiao;
+            document.getElementById('odds-red').value = appState.odds.red;
+            document.getElementById('odds-blue').value = appState.odds.blue;
+            document.getElementById('odds-green').value = appState.odds.green;
+            document.getElementById('odds-daxiao').value = appState.odds.daxiao;
+            document.getElementById('odds-danshuang').value = appState.odds.danshuang;
+        }
+        
+        // 确保lotteryData结构存在
+        if (!appState.lotteryData) {
+            appState.lotteryData = {
+                xam: { numbers: [], issue: '', time: '', source: '' },
+                hk: { numbers: [], issue: '', time: '', source: '' }
+            };
+        }
+        
+        // 确保历史记录结构存在
+        if (!appState.lotteryHistory) {
+            appState.lotteryHistory = {
+                xam: [],
+                hk: []
+            };
+        }
+        
+        // 默认彩种为新澳门
+        if (!appState.currentLotteryType) {
+            appState.currentLotteryType = 'xam';
+        }
+        
+        // 如果当前彩种有数据，加载到lotteryNumbers
+        const currentData = appState.lotteryData[appState.currentLotteryType];
+        if (currentData && currentData.numbers && currentData.numbers.length === 7) {
+            appState.lotteryNumbers = currentData.numbers;
+        }
+    }
+    
+    // ==================== 开奖号码 ====================
+    
+    // 解析粘贴的开奖号码
+    function parseLotteryInput() {
+        let input = document.getElementById('paste-lottery-input').value.trim();
+        
+        if (!input) {
+            alert('请先粘贴开奖号码！');
+            return;
+        }
+        
+        // 容错处理：合并多个连续空格为单个空格
+        input = input.replace(/\s+/g, ' ');
+        
+        // 提取特码（如果有"特"字标识）
+        let specialNum = null;
+        let cleanInput = input;
+        
+        // 检查是否有"特"字标识特码
+        const teMatch = input.match(/特\s*(\d+)/);
+        if (teMatch) {
+            specialNum = parseInt(teMatch[1]);
+            cleanInput = input.replace(/特\s*\d+/, '').trim();
+        }
+        
+        // 用各种分隔符分割：空格、点、逗号、中文逗号、顿号
+        const parts = cleanInput.split(/[\s.,，、。]+/).filter(p => p);
+        
+        // 解析数字
+        const nums = [];
+        const invalidParts = [];
+        for (const part of parts) {
+            const num = parseInt(part);
+            if (!isNaN(num) && num >= 1 && num <= 49) {
+                nums.push(num);
+            } else if (part && !/^\s*$/.test(part)) {
+                invalidParts.push(part);
+            }
+        }
+        
+        // 如果没有"特"标识，最后一个就是特码
+        if (specialNum === null && nums.length >= 7) {
+            specialNum = nums.pop();
+        }
+        
+        // 验证数量
+        if (nums.length !== 6 || !specialNum) {
+            showFormatErrorModal(nums, specialNum, invalidParts, input);
+            hideParsePreview();
+            return;
+        }
+        
+        if (specialNum < 1 || specialNum > 49) {
+            showFormatErrorModal(nums, specialNum, ['特码超出范围'], input);
+            hideParsePreview();
+            return;
+        }
+        
+        // 合并所有号码检查重复
+        const allNums = [...nums, specialNum];
+        const uniqueNums = new Set(allNums);
+        if (uniqueNums.size !== allNums.length) {
+            const seen = {};
+            const duplicates = [];
+            for (const n of allNums) {
+                if (seen[n]) duplicates.push(n);
+                seen[n] = true;
+            }
+            showDuplicateErrorModal([...new Set(duplicates)]);
+            hideParsePreview();
+            return;
+        }
+        
+        // 填入输入框并更新输入框背景色
+        for (let i = 0; i < 6; i++) {
+            const numInput = document.getElementById('num' + (i + 1));
+            numInput.value = String(nums[i]).padStart(2, '0');
+            updateInputColor(numInput, nums[i]);
+        }
+        const specialInput = document.getElementById('num-special');
+        specialInput.value = String(specialNum).padStart(2, '0');
+        updateInputColor(specialInput, specialNum, true);
+        
+        // 显示带波色的预览
+        showParsePreview(nums, specialNum);
+        
+        // 清空粘贴框
+        document.getElementById('paste-lottery-input').value = '';
+        
+        // 提示用户点击保存按钮
+        const toast = document.createElement('div');
+        toast.innerHTML = '✅ 解析成功！请点击<b>「保存开奖号码」</b>按钮应用';
+        toast.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.9);color:#4CAF50;padding:15px 20px;border-radius:10px;font-size:13px;z-index:9999;text-align:center;max-width:280px;';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2500);
+    }
+    
+    // 显示格式错误弹窗
+    function showFormatErrorModal(nums, specialNum, invalidParts, originalInput) {
+        const correctFormat = '01 08 09 15 24 26 特27';
+        
+        // 创建弹窗HTML
+        let html = `
+        <div id="format-error-modal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;">
+            <div style="background:#fff;border-radius:12px;padding:20px;max-width:320px;width:100%;color:#333;">
+                <div style="font-size:18px;font-weight:bold;margin-bottom:15px;">❌ 格式错误！</div>
+                
+                <div style="margin-bottom:12px;">
+                    <div style="color:#666;font-size:13px;">您输入的：</div>
+                    <div style="font-size:14px;word-break:break-all;">${originalInput}</div>
+                </div>
+                
+                <div style="margin-bottom:12px;">
+                    <div style="color:#666;font-size:13px;">识别到：</div>
+                    <div style="font-size:14px;">${nums.length}个平码${specialNum ? ' + 1个特码' : ''}</div>
+                </div>
+                
+                ${invalidParts.length > 0 ? `
+                <div style="margin-bottom:12px;">
+                    <div style="color:#666;font-size:13px;">无法识别的内容：</div>
+                    <div style="font-size:14px;color:#e74c3c;">${invalidParts.join(', ')}</div>
+                </div>
+                ` : ''}
+                
+                <div style="border-top:1px solid #eee;margin:15px 0;"></div>
+                
+                <div style="color:#e94560;font-size:13px;margin-bottom:8px;">点击右下角复制按钮复制正确格式</div>
+                <div style="display:flex;align-items:center;gap:8px;background:#f5f5f5;padding:10px;border-radius:8px;">
+                    <span style="color:#2ecc71;font-size:16px;">✅</span>
+                    <div>
+                        <div style="font-size:12px;color:#888;">正确格式示例：</div>
+                        <div style="font-size:15px;font-weight:bold;">${correctFormat}</div>
+                    </div>
+                </div>
+                
+                <div style="display:flex;gap:10px;margin-top:20px;">
+                    <button onclick="closeFormatErrorModal()" style="flex:1;padding:12px;background:#f0f0f0;border:none;border-radius:8px;font-size:14px;cursor:pointer;color:#666;">取消</button>
+                    <button onclick="copyFormatAndClose('${correctFormat}')" style="flex:1;padding:12px;background:#e94560;border:none;border-radius:8px;font-size:14px;cursor:pointer;color:#fff;font-weight:bold;">复制</button>
+                </div>
+            </div>
+        </div>`;
+        
+        // 添加到页面
+        document.body.insertAdjacentHTML('beforeend', html);
+    }
+    
+    function closeFormatErrorModal() {
+        const modal = document.getElementById('format-error-modal');
+        if (modal) modal.remove();
+    }
+    
+    function copyFormatAndClose(text) {
+        copyToClipboard(text);
+        closeFormatErrorModal();
+        alert('✅ 已复制正确格式！');
+    }
+    
+    // 显示重复号码错误弹窗
+    function showDuplicateErrorModal(duplicates) {
+        const dupStr = duplicates.map(n => String(n).padStart(2,'0')).join(', ');
+        alert('❌ 号码重复！\n\n重复的号码：' + dupStr + '\n\n开奖号码不能有重复，请检查后重新输入。');
+    }
+    
+    // 复制到剪贴板
+    function copyToClipboard(text) {
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text);
+        } else {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+    }
+    
+    // 根据号码更新输入框背景色
+    function updateInputColor(input, num, isSpecial = false) {
+        const color = getNumberColor(num);
+        const colorMap = {
+            'red': '#c23a51',
+            'blue': '#3a5fc2',
+            'green': '#3a8c4a'
+        };
+        input.style.background = colorMap[color] || '#333';
+        input.style.borderColor = isSpecial ? '#f5a623' : colorMap[color] || '#555';
+    }
+    
+    // 显示解析预览
+    function showParsePreview(nums, specialNum) {
+        const preview = document.getElementById('parse-preview');
+        const balls = document.getElementById('parse-preview-balls');
+        
+        let html = '';
+        // 6个平码
+        for (let i = 0; i < 6; i++) {
+            const num = nums[i];
+            const color = getNumberColor(num);
+            const colorMap = { 'red': '#c23a51', 'blue': '#3a5fc2', 'green': '#3a8c4a' };
+            html += `<div style="width:32px;height:32px;border-radius:50%;background:${colorMap[color]};display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:bold;">${String(num).padStart(2,'0')}</div>`;
+        }
+        // + 号
+        html += `<span style="color:#e94560;font-weight:bold;font-size:14px;margin:0 2px;">+</span>`;
+        // 特码
+        const specialColor = getNumberColor(specialNum);
+        const colorMap = { 'red': '#c23a51', 'blue': '#3a5fc2', 'green': '#3a8c4a' };
+        html += `<div style="width:32px;height:32px;border-radius:50%;background:${colorMap[specialColor]};border:2px solid #f5a623;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:bold;">${String(specialNum).padStart(2,'0')}</div>`;
+        
+        balls.innerHTML = html;
+        preview.style.display = 'block';
+    }
+    
+    // 隐藏解析预览
+    function hideParsePreview() {
+        document.getElementById('parse-preview').style.display = 'none';
+    }
+    
+    // 格式化数字输入（只允许数字）
+    function formatNumInput(input) {
+        // 只保留数字
+        let value = input.value.replace(/[^0-9]/g, '');
+        
+        // 如果输入了非数字，提示错误
+        if (input.value !== value && input.value !== '') {
+            input.style.borderColor = '#e74c3c';
+            setTimeout(() => {
+                input.style.borderColor = input.classList.contains('special') ? '#fbbf24' : 'rgba(255, 255, 255, 0.2)';
+            }, 500);
+        }
+        
+        // 限制最大值49
+        if (parseInt(value) > 49) {
+            value = '49';
+        }
+        
+        input.value = value;
+    }
+    
+    // 失焦时补0
+    function padNumInput(input) {
+        let value = input.value.trim();
+        if (value === '') {
+            // 清空时重置颜色
+            input.style.background = '#333';
+            input.style.borderColor = input.id === 'num-special' ? '#f5a623' : '#555';
+            return;
+        }
+        
+        let num = parseInt(value);
+        if (isNaN(num) || num < 1) {
+            input.value = '';
+            input.style.background = '#333';
+            input.style.borderColor = input.id === 'num-special' ? '#f5a623' : '#555';
+            return;
+        }
+        
+        if (num > 49) num = 49;
+        
+        // 补0：1-9 → 01-09
+        input.value = num.toString().padStart(2, '0');
+        
+        // 更新背景色为波色
+        const isSpecial = input.id === 'num-special';
+        updateInputColor(input, num, isSpecial);
+    }
+    
+    function saveLotteryNumbers() {
+        const nums = [];
+        let hasError = false;
+        
+        for (let i = 1; i <= 6; i++) {
+            const input = document.getElementById('num' + i);
+            const val = parseInt(input.value) || 0;
+            if (val < 1 || val > 49) {
+                hasError = true;
+                input.style.borderColor = '#e74c3c';
+            } else {
+                input.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+            }
+            nums.push(val);
+        }
+        
+        const specialInput = document.getElementById('num-special');
+        const special = parseInt(specialInput.value) || 0;
+        if (special < 1 || special > 49) {
+            hasError = true;
+            specialInput.style.borderColor = '#e74c3c';
+        } else {
+            specialInput.style.borderColor = '#fbbf24';
+        }
+        nums.push(special);
+        
+        if (hasError || nums.some(n => n < 1 || n > 49)) {
+            alert('请输入正确的号码（1-49）！');
+            return;
+        }
+        
+        // 检查重复号码
+        const uniqueNums = new Set(nums);
+        if (uniqueNums.size !== nums.length) {
+            // 找出重复的号码
+            const seen = {};
+            const duplicates = [];
+            for (const n of nums) {
+                if (seen[n]) {
+                    duplicates.push(n);
+                }
+                seen[n] = true;
+            }
+            alert('⚠️ 开奖号码不能重复！\n\n重复的号码：' + [...new Set(duplicates)].map(n => String(n).padStart(2,'0')).join(', '));
+            return;
+        }
+        
+        appState.lotteryNumbers = nums;
+        
+        // 同步保存到当前彩种的数据
+        const currentType = appState.currentLotteryType || 'xam';
+        if (appState.lotteryData[currentType]) {
+            appState.lotteryData[currentType].numbers = nums;
+            // 如果没有期号，保持原有期号
+        }
+        
+        saveConfig();
+        updateDisplay();
+        showPage('page-main');
+        
+        // 显示简短提示（不阻塞）
+        const toast = document.createElement('div');
+        toast.innerHTML = '✅ 开奖号码已保存';
+        toast.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.85);color:#4CAF50;padding:15px 25px;border-radius:10px;font-size:14px;z-index:9999;';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 1500);
+    }
+    
+    // ╔════════════════════════════════════════════════════════════════╗
+    // ║              【模块4】自动获取开奖数据 - API调用               ║
+    // ╚════════════════════════════════════════════════════════════════╝
+    
+    // API配置（三个API源，自动切换）
+    const LOTTERY_APIS = {
+        // API 1: Marksix6（推荐，数据最完整）
+        marksix6: {
+            name: 'Marksix6',
+            url: 'https://marksix6.net/index.php?api=1',
+            // 彩种映射
+            lotteryMap: {
+                'hk': '香港彩',
+                'xam': '新澳门彩',
+                'am': '澳门彩'
+            },
+            parse: function(data, lotteryType) {
+                const targetName = this.lotteryMap[lotteryType];
+                if (!data.lottery_data) return null;
+                
+                const lottery = data.lottery_data.find(l => l.name === targetName);
+                if (!lottery) return null;
+                
+                // 解析开奖号码
+                const numbers = lottery.openCode.split(',').map(n => parseInt(n.trim()));
+                if (numbers.length !== 7) return null;
+                
+                return {
+                    numbers: numbers,
+                    issue: lottery.expect,
+                    time: lottery.openTime,
+                    zodiac: lottery.zodiac,
+                    wave: lottery.wave,
+                    source: 'Marksix6'
+                };
+            }
+        },
+        
+        // （已删除不可用的 1234开奖网 和 168开奖网）
+    };
+    
+    // 显示获取状态
+    function showFetchStatus(message, type) {
+        const statusEl = document.getElementById('fetch-status');
+        statusEl.style.display = 'block';
+        
+        let color = '#fff';
+        let bgColor = 'rgba(0,0,0,0.3)';
+        
+        if (type === 'success') {
+            color = '#4CAF50';
+            bgColor = 'rgba(76, 175, 80, 0.2)';
+        } else if (type === 'error') {
+            color = '#e74c3c';
+            bgColor = 'rgba(231, 76, 60, 0.2)';
+        } else if (type === 'loading') {
+            color = '#f5a623';
+            bgColor = 'rgba(245, 166, 35, 0.2)';
+        }
+        
+        statusEl.style.color = color;
+        statusEl.style.background = bgColor;
+        statusEl.innerHTML = message;
+    }
+    
+    // 隐藏状态
+    function hideFetchStatus() {
+        document.getElementById('fetch-status').style.display = 'none';
+    }
+    
+    // 通过CORS代理获取数据（解决跨域问题）
+    async function fetchWithProxy(url, timeout = 8000) {
+        // 创建超时控制器
+        const createTimeoutController = (ms) => {
+            const controller = new AbortController();
+            setTimeout(() => controller.abort(), ms);
+            return controller;
+        };
+        
+        // 方法1: 直接尝试请求（如果服务器支持CORS）
+        try {
+            const controller = createTimeoutController(timeout);
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' },
+                signal: controller.signal
+            });
+            if (response.ok) {
+                return await response.json();
+            }
+        } catch (e) {
+            console.log('直接请求失败，尝试代理...', e.message);
+        }
+        
+        // 方法2: 尝试使用多个公共CORS代理（增加更多稳定代理）
+        const corsProxies = [
+            // 代理1: corsproxy.io（稳定性较好）
+            `https://corsproxy.io/?${encodeURIComponent(url)}`,
+            // 代理2: allorigins（备用）
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+            // 代理3: cors-anywhere 镜像
+            `https://proxy.cors.sh/${url}`,
+            // 代理4: thingproxy
+            `https://thingproxy.freeboard.io/fetch/${url}`
+        ];
+        
+        for (const proxyUrl of corsProxies) {
+            try {
+                const controller = createTimeoutController(timeout);
+                const response = await fetch(proxyUrl, {
+                    signal: controller.signal,
+                    headers: {
+                        'x-cors-api-key': 'temp_key', // 某些代理需要
+                    }
+                });
+                if (response.ok) {
+                    const text = await response.text();
+                    try {
+                        return JSON.parse(text);
+                    } catch (parseErr) {
+                        console.log('JSON解析失败:', proxyUrl);
+                        continue;
+                    }
+                }
+            } catch (e) {
+                console.log('代理请求失败:', proxyUrl.split('?')[0], e.message);
+            }
+        }
+        
+        throw new Error('所有请求方式都失败了，请检查网络连接');
+    }
+    
+    // 主函数：获取开奖数据
+    async function fetchLotteryData() {
+        const lotteryType = document.getElementById('lottery-type-select').value;
+        const lotteryNames = {
+            'hk': '香港六合彩',
+            'xam': '新澳门六合彩',
+            'am': '㊣澳门六合彩'
+        };
+        
+        showFetchStatus('🔄 正在获取 ' + lotteryNames[lotteryType] + ' 最新开奖数据...', 'loading');
+        
+        // 使用 Marksix6 API（唯一可用的API）
+        const api = LOTTERY_APIS.marksix6;
+        
+        showFetchStatus(`🔄 正在获取 ${api.name} 数据...`, 'loading');
+        
+        try {
+            // 获取数据
+            const data = await fetchWithProxy(api.url);
+            console.log(`${api.name} 返回:`, data);
+            
+            // 解析数据
+            const result = api.parse(data, lotteryType);
+            
+            if (result && result.numbers && result.numbers.length === 7) {
+                // 成功获取数据
+                applyLotteryResult(result, lotteryNames[lotteryType], lotteryType);
+                return;
+            }
+            
+            showFetchStatus('❌ 数据解析失败，请稍后重试', 'error');
+        } catch (error) {
+            console.error(`${api.name} 失败:`, error);
+            showFetchStatus('❌ 获取数据失败，请检查网络或稍后重试', 'error');
+        }
+    }
+    
+    // 应用获取到的开奖结果
+    function applyLotteryResult(result, lotteryName, lotteryType) {
+        // 保存到对应彩种的数据
+        if (lotteryType && appState.lotteryData[lotteryType]) {
+            appState.lotteryData[lotteryType] = {
+                numbers: result.numbers,
+                issue: result.issue,
+                time: result.time,
+                source: result.source
+            };
+            // 添加到历史记录
+            addToHistory(lotteryType, result);
+            renderHistoryList();  // 刷新历史记录列表
+        }
+        
+        // 填入输入框
+        for (let i = 0; i < 6; i++) {
+            const input = document.getElementById('num' + (i + 1));
+            input.value = String(result.numbers[i]).padStart(2, '0');
+            updateInputColor(input, result.numbers[i], false);
+        }
+        
+        const specialInput = document.getElementById('num-special');
+        specialInput.value = String(result.numbers[6]).padStart(2, '0');
+        updateInputColor(specialInput, result.numbers[6], true);
+        
+        // 显示成功信息
+        let statusMsg = `✅ 获取成功！<br>`;
+        statusMsg += `<b>${lotteryName}</b> 第 <b>${result.issue}</b> 期<br>`;
+        statusMsg += `开奖号码：<b>${result.numbers.slice(0, 6).map(n => String(n).padStart(2, '0')).join(' ')} + ${String(result.numbers[6]).padStart(2, '0')}</b><br>`;
+        if (result.time) {
+            statusMsg += `开奖时间：${result.time}<br>`;
+        }
+        statusMsg += `<span style="font-size:11px;color:#888;">数据来源：${result.source}</span>`;
+        
+        showFetchStatus(statusMsg, 'success');
+        
+        // 显示预览
+        showParsePreview(result.numbers.slice(0, 6), result.numbers[6]);
+        
+        // 保存配置
+        saveConfig();
+    }
+    
+    // 切换赔率面板
+    function showOddsPanel(panelId) {
+        // 切换菜单选中状态
+        document.querySelectorAll('.odds-menu-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        event.target.classList.add('active');
+        
+        // 切换内容面板
+        document.querySelectorAll('.odds-panel').forEach(panel => {
+            panel.classList.remove('active');
+        });
+        document.getElementById('panel-' + panelId).classList.add('active');
+    }
+    
+    function updateDisplay() {
+        // 更新开奖号码显示
+        renderLotteryBalls();
+    }
+    
+    function renderLotteryBalls() {
+        const container = document.getElementById('lottery-balls');
+        const typeNameEl = document.getElementById('lottery-type-name');
+        const issueEl = document.getElementById('lottery-issue');
+        
+        // 更新彩种名称和期号
+        const typeNames = { xam: '新澳', hk: '香港' };
+        if (typeNameEl) typeNameEl.textContent = typeNames[appState.currentLotteryType] || '新澳';
+        
+        const currentData = appState.lotteryData[appState.currentLotteryType];
+        if (issueEl) {
+            if (currentData && currentData.issue) {
+                issueEl.textContent = '第' + currentData.issue + '期';
+            } else {
+                issueEl.textContent = '第xxx期';
+            }
+        }
+        
+        // 更新切换按钮状态
+        updateSwitchButtons();
+        
+        if (!appState.lotteryNumbers || appState.lotteryNumbers.length < 7 || appState.lotteryNumbers[0] === 0) {
+            container.innerHTML = '<div class="lottery-empty">请先设置开奖号码</div>';
+            return;
+        }
+        
+        // 检查是否是直播模式（只有直播刷新时才有动画）
+        const isLive = window.isLiveAnimationEnabled || false;
+        
+        let html = '';
+        for (let i = 0; i < 6; i++) {
+            const num = appState.lotteryNumbers[i];
+            const color = getNumberColor(num);
+            const shengxiao = getNumberShengxiao(num);
+            const wuxing = getNumberWuxing(num);
+            
+            if (isLive) {
+                const delay = i * 0.15;
+                html += `
+                    <div class="ball-wrapper">
+                        <div class="ball ${color}" style="--delay:${delay}s">${String(num).padStart(2, '0')}</div>
+                        <div class="ball-info">${shengxiao}/${wuxing}</div>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="ball-wrapper">
+                        <div class="ball ${color} no-anim">${String(num).padStart(2, '0')}</div>
+                        <div class="ball-info">${shengxiao}/${wuxing}</div>
+                    </div>
+                `;
+            }
+        }
+        
+        html += '<span class="ball-plus">+</span>';
+        
+        // 特码
+        const special = appState.lotteryNumbers[6];
+        const specialColor = getNumberColor(special);
+        const specialShengxiao = getNumberShengxiao(special);
+        const specialWuxing = getNumberWuxing(special);
+        
+        if (isLive) {
+            const specialDelay = 6 * 0.15 + 0.2;
+            html += `
+                <div class="ball-wrapper">
+                    <div class="ball ${specialColor}" style="--delay:${specialDelay}s">${String(special).padStart(2, '0')}</div>
+                    <div class="ball-info">${specialShengxiao}/${specialWuxing}</div>
+                </div>
+            `;
+        } else {
+            html += `
+                <div class="ball-wrapper">
+                    <div class="ball ${specialColor} no-anim">${String(special).padStart(2, '0')}</div>
+                    <div class="ball-info">${specialShengxiao}/${specialWuxing}</div>
+                </div>
+            `;
+        }
+        
+        container.innerHTML = html;
+        
+        // 重置直播动画标志
+        window.isLiveAnimationEnabled = false;
+    }
+    
+    // 切换彩种
+    function switchLotteryType(type) {
+        appState.currentLotteryType = type;
+        
+        // 加载对应彩种的数据
+        const data = appState.lotteryData[type];
+        if (data && data.numbers && data.numbers.length === 7) {
+            appState.lotteryNumbers = data.numbers;
+        } else {
+            appState.lotteryNumbers = [];
+        }
+        
+        // 保存并刷新显示
+        saveConfig();
+        renderLotteryBalls();
+    }
+    
+    // ==================== 历史记录功能 ====================
+    
+    let currentHistoryType = 'xam';  // 当前历史记录显示的彩种
+    
+    // 切换历史记录彩种
+    function switchHistoryType(type) {
+        currentHistoryType = type;
+        
+        // 更新按钮样式
+        const btnXam = document.getElementById('history-btn-xam');
+        const btnHk = document.getElementById('history-btn-hk');
+        
+        if (btnXam && btnHk) {
+            if (type === 'xam') {
+                btnXam.style.background = 'rgba(233,69,96,0.2)';
+                btnHk.style.background = 'transparent';
+            } else {
+                btnHk.style.background = 'rgba(76,175,80,0.2)';
+                btnXam.style.background = 'transparent';
+            }
+        }
+        
+        renderHistoryList();
+    }
+    
+    // 渲染历史记录列表
+    function renderHistoryList() {
+        const container = document.getElementById('history-list');
+        if (!container) return;
+        
+        // 确保历史记录结构存在
+        if (!appState.lotteryHistory) {
+            appState.lotteryHistory = { xam: [], hk: [] };
+        }
+        
+        const history = appState.lotteryHistory[currentHistoryType] || [];
+        
+        if (history.length === 0) {
+            container.innerHTML = '<div style="text-align:center;color:#666;font-size:12px;padding:20px;">暂无历史记录，请点击"获取记录"按钮</div>';
+            return;
+        }
+        
+        let html = '';
+        history.forEach((item, index) => {
+            const numbersStr = item.numbers.slice(0, 6).map(n => String(n).padStart(2, '0')).join(' ') + 
+                              ' + ' + String(item.numbers[6]).padStart(2, '0');
+            const isFirst = index === 0;
+            
+            // 计算日期：从期号推算（假设每天一期，从最新一期的日期往前推）
+            let dateStr = '';
+            if (item.time) {
+                // 如果有时间信息，直接使用
+                const match = item.time.match(/(\d{4}-\d{2}-\d{2})/);
+                if (match) {
+                    dateStr = match[1].substring(5); // 取 MM-DD
+                }
+            } else if (isFirst && appState.lotteryData[currentHistoryType]?.time) {
+                // 最新一期使用当前数据的时间
+                const match = appState.lotteryData[currentHistoryType].time.match(/(\d{4}-\d{2}-\d{2})/);
+                if (match) {
+                    dateStr = match[1].substring(5);
+                }
+            }
+            
+            html += `
+                <div onclick="selectHistoryItem('${currentHistoryType}', ${index})" 
+                     style="display:flex;justify-content:space-between;align-items:center;padding:8px;margin-bottom:4px;background:${isFirst ? 'rgba(233,69,96,0.15)' : 'rgba(255,255,255,0.05)'};border-radius:6px;cursor:pointer;border:1px solid ${isFirst ? 'rgba(233,69,96,0.3)' : 'transparent'};">
+                    <div style="flex:1;">
+                        <div style="font-size:11px;color:#888;margin-bottom:2px;">
+                            第${item.issue}期
+                            ${dateStr ? '<span style="color:#4CAF50;margin-left:6px;">' + dateStr + '</span>' : ''}
+                            ${isFirst ? '<span style="color:#e94560;font-weight:bold;margin-left:6px;">最新</span>' : ''}
+                        </div>
+                        <div style="font-size:13px;color:#fff;font-family:monospace;">${numbersStr}</div>
+                    </div>
+                    <button onclick="event.stopPropagation();selectHistoryItem('${currentHistoryType}', ${index})" 
+                            style="padding:4px 10px;background:linear-gradient(90deg,#3498db,#2980b9);color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">选用</button>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    // 选择历史记录
+    function selectHistoryItem(type, index) {
+        if (!appState.lotteryHistory || !appState.lotteryHistory[type]) return;
+        
+        const item = appState.lotteryHistory[type][index];
+        if (!item || !item.numbers) return;
+        
+        // 设置为当前数据
+        appState.lotteryNumbers = item.numbers.slice();
+        appState.currentLotteryType = type;
+        appState.lotteryData[type] = {
+            numbers: item.numbers.slice(),
+            issue: item.issue,
+            time: item.time,
+            source: item.source
+        };
+        
+        // 填入输入框
+        for (let i = 0; i < 6; i++) {
+            const input = document.getElementById('num' + (i + 1));
+            if (input) {
+                input.value = String(item.numbers[i]).padStart(2, '0');
+                updateInputColor(input, item.numbers[i], false);
+            }
+        }
+        const specialInput = document.getElementById('num-special');
+        if (specialInput) {
+            specialInput.value = String(item.numbers[6]).padStart(2, '0');
+            updateInputColor(specialInput, item.numbers[6], true);
+        }
+        
+        // 显示预览
+        showParsePreview(item.numbers.slice(0, 6), item.numbers[6]);
+        
+        saveConfig();
+        renderLotteryBalls();
+        
+        // 自动返回主页，显示简短提示
+        showPage('page-main');
+        
+        // 显示成功提示（不阻塞）
+        const toast = document.createElement('div');
+        toast.innerHTML = `✅ 已应用第${item.issue}期`;
+        toast.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.85);color:#4CAF50;padding:15px 25px;border-radius:10px;font-size:14px;z-index:9999;';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 1500);
+    }
+    
+    // 添加历史记录（获取新数据时调用）
+    function addToHistory(type, data) {
+        if (!data || !data.numbers || data.numbers.length < 7) return;
+        
+        // 确保历史记录结构存在
+        if (!appState.lotteryHistory) {
+            appState.lotteryHistory = { xam: [], hk: [] };
+        }
+        if (!appState.lotteryHistory[type]) {
+            appState.lotteryHistory[type] = [];
+        }
+        
+        const history = appState.lotteryHistory[type];
+        
+        // 检查是否已存在相同期号
+        const existingIndex = history.findIndex(h => h.issue === data.issue);
+        if (existingIndex !== -1) {
+            // 已存在，更新数据
+            history[existingIndex] = {
+                numbers: data.numbers.slice(),
+                issue: data.issue,
+                time: data.time,
+                source: data.source
+            };
+        } else {
+            // 不存在，添加到最前面
+            history.unshift({
+                numbers: data.numbers.slice(),
+                issue: data.issue,
+                time: data.time,
+                source: data.source
+            });
+            
+            // 保持最多10期
+            if (history.length > 10) {
+                history.pop();
+            }
+        }
+        
+        saveConfig();
+    }
+    
+    // 批量添加历史记录（从API的history字段解析）
+    function addHistoryFromAPI(type, historyArray, latestOpenTime) {
+        if (!historyArray || !Array.isArray(historyArray)) return;
+        
+        // 确保历史记录结构存在
+        if (!appState.lotteryHistory) {
+            appState.lotteryHistory = { xam: [], hk: [] };
+        }
+        if (!appState.lotteryHistory[type]) {
+            appState.lotteryHistory[type] = [];
+        }
+        
+        // 解析最新的开奖日期
+        let latestDate = null;
+        if (latestOpenTime) {
+            const match = latestOpenTime.match(/(\d{4})-(\d{2})-(\d{2})/);
+            if (match) {
+                latestDate = new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
+            }
+        }
+        
+        // 解析历史记录格式: "2025129 期：49,19,28,10,17,45,01"
+        const parsedHistory = [];
+        for (let i = 0; i < Math.min(historyArray.length, 10); i++) {
+            const item = historyArray[i];
+            // 匹配格式: "期号 期：号码"
+            const match = item.match(/(\d+)\s*期[：:]\s*([\d,]+)/);
+            if (match) {
+                const issue = match[1];
+                const numbers = match[2].split(',').map(n => parseInt(n.trim()));
+                if (numbers.length === 7) {
+                    let dateStr = '';
+                    
+                    if (type === 'xam') {
+                        // 新澳门：每天一期，可以推算日期
+                        if (latestDate) {
+                            const date = new Date(latestDate);
+                            date.setDate(date.getDate() - i);
+                            dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                        }
+                    } else if (type === 'hk' && i === 0 && latestOpenTime) {
+                        // 香港：每周二、四、六开奖，只有最新一期显示日期
+                        dateStr = latestOpenTime;
+                    }
+                    // 香港历史记录不显示日期（因为每周3期，无法简单推算）
+                    
+                    parsedHistory.push({
+                        numbers: numbers,
+                        issue: issue,
+                        time: dateStr,
+                        source: 'Marksix6历史'
+                    });
+                }
+            }
+        }
+        
+        // 替换历史记录
+        appState.lotteryHistory[type] = parsedHistory;
+        saveConfig();
+    }
+    
+    // 获取历史开奖记录
+    async function fetchHistoryData() {
+        const api = LOTTERY_APIS.marksix6;
+        
+        // 显示加载提示
+        const historyList = document.getElementById('history-list');
+        if (historyList) {
+            historyList.innerHTML = '<div style="text-align:center;color:#9b59b6;font-size:12px;padding:20px;">🔄 正在获取历史记录...</div>';
+        }
+        
+        try {
+            // 使用 fetchWithProxy 解决CORS问题
+            const data = await fetchWithProxy(api.url);
+            
+            if (!data.lottery_data) {
+                throw new Error('数据格式错误');
+            }
+            
+            // 解析新澳门历史
+            const xamLottery = data.lottery_data.find(l => l.name === '新澳门彩');
+            if (xamLottery && xamLottery.history) {
+                addHistoryFromAPI('xam', xamLottery.history, xamLottery.openTime);
+            }
+            
+            // 解析香港历史
+            const hkLottery = data.lottery_data.find(l => l.name === '香港彩');
+            if (hkLottery && hkLottery.history) {
+                addHistoryFromAPI('hk', hkLottery.history, hkLottery.openTime);
+            }
+            
+            // 刷新显示
+            renderHistoryList();
+            
+            // 显示成功提示
+            const toast = document.createElement('div');
+            toast.innerHTML = '✅ 历史记录获取成功';
+            toast.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);color:#4CAF50;padding:15px 25px;border-radius:10px;font-size:14px;z-index:9999;';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 1500);
+            
+        } catch (e) {
+            console.error('获取历史记录失败:', e);
+            if (historyList) {
+                historyList.innerHTML = '<div style="text-align:center;color:#e94560;font-size:12px;padding:20px;">❌ 获取失败，请重试</div>';
+            }
+        }
+    }
+    
+    // 复制开奖结果
+    function copyLotteryResult() {
+        const currentData = appState.lotteryData[appState.currentLotteryType];
+        if (!currentData || !currentData.numbers || currentData.numbers.length < 7) {
+            alert('暂无开奖结果可复制');
+            return;
+        }
+        
+        // 简化名称：新奥、香六
+        const typeNames = { xam: '新奥', hk: '香六', am: '澳门' };
+        const typeName = typeNames[appState.currentLotteryType] || '六合';
+        const numbers = currentData.numbers;
+        
+        // 号码格式：两两分组，特码前用"特"
+        // 格式：31 26  44 21  22 34 特 16
+        const n = numbers.map(num => String(num).padStart(2, '0'));
+        const numbersStr = `${n[0]} ${n[1]}  ${n[2]} ${n[3]}  ${n[4]} ${n[5]} 特 ${n[6]}`;
+        
+        // 生肖格式：与号码对齐
+        // 格式：猪  龙  狗  鸡  猴  猴      虎
+        const sx = numbers.map(num => getNumberShengxiao(num));
+        const shengxiaoStr = `${sx[0]}  ${sx[1]}  ${sx[2]}  ${sx[3]}  ${sx[4]}  ${sx[5]}      ${sx[6]}`;
+        
+        // 颜色格式：与号码对齐
+        // 格式：蓝  蓝  绿  绿  绿  红      绿
+        const colorMap = { red: '红', blue: '蓝', green: '绿' };
+        const colors = numbers.map(num => colorMap[getNumberColor(num)] || '?');
+        const colorStr = `${colors[0]}  ${colors[1]}  ${colors[2]}  ${colors[3]}  ${colors[4]}  ${colors[5]}      ${colors[6]}`;
+        
+        // 时间格式（只保留日期部分）
+        let dateStr = '未知';
+        if (currentData.time) {
+            const match = currentData.time.match(/(\d{4}-\d{2}-\d{2})/);
+            if (match) {
+                dateStr = match[1];
+            }
+        }
+        
+        const text = `【${typeName}】第${currentData.issue}期\n号码：${numbersStr}\n生肖：${shengxiaoStr}\n颜色：${colorStr}\n时间：${dateStr}`;
+        
+        // 复制到剪贴板
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                showCopySuccess();
+            }).catch(() => {
+                fallbackCopy(text);
+            });
+        } else {
+            fallbackCopy(text);
+        }
+    }
+    
+    function fallbackCopy(text) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            showCopySuccess();
+        } catch (e) {
+            alert('复制失败，请手动复制');
+        }
+        document.body.removeChild(textarea);
+    }
+    
+    function showCopySuccess() {
+        // 显示复制成功提示（2秒后自动关闭）
+        const toast = document.createElement('div');
+        toast.innerHTML = '✅ 已复制开奖结果';
+        toast.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.85);color:#4CAF50;padding:15px 25px;border-radius:10px;font-size:14px;z-index:9999;';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2000);  // 2秒后自动关闭
+    }
+    
+    // 更新切换按钮状态
+    function updateSwitchButtons() {
+        const btnXam = document.getElementById('btn-xam');
+        const btnHk = document.getElementById('btn-hk');
+        
+        if (btnXam && btnHk) {
+            if (appState.currentLotteryType === 'xam') {
+                btnXam.style.background = '#e94560';
+                btnXam.style.color = '#fff';
+                btnHk.style.background = 'transparent';
+                btnHk.style.color = '#4CAF50';
+            } else {
+                btnHk.style.background = '#4CAF50';
+                btnHk.style.color = '#fff';
+                btnXam.style.background = 'transparent';
+                btnXam.style.color = '#e94560';
+            }
+        }
+    }
+    
+    function getNumberColor(num) {
+        if (LHC_DATA.bose['红波'].includes(num)) return 'red';
+        if (LHC_DATA.bose['蓝波'].includes(num)) return 'blue';
+        if (LHC_DATA.bose['绿波'].includes(num)) return 'green';
+        return 'blue';
+    }
+    
+    function getNumberShengxiao(num) {
+        for (let [sx, nums] of Object.entries(LHC_DATA.shengxiao)) {
+            if (nums.includes(num)) return sx;
+        }
+        return '';
+    }
+    
+    function getNumberWuxing(num) {
+        for (let [wx, nums] of Object.entries(LHC_DATA.wuxing)) {
+            if (nums.includes(num)) return wx;
+        }
+        return '';
+    }
+    
+    // ==================== 赔率设置 ====================
+    function saveOdds() {
+        // 保存所有赔率输入框的值
+        saveOddsToStorage();
+        
+        showPage('page-main');
+        alert('赔率设置已保存！');
+    }
+    
+    // ==================== 激活功能 ====================
+    function checkLicense() {
+        const statusEl = document.getElementById('license-status');
+        
+        // 检查试用期
+        let installTime = localStorage.getItem('lhc_install_time');
+        if (!installTime) {
+            installTime = Date.now().toString();
+            localStorage.setItem('lhc_install_time', installTime);
+        }
+        
+        const elapsed = Date.now() - parseInt(installTime);
+        const daysLeft = Math.max(0, 7 - Math.floor(elapsed / (24 * 60 * 60 * 1000)));
+        appState.trialDaysLeft = daysLeft;
+        
+        // 检查激活状态
+        const licenseData = localStorage.getItem('lhc_license');
+        if (licenseData) {
+            const data = JSON.parse(licenseData);
+            if (data.activated) {
+                appState.isActivated = true;
+                statusEl.textContent = '已激活 ✓';
+                statusEl.className = 'status-value active';
+                return;
+            }
+        }
+        
+        if (daysLeft > 0) {
+            statusEl.textContent = `试用期剩余 ${daysLeft} 天`;
+            statusEl.className = 'status-value trial';
+        } else {
+            statusEl.textContent = '试用期已过，请激活';
+            statusEl.className = 'status-value expired';
+        }
+    }
+    
+    function copyMachineCode() {
+        navigator.clipboard.writeText(appState.machineCode).then(() => {
+            alert('机器码已复制！');
+        }).catch(() => {
+            const input = document.createElement('input');
+            input.value = appState.machineCode;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+            alert('机器码已复制！');
+        });
+    }
+    
+    function activateLicense() {
+        const code = document.getElementById('license-input').value.trim().toUpperCase();
+        if (!code) {
+            alert('请输入激活码');
+            return;
+        }
+        
+        // 这里实现激活验证逻辑
+        // 简单示例：验证激活码格式
+        if (code.length >= 16) {
+            localStorage.setItem('lhc_license', JSON.stringify({
+                activated: true,
+                code: code,
+                time: Date.now()
+            }));
+            appState.isActivated = true;
+            checkLicense();
+            alert('激活成功！');
+        } else {
+            alert('激活码无效，请检查后重试');
+        }
+    }
+    
+    // ==================== 参照表渲染 ====================
+    function renderReferenceTables() {
+        // 生肖表
+        let sxHtml = '<tr><th>生肖</th><th>对应号码</th></tr>';
+        for (let [sx, nums] of Object.entries(LHC_DATA.shengxiao)) {
+            const numsStr = nums.map(n => {
+                const color = getNumberColor(n);
+                return `<span class="num-${color}">${String(n).padStart(2, '0')}</span>`;
+            }).join(' ');
+            sxHtml += `<tr><td>${sx}</td><td>${numsStr}</td></tr>`;
+        }
+        document.getElementById('ref-shengxiao').innerHTML = sxHtml;
+        
+        // 五行表
+        let wxHtml = '<tr><th>五行</th><th>对应号码</th></tr>';
+        for (let [wx, nums] of Object.entries(LHC_DATA.wuxing)) {
+            const numsStr = nums.map(n => {
+                const color = getNumberColor(n);
+                return `<span class="num-${color}">${String(n).padStart(2, '0')}</span>`;
+            }).join(' ');
+            wxHtml += `<tr><td>${wx}</td><td>${numsStr}</td></tr>`;
+        }
+        document.getElementById('ref-wuxing').innerHTML = wxHtml;
+        
+        // 波色表
+        let bsHtml = '<tr><th>波色</th><th>对应号码</th></tr>';
+        for (let [bs, nums] of Object.entries(LHC_DATA.bose)) {
+            const colorClass = bs === '红波' ? 'red' : bs === '蓝波' ? 'blue' : 'green';
+            const numsStr = nums.map(n => `<span class="num-${colorClass}">${String(n).padStart(2, '0')}</span>`).join(' ');
+            bsHtml += `<tr><td>${bs}</td><td>${numsStr}</td></tr>`;
+        }
+        document.getElementById('ref-bose').innerHTML = bsHtml;
+        
+        // 家禽野兽表
+        let jqHtml = '<tr><th>类型</th><th>生肖</th></tr>';
+        for (let [type, sxList] of Object.entries(LHC_DATA.jiaqin)) {
+            jqHtml += `<tr><td>${type}</td><td>${sxList.join(' ')}</td></tr>`;
+        }
+        document.getElementById('ref-jiaqin').innerHTML = jqHtml;
+    }
+    
+    // ╔════════════════════════════════════════════════════════════════╗
+    // ║                    【模块1】格式解析模块                        ║
+    // ║  文件分离时提取到: js/parser.js                                 ║
+    // ║  功能: 解析用户输入的下注文本，识别玩法和金额                    ║
+    // ╚════════════════════════════════════════════════════════════════╝
+    
+    // 存储解析后的下注数据
+    let parsedBets = [];
+    let calcResults = [];
+    
+    // 解析下注信息（入口函数）
+    function parseBetInput(input) {
+        const bets = [];
+        const lines = input.split('\n').filter(line => line.trim());
+        
+        for (const line of lines) {
+            const parsed = parseBetLine(line.trim());
+            if (parsed) {
+                bets.push(...parsed);
+            }
+        }
+        return bets;
+    }
+    
+    // 解析单行下注
+    function parseBetLine(line) {
+        const bets = [];
+        
+        // 转换中文数字
+        line = convertChineseNumber(line);
+        
+        // 模式1: "31.34各20" 或 "31 34各20" 或 "31,34各20"
+        const multiMatch = line.match(/^(\d+[\s.,，]+\d+(?:[\s.,，]+\d+)*)各(\d+)$/);
+        if (multiMatch) {
+            const nums = multiMatch[1].split(/[\s.,，]+/).map(n => parseInt(n));
+            const amount = parseInt(multiMatch[2]);
+            for (const num of nums) {
+                bets.push({ type: '特码', number: num, amount: amount, raw: line });
+            }
+            return bets;
+        }
+        
+        // 模式2: "特码 05 100" 或 "特码05 100"
+        const temaMatch = line.match(/特码?\s*(\d+)\s+(\d+)/);
+        if (temaMatch) {
+            bets.push({ type: '特码', number: parseInt(temaMatch[1]), amount: parseInt(temaMatch[2]), raw: line });
+            return bets;
+        }
+        
+        // 模式3: "生肖 龙 200" 或 "龙 200"
+        const shengxiaoList = ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'];
+        for (const sx of shengxiaoList) {
+            const sxMatch = line.match(new RegExp(`(?:生肖)?\\s*${sx}\\s+(\\d+)`));
+            if (sxMatch) {
+                bets.push({ type: '生肖', value: sx, amount: parseInt(sxMatch[1]), raw: line });
+                return bets;
+            }
+        }
+        
+        // 模式4: "红波 50" 或 "红 50"
+        const boseMatch = line.match(/(红|蓝|绿)波?\s*(\d+)/);
+        if (boseMatch) {
+            bets.push({ type: '波色', value: boseMatch[1] + '波', amount: parseInt(boseMatch[2]), raw: line });
+            return bets;
+        }
+        
+        // 模式5: "大 100" 或 "小 100" 或 "单 100" 或 "双 100"
+        const dxdsMatch = line.match(/^(大|小|单|双)\s*(\d+)$/);
+        if (dxdsMatch) {
+            bets.push({ type: '两面', value: dxdsMatch[1], amount: parseInt(dxdsMatch[2]), raw: line });
+            return bets;
+        }
+        
+        return null;
+    }
+    
+    // 转换中文数字
+    function convertChineseNumber(str) {
+        const cnNums = {'零':0,'一':1,'二':2,'两':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10,
+                        '二十':20,'三十':30,'四十':40,'五十':50,'六十':60,'七十':70,'八十':80,'九十':90,'百':100};
+        
+        for (const [cn, num] of Object.entries(cnNums)) {
+            str = str.replace(new RegExp(cn, 'g'), num);
+        }
+        return str;
+    }
+    
+    // ╔════════════════════════════════════════════════════════════════╗
+    // ║                    【模块2】计算逻辑模块                        ║
+    // ║  文件分离时提取到: js/calculator.js                             ║
+    // ║  功能: 根据开奖号码和下注信息计算中奖结果                        ║
+    // ╚════════════════════════════════════════════════════════════════╝
+    
+    // 计算单注结果
+    function calculateSingleBet(bet, lotteryNumbers) {
+        const tema = lotteryNumbers[6]; // 特码
+        const pingma = lotteryNumbers.slice(0, 6); // 平码
+        const allNumbers = lotteryNumbers; // 所有号码
+        
+        let isWin = false;
+        let odds = 1;
+        let winAmount = 0;
+        let detail = '';
+        
+        // 获取赔率
+        const savedOdds = JSON.parse(localStorage.getItem('lhc_odds') || '{}');
+        
+        if (bet.type === '特码') {
+            odds = parseFloat(savedOdds['odds-tema']) || 43;
+            isWin = bet.number === tema;
+            detail = `特码 ${String(bet.number).padStart(2,'0')} vs 开奖特码 ${String(tema).padStart(2,'0')}`;
+        } else if (bet.type === '生肖') {
+            odds = parseFloat(savedOdds['odds-shengxiao']) || 12;
+            const sxNums = LHC_DATA.shengxiao[bet.value] || [];
+            isWin = sxNums.includes(tema);
+            detail = `生肖 ${bet.value} (${sxNums.join(',')}) vs 特码 ${tema}`;
+        } else if (bet.type === '波色') {
+            const colorKey = bet.value === '红波' ? 'odds-red' : bet.value === '蓝波' ? 'odds-blue' : 'odds-green';
+            odds = parseFloat(savedOdds[colorKey]) || 2.8;
+            const boseNums = LHC_DATA.bose[bet.value] || [];
+            isWin = boseNums.includes(tema);
+            detail = `${bet.value} vs 特码 ${tema}`;
+        } else if (bet.type === '两面') {
+            odds = 2;
+            if (bet.value === '大') isWin = tema >= 25 && tema <= 49;
+            else if (bet.value === '小') isWin = tema >= 1 && tema <= 24;
+            else if (bet.value === '单') isWin = tema % 2 === 1;
+            else if (bet.value === '双') isWin = tema % 2 === 0;
+            detail = `${bet.value} vs 特码 ${tema}`;
+        }
+        
+        if (isWin) {
+            winAmount = bet.amount * odds;
+        }
+        
+        return {
+            ...bet,
+            isWin,
+            odds,
+            winAmount,
+            detail,
+            netResult: isWin ? -(winAmount - bet.amount) : bet.amount
+        };
+    }
+    
+    function calculateBets() {
+        const input = document.getElementById('bet-input').value.trim();
+        if (!input) {
+            alert('请先粘贴下注信息');
+            return;
+        }
+        
+        if (!appState.lotteryNumbers || appState.lotteryNumbers.length < 7 || appState.lotteryNumbers[0] === 0) {
+            alert('请先设置开奖号码！');
+            return;
+        }
+        
+        // 解析下注
+        parsedBets = parseBetInput(input);
+        
+        if (parsedBets.length === 0) {
+            alert('未识别到有效的下注信息，请检查格式');
+            return;
+        }
+        
+        // 计算每注结果
+        calcResults = parsedBets.map(bet => calculateSingleBet(bet, appState.lotteryNumbers));
+        
+        // 汇总
+        const totalBet = calcResults.reduce((sum, r) => sum + r.amount, 0);
+        const totalWin = calcResults.filter(r => r.isWin).length;
+        const netResult = calcResults.reduce((sum, r) => sum + r.netResult, 0);
+        
+        // 生成结果文本
+        let resultText = `📊 计算结果\n`;
+        resultText += `━━━━━━━━━━━━━━━━━━\n`;
+        resultText += `总下注：${totalBet}元 | 中奖：${totalWin}注\n`;
+        resultText += `结算：${netResult >= 0 ? '+' : ''}${netResult}元\n`;
+        resultText += `━━━━━━━━━━━━━━━━━━\n\n`;
+        
+        for (const r of calcResults) {
+            const status = r.isWin ? '🎯中' : '✗';
+            const resultStr = r.netResult >= 0 ? `+${r.netResult}` : `${r.netResult}`;
+            resultText += `${status} ${r.type}${r.number || r.value || ''} 下注${r.amount} → ${resultStr}\n`;
+        }
+        
+        document.getElementById('result-content').textContent = resultText;
+        document.getElementById('result-section').classList.add('show');
+    }
+    
+    // 显示核对详情
+    function showCheckDetail() {
+        if (calcResults.length === 0) {
+            alert('请先点击"开始计算"');
+            return;
+        }
+        
+        // 汇总数据
+        const totalBet = calcResults.reduce((sum, r) => sum + r.amount, 0);
+        const totalWin = calcResults.filter(r => r.isWin).length;
+        const netResult = calcResults.reduce((sum, r) => sum + r.netResult, 0);
+        
+        document.getElementById('check-total-bet').textContent = totalBet + '元';
+        document.getElementById('check-win-count').textContent = totalWin + '/' + calcResults.length;
+        
+        const resultEl = document.getElementById('check-result');
+        resultEl.textContent = (netResult >= 0 ? '+' : '') + netResult + '元';
+        resultEl.className = 'check-summary-value ' + (netResult >= 0 ? 'lose' : 'win');
+        
+        // 生成详情列表
+        const listEl = document.getElementById('check-detail-list');
+        listEl.innerHTML = calcResults.map(r => {
+            const statusClass = r.isWin ? 'win' : 'lose';
+            const badge = r.isWin ? '🎯 中奖' : '未中';
+            const badgeClass = r.isWin ? '' : 'miss';
+            const resultClass = r.netResult >= 0 ? 'lose' : 'win';
+            const resultText = (r.netResult >= 0 ? '+' : '') + r.netResult;
+            
+            return `
+                <div class="check-detail-item ${statusClass}">
+                    <div class="check-detail-header">
+                        <span class="check-detail-type">${r.type} ${r.number ? String(r.number).padStart(2,'0') : (r.value || '')}</span>
+                        <span class="check-detail-badge ${badgeClass}">${badge}</span>
+                    </div>
+                    <div class="check-detail-info">下注金额：${r.amount}元</div>
+                    <div class="check-detail-calc">${r.detail}</div>
+                    ${r.isWin ? `<div class="check-detail-calc">中奖：${r.amount} × ${r.odds} = ${r.winAmount}</div>` : ''}
+                    <div class="check-detail-result ${resultClass}">${resultText}元</div>
+                </div>
+            `;
+        }).join('');
+        
+        showPage('page-check');
+    }
+    
+    function clearInput() {
+        document.getElementById('bet-input').value = '';
+        document.getElementById('result-section').classList.remove('show');
+        parsedBets = [];
+        calcResults = [];
+    }
+    
+    // ==================== 自定义格式设置 ====================
+    function saveFormatSettings() {
+        const settings = {
+            xAmount: document.getElementById('format-x-amount').checked,
+            geEach: document.getElementById('format-ge-each').checked,
+            maiPrefix: document.getElementById('format-mai-prefix').checked,
+            cnNumber: document.getElementById('format-cn-number').checked,
+            ignoreSpace: document.getElementById('format-ignore-space').checked,
+            customKeywords: document.getElementById('custom-keywords').value
+        };
+        localStorage.setItem('lhc_format_settings', JSON.stringify(settings));
+        alert('✅ 格式设置已保存！');
+    }
+    
+    function loadFormatSettings() {
+        const saved = localStorage.getItem('lhc_format_settings');
+        if (saved) {
+            const settings = JSON.parse(saved);
+            if (document.getElementById('format-x-amount')) {
+                document.getElementById('format-x-amount').checked = settings.xAmount !== false;
+                document.getElementById('format-ge-each').checked = settings.geEach !== false;
+                document.getElementById('format-mai-prefix').checked = settings.maiPrefix !== false;
+                document.getElementById('format-cn-number').checked = settings.cnNumber !== false;
+                document.getElementById('format-ignore-space').checked = settings.ignoreSpace !== false;
+                document.getElementById('custom-keywords').value = settings.customKeywords || '';
+            }
+        }
+    }
+    
+    // ==================== 参数设置 ====================
+    function saveParamSettings() {
+        const settings = {
+            omitYuan: document.getElementById('param-omit-yuan').checked,
+            omitMa: document.getElementById('param-omit-ma').checked,
+            autoCorrect: document.getElementById('param-auto-correct').checked,
+            fuzzyShengxiao: document.getElementById('param-fuzzy-shengxiao').checked,
+            defaultUnit: document.getElementById('param-default-unit').value,
+            customRules: document.getElementById('custom-calc-rules').value
+        };
+        localStorage.setItem('lhc_param_settings', JSON.stringify(settings));
+        alert('✅ 参数设置已保存！');
+    }
+    
+    function loadParamSettings() {
+        const saved = localStorage.getItem('lhc_param_settings');
+        if (saved) {
+            const settings = JSON.parse(saved);
+            if (document.getElementById('param-omit-yuan')) {
+                document.getElementById('param-omit-yuan').checked = settings.omitYuan !== false;
+                document.getElementById('param-omit-ma').checked = settings.omitMa !== false;
+                document.getElementById('param-auto-correct').checked = settings.autoCorrect !== false;
+                document.getElementById('param-fuzzy-shengxiao').checked = settings.fuzzyShengxiao !== false;
+                document.getElementById('param-default-unit').value = settings.defaultUnit || '1';
+                document.getElementById('custom-calc-rules').value = settings.customRules || '';
+            }
+        }
+    }
+    
+    function copyResult() {
+        const result = document.getElementById('result-content').textContent;
+        copyToClipboard(result);
+    }
+    
+    // 兼容iOS的复制函数
+    function copyToClipboard(text) {
+        // 方法1: 现代API
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                showAutoCloseToast('✅ 结果已复制！');
+            }).catch(() => {
+                fallbackCopy(text);
+            });
+        } else {
+            fallbackCopy(text);
+        }
+    }
+    
+    // 备用复制方法（兼容iOS）
+    function fallbackCopy(text) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:200px;z-index:9999;font-size:16px;';
+        document.body.appendChild(textarea);
+        
+        // iOS特殊处理
+        const range = document.createRange();
+        range.selectNodeContents(textarea);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        textarea.setSelectionRange(0, text.length);
+        
+        try {
+            document.execCommand('copy');
+            showAutoCloseToast('✅ 结果已复制！');
+        } catch (e) {
+            showAutoCloseToast('❌ 复制失败，请手动复制', 3000);
+        }
+        
+        document.body.removeChild(textarea);
+    }
+    
+    // 自动关闭的提示（约2秒）
+    function showAutoCloseToast(msg, duration = 2000) {
+        const toast = document.createElement('div');
+        toast.innerHTML = msg;
+        toast.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.85);color:#4CAF50;padding:15px 25px;border-radius:10px;font-size:14px;z-index:9999;';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), duration);
+    }
+    
+    // ╔════════════════════════════════════════════════════════════════╗
+    // ║                    【模块3】赔率设置模块                        ║
+    // ║  文件分离时提取到: js/odds.js                                   ║
+    // ║  功能: 赔率的读取、保存、导入导出                               ║
+    // ╚════════════════════════════════════════════════════════════════╝
+    
+    // 生成导出数据
+    function getExportData() {
+        const allOdds = collectAllOdds();
+        return {
+            version: '1.0',
+            type: 'odds_only',
+            exportTime: new Date().toLocaleString('zh-CN'),
+            odds: allOdds
+        };
+    }
+    
+    // 生成文件名
+    function getExportFileName() {
+        const date = new Date();
+        const dateStr = `${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2,'0')}${date.getDate().toString().padStart(2,'0')}`;
+        return `赔率配置_${dateStr}.txt`;
+    }
+    
+    // 显示导出选项
+    function showExportOptions() {
+        document.getElementById('export-modal').classList.add('show');
+    }
+    
+    function hideExportModal() {
+        document.getElementById('export-modal').classList.remove('show');
+    }
+    
+    // 复制配置文本
+    function exportCopy() {
+        hideExportModal();
+        const jsonStr = JSON.stringify(getExportData());
+        copyToClipboard(jsonStr);
+    }
+    
+    // 方式3：下载文件
+    function exportDownload() {
+        hideExportModal();
+        const jsonStr = JSON.stringify(getExportData());
+        const fileName = getExportFileName();
+        downloadFile(fileName, jsonStr);
+    }
+    
+    // 下载文件函数
+    function downloadFile(fileName, content) {
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 100);
+        
+        // 提示下载位置
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isAndroid = /Android/.test(navigator.userAgent);
+        
+        let tip = '✅ 配置文件已下载！\n\n文件名：' + fileName;
+        
+        if (isIOS) {
+            tip += '\n\n📍 查找文件方法：\n';
+            tip += '1. 打开「文件」App（蓝色文件夹图标）\n';
+            tip += '2. 点击「浏览」\n';
+            tip += '3. 选择「下载项」或「iCloud云盘」';
+        } else if (isAndroid) {
+            tip += '\n\n📍 查找文件方法：\n';
+            tip += '1. 打开「文件管理」或「我的文件」\n';
+            tip += '2. 找到「下载」或「Download」文件夹';
+        } else {
+            tip += '\n\n📍 查找文件方法：\n';
+            tip += '按 Ctrl+J 打开浏览器下载记录';
+        }
+        
+        alert(tip);
+    }
+    
+    function showExportFallback(jsonStr) {
+        // 弹窗显示配置供手动复制
+        const textarea = document.createElement('textarea');
+        textarea.value = jsonStr;
+        textarea.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:80%;height:200px;z-index:9999;font-size:12px;';
+        document.body.appendChild(textarea);
+        textarea.select();
+        
+        alert('请手动复制下面的配置文本：');
+        
+        setTimeout(() => {
+            document.body.removeChild(textarea);
+        }, 30000);
+    }
+    
+    function showImportModal() {
+        document.getElementById('import-modal').classList.add('show');
+        document.getElementById('import-textarea').value = '';
+        document.getElementById('import-file').value = '';
+    }
+    
+    function hideImportModal() {
+        document.getElementById('import-modal').classList.remove('show');
+    }
+    
+    // 处理文件选择
+    function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const content = e.target.result;
+            document.getElementById('import-textarea').value = content;
+            // 自动导入
+            importConfig();
+        };
+        reader.onerror = function() {
+            alert('❌ 文件读取失败');
+        };
+        reader.readAsText(file);
+    }
+    
+    function importConfig() {
+        const jsonStr = document.getElementById('import-textarea').value.trim();
+        
+        if (!jsonStr) {
+            alert('❌ 请粘贴赔率配置数据！');
+            return;
+        }
+        
+        try {
+            const importData = JSON.parse(jsonStr);
+            
+            // 验证数据格式
+            if (!importData.version || !importData.odds) {
+                throw new Error('无效的配置格式');
+            }
+            
+            // 导入赔率设置
+            applyAllOdds(importData.odds);
+            
+            // 保存到本地存储
+            saveOddsToStorage();
+            
+            hideImportModal();
+            alert('✅ 赔率配置导入成功！\n\n导入时间：' + (importData.exportTime || '未知'));
+            
+        } catch (e) {
+            alert('❌ 导入失败：配置格式错误\n\n请确保粘贴的是完整的赔率配置数据。');
+        }
+    }
+    
+    // 收集所有赔率输入框的值
+    function collectAllOdds() {
+        const odds = {};
+        const inputs = document.querySelectorAll('.odds-item-input');
+        inputs.forEach(input => {
+            odds[input.id] = parseFloat(input.value) || 0;
+        });
+        return odds;
+    }
+    
+    // 应用所有赔率到输入框
+    function applyAllOdds(odds) {
+        for (const [id, value] of Object.entries(odds)) {
+            const input = document.getElementById(id);
+            if (input) {
+                input.value = value;
+            }
+        }
+    }
+    
+    // 保存赔率到本地存储
+    function saveOddsToStorage() {
+        const odds = collectAllOdds();
+        localStorage.setItem('lhc_odds', JSON.stringify(odds));
+    }
+    
+    // 加载赔率从本地存储
+    function loadOddsFromStorage() {
+        const saved = localStorage.getItem('lhc_odds');
+        if (saved) {
+            try {
+                const odds = JSON.parse(saved);
+                applyAllOdds(odds);
+            } catch(e) {}
+        }
+    }
+    
+    // ==================== 版本更新检测 ====================
+    const APP_VERSION = 'v1.0.1';  // 当前版本号，与 sw.js 保持一致
+    
+    // 注册 Service Worker 并检测更新
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').then(registration => {
+            console.log('✅ Service Worker 注册成功');
+            
+            // 检测更新
+            registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        // 有新版本可用，显示更新提示
+                        showUpdateNotification();
+                    }
+                });
+            });
+        }).catch(err => {
+            console.log('Service Worker 注册失败:', err);
+        });
+        
+        // 监听来自 Service Worker 的消息
+        navigator.serviceWorker.addEventListener('message', event => {
+            if (event.data && event.data.type === 'SW_UPDATED') {
+                console.log('📦 检测到新版本:', event.data.version);
+                showUpdateNotification();
+            }
+        });
+    }
+    
+    // 显示更新提示
+    function showUpdateNotification() {
+        // 如果已经显示过，不重复显示
+        if (document.getElementById('update-notification')) return;
+        
+        const notification = document.createElement('div');
+        notification.id = 'update-notification';
+        notification.innerHTML = `
+            <div style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+                background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+                color:white;padding:15px 20px;border-radius:12px;
+                box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:99999;
+                display:flex;align-items:center;gap:15px;max-width:90%;
+                animation:slideUp 0.3s ease-out;">
+                <div style="flex:1;">
+                    <div style="font-weight:bold;margin-bottom:3px;">🎉 发现新版本</div>
+                    <div style="font-size:12px;opacity:0.9;">点击刷新获取最新功能</div>
+                </div>
+                <button onclick="location.reload()" 
+                    style="background:white;color:#764ba2;border:none;
+                    padding:8px 16px;border-radius:6px;font-weight:bold;
+                    cursor:pointer;white-space:nowrap;">
+                    立即刷新
+                </button>
+                <button onclick="this.parentElement.parentElement.remove()" 
+                    style="background:transparent;color:white;border:none;
+                    font-size:18px;cursor:pointer;padding:0 5px;">
+                    ✕
+                </button>
+            </div>
+        `;
+        document.body.appendChild(notification);
+        
+        // 添加动画样式
+        if (!document.getElementById('update-animation-style')) {
+            const style = document.createElement('style');
+            style.id = 'update-animation-style';
+            style.textContent = `
+                @keyframes slideUp {
+                    from { transform: translateX(-50%) translateY(100px); opacity: 0; }
+                    to { transform: translateX(-50%) translateY(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+    
+    // 显示当前版本（可选，调试用）
+    console.log('📱 六叔火箭计算器 ' + APP_VERSION);
+    
+    // 初始化
+    init();
+    </script>
+</body>
+</html>
