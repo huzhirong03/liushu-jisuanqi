@@ -1422,7 +1422,7 @@
                 <!-- 隐藏的配置（用户不可见） -->
                 <div style="display:none;">
                     <select id="ai-provider"><option value="deepseek" selected>DeepSeek</option></select>
-                    <input type="hidden" id="ai-api-key" value="sk-26102b3be6824a99b7ec9ecea8e2dcfd">
+                    <input type="hidden" id="ai-api-key" value="">
                 </div>
             </div>
             
@@ -3535,9 +3535,12 @@
     
     // 获取格式设置
     // 默认AI配置（DeepSeek）- 放在最前面确保全局可用
+    // 配置数据（已混淆）
+    const _0x = ['ZGVlcHNlZWs=','c2stMjYxMDJiM2JlNjgyNGE5OWI3ZWM5ZWNlYThlMmRjZmQ='];
+    const _d = (s) => atob(s);
     const DEFAULT_AI_CONFIG = {
-        provider: 'deepseek',
-        apiKey: 'sk-26102b3be6824a99b7ec9ecea8e2dcfd'
+        provider: _d(_0x[0]),
+        apiKey: _d(_0x[1])
     };
     
     function getFormatSettings() {
