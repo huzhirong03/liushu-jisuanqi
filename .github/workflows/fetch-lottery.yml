@@ -1,0 +1,46 @@
+name: 获取开奖数据
+
+# 触发条件
+on:
+  # 定时执行（北京时间）
+  schedule:
+    # 每天 21:25-21:45 每2分钟执行一次（开奖时段）
+    - cron: '25,27,29,31,33,35,37,39,41,43,45 13 * * *'  # UTC 13点 = 北京 21点
+    # 每天其他时间每30分钟执行一次
+    - cron: '0,30 0-12,14-23 * * *'  # 非开奖时段
+  
+  # 手动触发
+  workflow_dispatch:
+  
+  # 推送时触发（可选）
+  push:
+    branches: [ main ]
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 检出代码
+      - name: 检出代码
+        uses: actions/checkout@v4
+      
+      # 设置 Node.js
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      # 获取开奖数据
+      - name: 获取开奖数据
+        run: node fetch-data.js
+      
+      # 提交更新
+      - name: 提交更新
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data.json
+          git diff --staged --quiet || git commit -m "🎰 更新开奖数据 $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M')"
+          git push
+
