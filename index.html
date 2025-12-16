@@ -4675,7 +4675,7 @@
     // ==================== AI智能解析模块 ====================
     
     // AI服务商配置
-    // region: 'cn' = 国内模型（走阿里云代理），'overseas' = 海外模型（走Cloudflare代理）
+    // region: 'cn' = 国内模型（走阿里云代理），'overseas' = 海外模型（走Cloudflare代理），'direct' = 直连（第三方中转API）
     const AI_PROVIDERS = {
         deepseek: {
             name: 'DeepSeek',
@@ -4686,11 +4686,11 @@
             apiKey: 'sk-12314485595043fca623f69ae12dbdd4'
         },
         google: {
-            name: 'Gemini(代理)',
+            name: 'Gemini(兔子API)',
             shortName: '谷歌',
             url: 'https://api.tu-zi.com/v1/chat/completions',
             model: 'gemini-2.5-flash',
-            region: 'cn',  // 第三方代理，国内可直接访问
+            region: 'direct',  // 兔子API第三方中转，国内直连无需代理
             apiKey: 'sk-9oGH0BIdnzPrB5y4sg1Xg6YW7XF4YFj2GUqtoxcA3WFzKVgc'
         },
         qwen: {
@@ -4737,12 +4737,23 @@
                 statusEl.style.background = 'rgba(244,67,54,0.1)';
                 statusEl.style.color = '#ef5350';
             } else {
-                const regionText = config.region === 'overseas' ? '海外Cloudflare代理' : '国内直连';
+                let regionText, bgColor, textColor;
+                if (config.region === 'overseas') {
+                    regionText = '海外Cloudflare代理';
+                    bgColor = 'rgba(255,152,0,0.1)';
+                    textColor = '#ffa726';
+                } else if (config.region === 'direct') {
+                    regionText = '第三方中转直连';
+                    bgColor = 'rgba(33,150,243,0.1)';
+                    textColor = '#64b5f6';
+                } else {
+                    regionText = '国内直连';
+                    bgColor = 'rgba(76,175,80,0.1)';
+                    textColor = '#81c784';
+                }
                 statusEl.innerHTML = '✅ 当前：' + config.name + '（' + regionText + '）';
-                statusEl.style.background = config.region === 'overseas' 
-                    ? 'rgba(255,152,0,0.1)' 
-                    : 'rgba(76,175,80,0.1)';
-                statusEl.style.color = config.region === 'overseas' ? '#ffa726' : '#81c784';
+                statusEl.style.background = bgColor;
+                statusEl.style.color = textColor;
             }
         }
         
@@ -5022,6 +5033,10 @@ ${userInput}
                 tipEl.innerHTML = '⚠️ 当前：' + config.name + '<br><span style="color:#ffa726;">海外模型需先部署Cloudflare Worker</span>';
                 tipEl.style.background = 'rgba(255,152,0,0.1)';
                 tipEl.style.color = '#ffa726';
+            } else if (config.region === 'direct') {
+                tipEl.innerHTML = '✅ 当前：' + config.name + '（第三方中转，稳定直连）';
+                tipEl.style.background = 'rgba(33,150,243,0.1)';
+                tipEl.style.color = '#64b5f6';
             } else {
                 tipEl.innerHTML = '✅ 当前：' + config.name + '（国内直连，速度快）';
                 tipEl.style.background = 'rgba(76,175,80,0.1)';
@@ -5129,8 +5144,13 @@ ${userInput}
     // 根据模型区域获取代理URL
     // 国内模型 → 阿里云（速度快）
     // 海外模型 → Cloudflare（能访问Google/OpenAI）
+    // 直连模型 → 返回 null（第三方中转API，直接调用）
     function getProxyUrl(provider) {
         const config = AI_PROVIDERS[provider];
+        if (config && config.region === 'direct') {
+            console.log('📡 第三方中转API，直接调用无需代理');
+            return null;  // 直连模式，不使用代理
+        }
         if (config && config.region === 'overseas') {
             console.log('📡 海外模型，使用 Cloudflare 代理');
             return CLOUDFLARE_PROXY_URL;
@@ -5139,8 +5159,8 @@ ${userInput}
         return ALIYUN_PROXY_URL;
     }
     
-    // 调用AI API（增强版：详细错误诊断）
-    async function callAIAPI(prompt, provider, apiKey) {
+    // 调用AI API（增强版：详细错误诊断 + 重试机制）
+    async function callAIAPI(prompt, provider, apiKey, retryCount = 0) {
         const config = AI_PROVIDERS[provider];
         if (!config) throw new Error('未知的AI服务商');
         
@@ -5148,16 +5168,24 @@ ${userInput}
         const useApiKey = apiKey || config.apiKey;
         if (!useApiKey) throw new Error(config.name + ' 的 API Key 未配置');
         
-        // 添加超时控制（30秒，AI API 需要更长时间）
+        // 添加超时控制（60秒，某些模型响应较慢）
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        const timeoutMs = config.region === 'direct' ? 60000 : 30000;  // 中转API给更长超时
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
         
         // 记录请求模式（用于诊断）
-        // 根据模型区域选择代理：国内→阿里云，海外→Cloudflare
+        // 根据模型区域选择代理：国内→阿里云，海外→Cloudflare，直连→无代理
         const proxyUrl = getProxyUrl(provider);
         const useProxy = shouldUseProxy() && proxyUrl;
-        const proxyName = config.region === 'overseas' ? 'Cloudflare' : '阿里云';
-        const requestMode = useProxy ? `代理模式(${proxyName})` : '直连模式';
+        let proxyName, requestMode;
+        if (config.region === 'direct') {
+            requestMode = '直连模式(第三方中转)';
+        } else if (useProxy) {
+            proxyName = config.region === 'overseas' ? 'Cloudflare' : '阿里云';
+            requestMode = `代理模式(${proxyName})`;
+        } else {
+            requestMode = '直连模式';
+        }
         const targetUrl = useProxy ? proxyUrl : config.url;
         
         // 保存诊断信息
@@ -5255,14 +5283,27 @@ ${userInput}
             clearTimeout(timeoutId);
             console.error('🌐 网络请求失败:', e);
             
+            const timeoutSec = timeoutMs / 1000;
+            
             if (e.name === 'AbortError') {
-                debugInfo.networkError = '请求超时(30秒)，AI响应太慢';
-                throw new Error('AI请求超时(30秒)');
+                // 超时时尝试重试一次（仅对直连模式）
+                if (config.region === 'direct' && retryCount < 1) {
+                    console.log(`⏱️ 第${retryCount + 1}次超时，正在重试...`);
+                    return callAIAPI(prompt, provider, apiKey, retryCount + 1);
+                }
+                debugInfo.networkError = `请求超时(${timeoutSec}秒)，AI响应太慢`;
+                throw new Error(`AI请求超时(${timeoutSec}秒)`);
             }
             
             // 详细记录网络错误
             if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
                 debugInfo.networkError = `网络错误: ${requestMode}请求失败，可能是CORS/网络问题`;
+                // 网络错误时也尝试重试
+                if (retryCount < 1) {
+                    console.log(`🔄 网络错误，正在重试...`);
+                    await new Promise(r => setTimeout(r, 1000));  // 等待1秒后重试
+                    return callAIAPI(prompt, provider, apiKey, retryCount + 1);
+                }
             } else if (!debugInfo.networkError) {
                 debugInfo.networkError = e.message;
             }
@@ -5393,7 +5434,7 @@ ${userInput}
         // ║  AI只做语义识别（判断玩法类型），数值提取由程序完成              ║
         // ║  这样更高效：AI运行快、程序计算准、稳定性高                      ║
         // ╚════════════════════════════════════════════════════════════════╝
-        const prompt = `你是下注类型分类器。任务：识别每条下注属于什么玩法类型。
+        const prompt = `你是下注类型分类器。任务：识别每条属于什么玩法类型。
 
 【你只需要做一件事】判断玩法类型，不需要提取数字！
 
@@ -5423,7 +5464,7 @@ ${userInput}
 23. 家野 - 含"家禽""野兽"
 
 【关键区分】
-- "买猪各10" → 生肖特码（买猪的号码7,19,31,43各10元=40元，赔率43）
+- "猪各10" → 生肖特码（猪的号码7,19,31,43各10元=40元，赔率43）
 - "猪10" 或 "猪x10" → 生肖（买猪生肖10元，赔率12）
 
 【别名映射】
