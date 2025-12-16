@@ -1639,7 +1639,7 @@
                         <button type="button" class="ai-model-btn active" data-provider="deepseek" onclick="switchAIModel('deepseek')">
                             🚀 DS
                         </button>
-                        <button type="button" class="ai-model-btn" data-provider="google" onclick="switchAIModel('google')">
+                        <button type="button" class="ai-model-btn" data-provider="tuzi" onclick="switchAIModel('tuzi')">
                             🌐 谷歌
                         </button>
                         <button type="button" class="ai-model-btn" data-provider="qwen" onclick="switchAIModel('qwen')">
@@ -1957,7 +1957,7 @@
                     <div class="model-tab-name">通义千问</div>
                     <div class="model-tab-time" id="tab-time-qwen">等待中...</div>
                 </button>
-                <button class="model-tab" data-model="google" onclick="switchModelTab('google')">
+                <button class="model-tab" data-model="tuzi" onclick="switchModelTab('tuzi')">
                     <div class="model-tab-name">Gemini</div>
                     <div class="model-tab-time" id="tab-time-google">等待中...</div>
                 </button>
@@ -4685,12 +4685,12 @@
             region: 'cn',
             apiKey: 'sk-12314485595043fca623f69ae12dbdd4'
         },
-        google: {
+        tuzi: {
             name: 'Gemini(兔子API)',
             shortName: '谷歌',
             url: 'https://api.tu-zi.com/v1/chat/completions',
             model: 'gemini-2.0-flash',
-            region: 'direct',  // 兔子API第三方中转，国内直连无需代理
+            region: 'cn',  // 走阿里云代理，手机无需VPN
             apiKey: 'sk-9oGH0BIdnzPrB5y4sg1Xg6YW7XF4YFj2GUqtoxcA3WFzKVgc'
         },
         qwen: {
@@ -4793,7 +4793,7 @@
         };
         
         // 更新UI显示"运行中"
-        ['deepseek', 'qwen', 'google', 'glm'].forEach(model => {
+        ['deepseek', 'qwen', 'tuzi', 'glm'].forEach(model => {
             updateModelTabStatus(model, 'running', '运行中...');
         });
         
@@ -4828,7 +4828,7 @@ ${userInput}
 {"items":[{"type":"类型","raw":"原文"}]}`;
         
         // 并行调用所有模型（4个）
-        const modelsToTest = ['deepseek', 'qwen', 'google', 'glm'];
+        const modelsToTest = ['deepseek', 'qwen', 'tuzi', 'glm'];
         
         const promises = modelsToTest.map(async (modelKey) => {
             const config = AI_PROVIDERS[modelKey];
