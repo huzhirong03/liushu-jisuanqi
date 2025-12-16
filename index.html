@@ -4694,12 +4694,13 @@
             apiKey: 'sk-12314485595043fca623f69ae12dbdd4'
         },
         tuzi: {
-            name: 'Gemini-3-Pro',
-            shortName: 'Gemini3',
-            url: 'https://api.tu-zi.com/v1/chat/completions',
-            model: 'gemini-3-pro-preview',  // 兔子API - Gemini 3 Pro
+            name: 'Gemini-Flash',
+            shortName: 'Gemini',
+            url: 'https://api.tu-zi.com/v1/chat/completions',  // 会被多站点切换覆盖
+            model: 'gemini-2.0-flash',  // 兔子API - Gemini 2.0 Flash（快速版）
             region: 'cn',  // 走阿里云代理，手机无需VPN
-            apiKey: 'sk-9oGH0BIdnzPrB5y4sg1Xg6YW7XF4YFj2GUqtoxcA3WFzKVgc'
+            apiKey: 'sk-9oGH0BIdnzPrB5y4sg1Xg6YW7XF4YFj2GUqtoxcA3WFzKVgc',
+            useTuziMultiSite: true  // 标记使用兔子API多站点
         },
         qwen: {
             name: '通义千问',
@@ -4712,18 +4713,83 @@
         claude: {
             name: 'Claude-Sonnet',
             shortName: 'Claude',
-            url: 'https://api.tu-zi.com/v1/chat/completions',
+            url: 'https://api.tu-zi.com/v1/chat/completions',  // 会被多站点切换覆盖
             model: 'claude-sonnet-4-0',  // 兔子API - Claude Sonnet 4.0
             region: 'cn',  // 走阿里云代理
-            apiKey: 'sk-3wuWW1YSxTUgMEbmTk2511VqJyPNewrdD3q1kU5q1He2ywF9'
+            apiKey: 'sk-3wuWW1YSxTUgMEbmTk2511VqJyPNewrdD3q1kU5q1He2ywF9',
+            useTuziMultiSite: true  // 标记使用兔子API多站点
         },
         gpt: {
-            name: 'GPT-5',
+            name: 'GPT-5-Mini',
             shortName: 'GPT5',
-            url: 'https://api.tu-zi.com/v1/chat/completions',
-            model: 'gpt-5',  // 兔子API - GPT 5
+            url: 'https://api.tu-zi.com/v1/chat/completions',  // 会被多站点切换覆盖
+            model: 'gpt-5-mini',  // 兔子API - GPT 5 Mini（快速版）
             region: 'cn',  // 走阿里云代理
-            apiKey: 'sk-J8ayveZilFyHLN6mJTlmEVhDLqJjFGVCSjyuGBPyqdtbKUVT'
+            apiKey: 'sk-9ShdAzwU4jHDCqsYccO0cmMfgbTkNkqcBEZmUeCxKO3ypYwZ',
+            useTuziMultiSite: true  // 标记使用兔子API多站点
+        }
+    };
+    
+    // ==================== 兔子API 多站点智能切换 ====================
+    // 站点列表（按优先级排序：广州 > 深圳 > 主站 > 备用）
+    const TUZI_SITES = [
+        { name: '广州', url: 'https://api.ourzhishi.top/v1/chat/completions' },
+        { name: '深圳', url: 'https://apisz.ourzhishi.top/v1/chat/completions' },
+        { name: '主站', url: 'https://api.tu-zi.com/v1/chat/completions' },
+        { name: '备用1-cdn', url: 'https://apius.tu-zi.com/v1/chat/completions' },
+        { name: '备用2-cdn', url: 'https://apicdn.tu-zi.com/v1/chat/completions' }
+    ];
+    
+    // 多站点状态管理
+    const tuziSiteManager = {
+        currentIndex: 0,           // 当前使用的站点索引
+        successCount: 0,           // 连续成功次数
+        回归检查阈值: 10,          // 每成功N次尝试回到更高优先级站点
+        
+        // 获取当前站点URL
+        getCurrentUrl() {
+            return TUZI_SITES[this.currentIndex].url;
+        },
+        
+        // 获取当前站点名称
+        getCurrentName() {
+            return TUZI_SITES[this.currentIndex].name;
+        },
+        
+        // 请求成功时调用
+        onSuccess() {
+            this.successCount++;
+            console.log(`✅ 兔子API [${this.getCurrentName()}] 请求成功，连续成功: ${this.successCount}次`);
+            
+            // 如果不是最高优先级站点，且连续成功达到阈值，尝试回到更高优先级
+            if (this.currentIndex > 0 && this.successCount >= this.回归检查阈值) {
+                console.log(`🔄 尝试回归到更高优先级站点...`);
+                this.currentIndex = 0;  // 回到最高优先级（广州）
+                this.successCount = 0;
+            }
+        },
+        
+        // 请求失败时调用，返回是否还有下一个站点可尝试
+        onFailure() {
+            const failedSite = this.getCurrentName();
+            this.successCount = 0;  // 重置成功计数
+            
+            if (this.currentIndex < TUZI_SITES.length - 1) {
+                this.currentIndex++;
+                console.log(`⚠️ 兔子API [${failedSite}] 失败，切换到 [${this.getCurrentName()}]`);
+                return true;  // 还有下一个站点
+            } else {
+                console.log(`❌ 兔子API 所有站点都失败了`);
+                this.currentIndex = 0;  // 重置，下次从头开始
+                return false;  // 没有更多站点了
+            }
+        },
+        
+        // 重置状态（用于调试）
+        reset() {
+            this.currentIndex = 0;
+            this.successCount = 0;
+            console.log('🔄 兔子API站点管理器已重置');
         }
     };
     
@@ -5178,7 +5244,7 @@ ${userInput}
         return ALIYUN_PROXY_URL;
     }
     
-    // 调用AI API（增强版：详细错误诊断 + 重试机制）
+    // 调用AI API（增强版：详细错误诊断 + 重试机制 + 多站点切换）
     async function callAIAPI(prompt, provider, apiKey, retryCount = 0) {
         const config = AI_PROVIDERS[provider];
         if (!config) throw new Error('未知的AI服务商');
@@ -5205,7 +5271,15 @@ ${userInput}
         } else {
             requestMode = '直连模式';
         }
-        const targetUrl = useProxy ? proxyUrl : config.url;
+        
+        // 兔子API多站点支持
+        let tuziUrl = null;
+        if (config.useTuziMultiSite) {
+            tuziUrl = tuziSiteManager.getCurrentUrl();
+            console.log(`🐰 兔子API站点: ${tuziSiteManager.getCurrentName()} - ${tuziUrl}`);
+        }
+        
+        const targetUrl = useProxy ? proxyUrl : (tuziUrl || config.url);
         
         // 保存诊断信息
         debugInfo.requestMode = requestMode;
@@ -5224,23 +5298,29 @@ ${userInput}
             if (useProxy) {
                 // 线上环境：通过阿里云函数代理（国内稳定）
                 console.log('使用阿里云代理模式调用AI API');
+                const requestBody = {
+                    provider: provider,
+                    apiKey: useApiKey,
+                    prompt: prompt,
+                    model: config.model
+                };
+                // 如果是兔子API多站点，传入当前站点URL
+                if (tuziUrl) {
+                    requestBody.tuziUrl = tuziUrl;
+                }
                 response = await fetch(proxyUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        provider: provider,
-                        apiKey: useApiKey,
-                        prompt: prompt,
-                        model: config.model
-                    }),
+                    body: JSON.stringify(requestBody),
                     signal: controller.signal
                 });
             } else {
-                // 本地环境：直接调用 API
+                // 本地环境：直接调用 API（使用多站点URL）
                 console.log('使用直连模式调用AI API');
-                response = await fetch(config.url, {
+                const directUrl = tuziUrl || config.url;
+                response = await fetch(directUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -5301,12 +5381,27 @@ ${userInput}
                 debugInfo.networkError = `响应无choices字段: ${JSON.stringify(data).substring(0, 200)}`;
             }
             
+            // 🐰 兔子API多站点：请求成功
+            if (config.useTuziMultiSite && content) {
+                tuziSiteManager.onSuccess();
+            }
+            
             return content || null;
         } catch (e) {
             clearTimeout(timeoutId);
             console.error('🌐 网络请求失败:', e);
             
             const timeoutSec = timeoutMs / 1000;
+            
+            // 🐰 兔子API多站点：请求失败，尝试切换站点
+            if (config.useTuziMultiSite && retryCount < TUZI_SITES.length) {
+                const hasNextSite = tuziSiteManager.onFailure();
+                if (hasNextSite) {
+                    console.log(`🔄 切换兔子API站点后重试...`);
+                    await new Promise(r => setTimeout(r, 500));  // 等待0.5秒后重试
+                    return callAIAPI(prompt, provider, apiKey, retryCount + 1);
+                }
+            }
             
             if (e.name === 'AbortError') {
                 // 超时时尝试重试一次（仅对直连模式）
@@ -5321,8 +5416,8 @@ ${userInput}
             // 详细记录网络错误
             if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
                 debugInfo.networkError = `网络错误: ${requestMode}请求失败，可能是CORS/网络问题`;
-                // 网络错误时也尝试重试
-                if (retryCount < 1) {
+                // 网络错误时也尝试重试（非兔子API多站点情况）
+                if (!config.useTuziMultiSite && retryCount < 1) {
                     console.log(`🔄 网络错误，正在重试...`);
                     await new Promise(r => setTimeout(r, 1000));  // 等待1秒后重试
                     return callAIAPI(prompt, provider, apiKey, retryCount + 1);
