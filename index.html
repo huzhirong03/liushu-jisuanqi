@@ -1,6 +1,30 @@
 <!DOCTYPE html>
 <!--
 ╔═══════════════════════════════════════════════════════════════════════════╗
+║                      六叔火箭计算器 - 版本信息                              ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║  版本号: v1.9.0                                                            ║
+║  更新日期: 2025-12-17                                                      ║
+║  提示词版本: v2.0                                                          ║
+║  测试用例版本: v1.0 (32个用例)                                             ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║  更新日志:                                                                 ║
+║  v1.9.0 - 提示词优化v2                                                     ║
+║    - 支持生肖+x格式（龙x10、狗X80、猴鸡x50）                                ║
+║    - 支持小数/大数/单数/双数范围                                           ║
+║    - 支持多种分隔符（空格/点/逗号/顿号/斜杠/横杠）                          ║
+║    - 支持中文金额（各二十、各一百）                                        ║
+║    - 新增R29/R30理由代码                                                   ║
+║    - 新增批量边缘测试功能（32个用例）                                       ║
+║    - 测试完成自动导出JSON+CSV                                              ║
+║  v1.8.0 - 模型比拼系统                                                     ║
+║    - 5轮测试、标准答案对比、CSV导出、评分统计                              ║
+║  v1.7.0 - 兔子API多站点智能切换                                            ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║  ⚠️ 新对话必读: PROJECT_INFO.md (包含项目结构、模型配置、测试历史)          ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+╔═══════════════════════════════════════════════════════════════════════════╗
 ║                      六叔火箭计算器 - 代码索引                              ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
 ║                                                                           ║
@@ -44,7 +68,8 @@
 ║                                                                           ║
 ║  【重要区分】"买猪各10" vs "猪x10"                                          ║
 ║  买猪各10 → 生肖特码：买猪的号码(7,19,31,43)各10元=40元，赔率43            ║
-║  猪x10   → 生肖：买猪生肖10元，赔率12                                      ║
+║  猪x10   → 生肖特码：猪的号码各10元（同上）                                ║
+║  猪10    → 生肖：买猪生肖10元，赔率12                                      ║
 ║                                                                           ║
 ║  【别名映射】                                                              ║
 ║  一友=平特一肖  二友=平特二连肖  三友=平特三连肖  平码=单平  +=十(号码)     ║
@@ -53,7 +78,7 @@
 ║     搜索: 【临时-模型比拼】                                                ║
 ║     说明: 用于比拼各大模型性能，找到最适合的模型组合                        ║
 ║     删除: 告诉AI"删除临时-模型比拼功能"即可移除                            ║
-║     包含: 5轮测试、标准答案对比、CSV导出、评分统计                         ║
+║     包含: 5轮测试、边缘测试、标准答案对比、CSV+JSON导出                    ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 -->
 <html lang="zh-CN">
@@ -2019,6 +2044,9 @@
                 </div>
                 <button onclick="runMultiRoundTest(5)" style="padding:4px 10px;background:linear-gradient(90deg,#3498db,#2980b9);color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">
                     🔄 5轮测试
+                </button>
+                <button onclick="runEdgeCaseTest()" id="edge-test-btn" style="padding:4px 10px;background:linear-gradient(90deg,#e74c3c,#c0392b);color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">
+                    🧪 边缘测试
                 </button>
                 <span id="test-progress" style="font-size:11px;color:#888;display:none;">进度: 0/5</span>
                 <button onclick="exportTestReport()" id="export-btn" style="padding:4px 10px;background:linear-gradient(90deg,#27ae60,#2ecc71);color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;display:none;">
@@ -4958,6 +4986,347 @@
         results: []                 // 每轮结果 [{ round: 1, models: { deepseek: {...}, ... } }]
     };
     
+    // 【临时-模型比拼】边缘测试用例库
+    // 用例版本: v1.0 | 更新日期: 2025-12-17 | 用例数: 32
+    // 更新方法: 用户发案例给AI，AI生成边缘化用例更新此数组
+    const EDGE_TEST_CASES_VERSION = 'v1.0';
+    const EDGE_TEST_CASES = [
+        // 第一组：分隔符变体（标准答案：特码）
+        { input: '10,12,20,22各30', answer: '特码', group: '分隔符' },
+        { input: '10、12、20、22各30', answer: '特码', group: '分隔符' },
+        { input: '10/12/20/22各30', answer: '特码', group: '分隔符' },
+        { input: '10-12-20-22各30', answer: '特码', group: '分隔符' },
+        { input: '10.12.20.22各30', answer: '特码', group: '分隔符' },
+        
+        // 第二组：金额关键词变体（标准答案：特码）
+        { input: '25 36 47各50', answer: '特码', group: '金额关键词' },
+        { input: '25 36 47每个50', answer: '特码', group: '金额关键词' },
+        { input: '25 36 47统一50', answer: '特码', group: '金额关键词' },
+        { input: '25 36 47×50', answer: '特码', group: '金额关键词' },
+        { input: '25 36 47X50', answer: '特码', group: '金额关键词' },
+        { input: '25 36 47x50', answer: '特码', group: '金额关键词' },
+        { input: '25 36 47*50', answer: '特码', group: '金额关键词' },
+        
+        // 第三组：中文金额（标准答案：特码）
+        { input: '08 18 28各二十', answer: '特码', group: '中文金额' },
+        { input: '31.34各二十', answer: '特码', group: '中文金额' },
+        { input: '08 18 28各20元', answer: '特码', group: '中文金额' },
+        { input: '特43 20元', answer: '特码', group: '特字' },
+        
+        // 第四组：数字范围（标准答案：特码）
+        { input: '小数各20', answer: '特码', group: '数字范围' },
+        { input: '大数各30', answer: '特码', group: '数字范围' },
+        { input: '单数各10', answer: '特码', group: '数字范围' },
+        { input: '双数各15', answer: '特码', group: '数字范围' },
+        
+        // 第五组：生肖特码（标准答案：生肖特码）
+        { input: '龙x10', answer: '生肖特码', group: '生肖特码' },
+        { input: '狗X80', answer: '生肖特码', group: '生肖特码' },
+        { input: '买猪各20', answer: '生肖特码', group: '生肖特码' },
+        { input: '买龙虎各20', answer: '生肖特码', group: '生肖特码' },
+        { input: '猴鸡x50', answer: '生肖特码', group: '生肖特码' },
+        { input: '狗x80，猴鸡x50', answer: '生肖特码', group: '生肖特码' },
+        { input: '买马X50元', answer: '生肖特码', group: '生肖特码' },
+        
+        // 第六组：生肖（标准答案：生肖）
+        { input: '猪10', answer: '生肖', group: '生肖' },
+        
+        // 第七组：混合极端变体
+        { input: '01 02 03各二十元', answer: '特码', group: '混合极端' },
+        { input: '10 12 20 22 23 25 33 40 43 44 30各20', answer: '特码', group: '混合极端' },
+        { input: '06.18.42各20', answer: '特码', group: '混合极端' },
+        { input: '39X200', answer: '特码', group: '混合极端' }
+    ];
+    
+    // 【临时-模型比拼】边缘测试结果存储
+    let edgeTestResults = {
+        isRunning: false,
+        currentCase: 0,
+        totalCases: 0,
+        results: []  // [{ input, answer, models: { deepseek: {...}, ... } }]
+    };
+    
+    // 【临时-模型比拼】运行边缘测试
+    async function runEdgeCaseTest() {
+        if (edgeTestResults.isRunning) {
+            alert('测试正在进行中，请等待...');
+            return;
+        }
+        
+        const confirmed = confirm(`即将运行 ${EDGE_TEST_CASES.length} 个边缘测试用例，每个用例测试5个模型。\n预计耗时约 ${Math.ceil(EDGE_TEST_CASES.length * 5 / 60)} 分钟。\n\n是否继续？`);
+        if (!confirmed) return;
+        
+        // 初始化
+        edgeTestResults = {
+            isRunning: true,
+            currentCase: 0,
+            totalCases: EDGE_TEST_CASES.length,
+            results: []
+        };
+        
+        // 显示弹窗
+        document.getElementById('multi-model-modal').style.display = 'flex';
+        document.getElementById('test-progress').style.display = 'inline';
+        document.getElementById('export-btn').style.display = 'none';
+        document.getElementById('edge-test-btn').disabled = true;
+        document.getElementById('edge-test-btn').textContent = '🧪 测试中...';
+        
+        // 更新站点信息
+        const siteInfoEl = document.getElementById('tuzi-site-info');
+        if (siteInfoEl) {
+            siteInfoEl.textContent = '边缘测试进行中...';
+        }
+        
+        // 逐个测试用例
+        for (let i = 0; i < EDGE_TEST_CASES.length; i++) {
+            const testCase = EDGE_TEST_CASES[i];
+            edgeTestResults.currentCase = i + 1;
+            
+            // 更新进度
+            document.getElementById('test-progress').textContent = `用例 ${i + 1}/${EDGE_TEST_CASES.length}: ${testCase.group}`;
+            
+            // 设置输入框内容（触发测试）
+            document.getElementById('bet-input').value = testCase.input;
+            
+            // 运行多模型测试
+            await runMultiModelTest();
+            
+            // 保存结果
+            const caseResult = {
+                input: testCase.input,
+                answer: testCase.answer,
+                group: testCase.group,
+                models: {}
+            };
+            
+            for (const [modelKey, result] of Object.entries(multiModelResults)) {
+                const aiItems = result.aiItems || [];
+                const firstItem = aiItems[0] || {};
+                const typeOutput = firstItem.type || '(解析失败)';
+                caseResult.models[modelKey] = {
+                    耗时: result.time,
+                    格式正确: result.status === 'success' || result.status === 'warning',
+                    类型输出: typeOutput,
+                    理由代码: firstItem.r || '',
+                    准确: typeOutput === testCase.answer
+                };
+            }
+            
+            edgeTestResults.results.push(caseResult);
+            
+            // 短暂延迟，避免请求过快
+            if (i < EDGE_TEST_CASES.length - 1) {
+                await new Promise(r => setTimeout(r, 800));
+            }
+        }
+        
+        // 测试完成
+        edgeTestResults.isRunning = false;
+        document.getElementById('edge-test-btn').disabled = false;
+        document.getElementById('edge-test-btn').textContent = '🧪 边缘测试';
+        document.getElementById('test-progress').textContent = `✅ 完成 ${EDGE_TEST_CASES.length} 用例`;
+        document.getElementById('export-btn').style.display = 'inline';
+        document.getElementById('export-btn').onclick = exportEdgeTestReport;
+        
+        // 显示汇总
+        showEdgeTestSummary();
+        console.log('📊 边缘测试完成:', edgeTestResults);
+        
+        // 自动下载JSON历史记录
+        autoExportEdgeTestJSON();
+    }
+    
+    // 【临时-模型比拼】自动导出边缘测试JSON（历史记录）
+    function autoExportEdgeTestJSON() {
+        const jsonData = {
+            测试类型: '边缘测试',
+            版本信息: {
+                程序版本: 'v1.9.0',
+                提示词版本: 'v2.0',
+                测试用例版本: 'v1.0'
+            },
+            测试时间: new Date().toISOString(),
+            站点: tuziSiteManager.getCurrentName(),
+            用例总数: EDGE_TEST_CASES.length,
+            测试用例: EDGE_TEST_CASES,
+            测试结果: edgeTestResults.results,
+            模型汇总: calculateEdgeTestStats()
+        };
+        
+        const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `边缘测试历史_${new Date().toISOString().slice(0, 10)}_${Date.now()}.json`;
+        link.click();
+        
+        console.log('📁 已自动导出JSON历史记录');
+    }
+    
+    // 【临时-模型比拼】计算边缘测试统计
+    function calculateEdgeTestStats() {
+        const models = ['deepseek', 'qwen', 'tuzi', 'claude', 'gpt'];
+        const modelNames = { deepseek: 'DeepSeek', qwen: '通义千问', tuzi: 'Gemini', claude: 'Claude', gpt: 'GPT4o' };
+        
+        const stats = {};
+        models.forEach(m => {
+            let 正确 = 0, 总耗时 = 0;
+            edgeTestResults.results.forEach(r => {
+                if (r.models[m]?.准确) 正确++;
+                总耗时 += r.models[m]?.耗时 || 0;
+            });
+            stats[m] = {
+                模型名称: modelNames[m],
+                正确数: 正确,
+                总数: edgeTestResults.results.length,
+                准确率: Math.round(正确 / edgeTestResults.results.length * 100) + '%',
+                平均耗时: Math.round(总耗时 / edgeTestResults.results.length) + 'ms'
+            };
+        });
+        
+        return stats;
+    }
+    
+    // 【临时-模型比拼】显示边缘测试汇总
+    function showEdgeTestSummary() {
+        const models = ['deepseek', 'qwen', 'tuzi', 'claude', 'gpt'];
+        const modelNames = { deepseek: 'DS', qwen: '千问', tuzi: 'Gem', claude: 'Cld', gpt: 'GPT' };
+        
+        // 统计每个模型的准确率
+        const stats = {};
+        models.forEach(m => {
+            stats[m] = { 正确: 0, 总数: edgeTestResults.results.length };
+        });
+        
+        edgeTestResults.results.forEach(result => {
+            models.forEach(m => {
+                if (result.models[m]?.准确) {
+                    stats[m].正确++;
+                }
+            });
+        });
+        
+        // 排序
+        const ranking = models.map(m => ({
+            key: m,
+            name: modelNames[m],
+            正确: stats[m].正确,
+            总数: stats[m].总数,
+            准确率: Math.round(stats[m].正确 / stats[m].总数 * 100) + '%'
+        })).sort((a, b) => b.正确 - a.正确);
+        
+        // 显示在站点信息区
+        const siteInfoEl = document.getElementById('tuzi-site-info');
+        if (siteInfoEl) {
+            const best = ranking[0];
+            siteInfoEl.innerHTML = `
+                <span style="color:#4ade80;">🏆 ${best.name} ${best.准确率}(${best.正确}/${best.总数})</span>
+                <span style="margin-left:6px;color:#888;">共${edgeTestResults.results.length}用例</span>
+            `;
+        }
+        
+        // 在标题中显示详细结果
+        const modalTitle = document.querySelector('#multi-model-modal .modal-title');
+        if (modalTitle) {
+            modalTitle.innerHTML = `
+                边缘测试完成 | 
+                ${ranking.map(r => `<span style="color:${r.正确 === r.总数 ? '#4ade80' : '#f87171'}">${r.name}:${r.准确率}</span>`).join(' ')}
+            `;
+        }
+    }
+    
+    // 【临时-模型比拼】导出边缘测试报告
+    function exportEdgeTestReport() {
+        if (edgeTestResults.results.length === 0) {
+            alert('没有测试结果可导出');
+            return;
+        }
+        
+        const models = ['deepseek', 'qwen', 'tuzi', 'claude', 'gpt'];
+        const modelFullNames = { deepseek: 'DeepSeek', qwen: '通义千问', tuzi: 'Gemini', claude: 'Claude', gpt: 'GPT4o' };
+        const modelShortNames = { deepseek: 'DS', qwen: '千问', tuzi: 'Gem', claude: 'Cld', gpt: 'GPT' };
+        
+        let csv = '';
+        
+        // 测试信息
+        csv += '===== 边缘测试报告 =====\n';
+        csv += `测试时间,${new Date().toLocaleString()}\n`;
+        csv += `测试用例数,${edgeTestResults.results.length}\n`;
+        csv += `站点,${tuziSiteManager.getCurrentName()}\n\n`;
+        
+        // 模型评分汇总
+        csv += '===== 模型评分汇总 =====\n';
+        csv += '排名,模型,正确数,总数,准确率\n';
+        
+        const stats = {};
+        models.forEach(m => {
+            stats[m] = { 正确: 0, 总数: edgeTestResults.results.length };
+        });
+        edgeTestResults.results.forEach(result => {
+            models.forEach(m => {
+                if (result.models[m]?.准确) {
+                    stats[m].正确++;
+                }
+            });
+        });
+        
+        const ranking = models.map(m => ({
+            key: m,
+            name: modelShortNames[m],
+            正确: stats[m].正确,
+            总数: stats[m].总数,
+            准确率: Math.round(stats[m].正确 / stats[m].总数 * 100) + '%'
+        })).sort((a, b) => b.正确 - a.正确);
+        
+        ranking.forEach((r, i) => {
+            csv += `${i + 1},${r.name},${r.正确},${r.总数},${r.准确率}\n`;
+        });
+        csv += '\n';
+        
+        // 分组统计
+        csv += '===== 分组统计 =====\n';
+        csv += '分组,用例数,' + models.map(m => modelShortNames[m] + '正确').join(',') + '\n';
+        
+        const groups = [...new Set(EDGE_TEST_CASES.map(c => c.group))];
+        groups.forEach(group => {
+            const groupResults = edgeTestResults.results.filter(r => r.group === group);
+            const groupStats = models.map(m => groupResults.filter(r => r.models[m]?.准确).length);
+            csv += `${group},${groupResults.length},${groupStats.join(',')}\n`;
+        });
+        csv += '\n';
+        
+        // 详细结果
+        csv += '===== 详细结果 =====\n';
+        csv += '序号,分组,输入内容,标准答案,' + models.map(m => `${modelShortNames[m]}输出`).join(',') + ',' + models.map(m => `${modelShortNames[m]}正确`).join(',') + '\n';
+        
+        edgeTestResults.results.forEach((result, i) => {
+            const outputs = models.map(m => result.models[m]?.类型输出 || '');
+            const corrects = models.map(m => result.models[m]?.准确 ? '✓' : '✗');
+            csv += `${i + 1},"${result.group}","${result.input.replace(/"/g, '""')}",${result.answer},${outputs.join(',')},${corrects.join(',')}\n`;
+        });
+        csv += '\n';
+        
+        // 错误用例详情
+        csv += '===== 错误用例详情 =====\n';
+        csv += '序号,输入内容,标准答案,错误模型,模型输出,理由代码\n';
+        
+        let errorIndex = 0;
+        edgeTestResults.results.forEach(result => {
+            models.forEach(m => {
+                if (!result.models[m]?.准确) {
+                    errorIndex++;
+                    csv += `${errorIndex},"${result.input.replace(/"/g, '""')}",${result.answer},${modelShortNames[m]},${result.models[m]?.类型输出 || ''},${result.models[m]?.理由代码 || ''}\n`;
+                }
+            });
+        });
+        
+        // 下载
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `边缘测试报告_${new Date().toISOString().slice(0, 10)}.csv`;
+        link.click();
+    }
+    
     // 【临时-模型比拼】运行多轮测试
     async function runMultiRoundTest(rounds = 5) {
         const input = document.getElementById('bet-input').value.trim();
@@ -5147,9 +5516,9 @@
     // ==================== 理由代码映射表 ====================
     const REASON_CODES = {
         'R1': '纯数字+各+金额',
-        'R2': '买+生肖+各+金额',
+        'R2': '生肖+x/各+金额',
         'R3': '含"特"字',
-        'R4': '生肖+金额(无买各)',
+        'R4': '生肖+金额(无x无各)',
         'R5': '红/蓝/绿+波',
         'R6': '波色+大小单双',
         'R7': '含平特或一友',
@@ -5173,7 +5542,9 @@
         'R25': '总和大小单双',
         'R26': '五行',
         'R27': '家禽野兽',
-        'R28': '头尾数'
+        'R28': '头尾数',
+        'R29': '小数/大数+各+金额',
+        'R30': '单数/双数+各+金额'
     };
     
     // 获取理由代码的可读文字
@@ -5241,17 +5612,27 @@
 【type必须是以下之一】（禁止输出其他值！）
 特码/生肖特码/生肖/波色/半波/平特一肖/平特二连肖/平特三连肖/平特四连肖/平特五连肖/平特尾数/六肖/合肖/正肖/单平/二中二/三中三/二全中/三全中/二中特/三中特/特串/五不中/六不中/七不中/八不中/九不中/十不中/十一不中/十二不中/总和大小单双/五行/家禽野兽/头尾数
 
-【理由代码r】必须是R1-R28之一：
-R1=纯数字+各+金额→特码 R2=买+生肖+各→生肖特码 R3=含特字→特码 R4=生肖+金额→生肖
+【理由代码r】必须是R1-R30之一：
+R1=纯数字+各+金额→特码 R2=生肖+x/X/各+金额→生肖特码 R3=含特字→特码 R4=生肖+金额(无x无各)→生肖
 R5=红蓝绿+波→波色 R6=波色+大小单双→半波 R7=平特或一友→平特一肖 R8=二连肖或二友→平特二连肖
 R9=三连肖或三友→平特三连肖 R10=四连肖→平特四连肖 R11=五连肖→平特五连肖 R12=平特尾→平特尾数
 R13=六肖 R14=合肖 R15=正肖 R16=单平或平码→单平 R17=二中二 R18=三中三 R19=二全中 R20=三全中
 R21=二中特 R22=三中特 R23=特串 R24=N不中 R25=总和大小单双 R26=五行 R27=家禽野兽 R28=头尾数
+R29=小数/大数+各+金额→特码 R30=单数/双数+各+金额→特码
 
-【核心规则】
-1. 纯数字+各+金额 → type="特码", r="R1"
-2. 买+生肖+各+金额 → type="生肖特码", r="R2"
-3. 生肖+金额(无买各) → type="生肖", r="R4"
+【生肖词】鼠、牛、虎、兔、龙、蛇、马、羊、猴、鸡、狗、猪
+
+【核心规则-按优先级判断】
+1. 纯数字+各/每个+金额 → type="特码", r="R1"（如：10 12 20各30）
+2. 生肖+x/X/×/*/@/各+金额 → type="生肖特码", r="R2"（如：龙x10、买猪各20、狗X80）
+3. 多生肖+x+金额 → type="生肖特码", r="R2"（如：猴鸡x50 = 猴和鸡各x50）
+4. 特+号码+金额 → type="特码", r="R3"（如：特43 20元）
+5. 小数/大数+各+金额 → type="特码", r="R29"（小数=1-24，大数=25-49）
+6. 单数/双数+各+金额 → type="特码", r="R30"（单数=1,3,5...49，双数=2,4,6...48）
+7. 生肖+金额(无x无各) → type="生肖", r="R4"（如：猪10）
+
+【金额格式】支持数字(20)和中文(二十/一百)，可带单位(元/块)
+【分隔符】号码间可用：空格、点(.)、逗号(,)、顿号(、)、斜杠(/)、横杠(-)
 
 【用户输入】
 ${userInput}
@@ -6002,7 +6383,7 @@ E2=二配二 S3=三配三 BZ=排除组 HX=合选 LM=连选
 ZX=正选 ZH=总计 WX=五类 JY=分类 XS=小范围 DS=大范围
 
 【识别规则】按优先级：
-1. "买"+属相词+"各"→SXTM
+1. 属相词+x/X/×/*/@/各+数值→SXTM（如：龙x10、买猪各20、狗X80、猴鸡x50）
 2. 含"特"→TM
 3. 含"平特/一友"→PT1 | "二连/二友"→PT2 | "三连/三友"→PT3 | "四连"→PT4 | "五连"→PT5
 4. 含"平特尾/平尾"→PTW
@@ -6014,10 +6395,12 @@ ZX=正选 ZH=总计 WX=五类 JY=分类 XS=小范围 DS=大范围
 10. 含"总和"→ZH | "金/木/水/火/土"→WX | "家禽/野兽"→JY
 11. 含"小数"→XS | "大数"→DS
 12. "大/小/单/双"+数值→DXDS
-13. 属相词+数值(无买各)→SX
-14. 纯数字+数值→TM
+13. 属相词+纯数值(无x无各)→SX（如：猪10，直接买生肖）
+14. 纯数字+各/每个+数值→TM
 
 【属相词】鼠牛虎兔龙蛇马羊猴鸡狗猪
+【金额格式】支持数字(20)和中文(二十/一百)，可带单位(元/块)
+【分隔符】号码间可用：空格、点(.)、逗号(,)、顿号(、)、斜杠(/)、横杠(-)
 
 【一行多条用逗号分隔的要拆分成独立项】
 
@@ -6025,23 +6408,32 @@ ZX=正选 ZH=总计 WX=五类 JY=分类 XS=小范围 DS=大范围
 输入: 买猪各10
 输出: [["SXTM","买猪各10"]]
 
-输入: 猪x20
-输出: [["SX","猪x20"]]
+输入: 龙x10
+输出: [["SXTM","龙x10"]]
+
+输入: 狗x80，猴鸡x50
+输出: [["SXTM","狗x80"],["SXTM","猴鸡x50"]]
+
+输入: 猪10
+输出: [["SX","猪10"]]
 
 输入: 10 12 20各30
 输出: [["TM","10 12 20各30"]]
 
-输入: 平特羊300，三友羊鸡猴100，35，47，X10
-输出: [["PT1","平特羊300"],["PT3","三友羊鸡猴100"],["TM","35，47，X10"]]
-
-输入: 龙x10，狗x80，一友狗800
-输出: [["SX","龙x10"],["SX","狗x80"],["PT1","一友狗800"]]
-
 输入: 小数各20
 输出: [["XS","小数各20"]]
 
+输入: 大数各30
+输出: [["DS","大数各30"]]
+
+输入: 平特羊300，三友羊鸡猴100，35，47，X10
+输出: [["PT1","平特羊300"],["PT3","三友羊鸡猴100"],["TM","35，47，X10"]]
+
 输入: 五不中01,02,03,04,05各100
 输出: [["BZ","五不中01,02,03,04,05各100"]]
+
+输入: 31.34各二十
+输出: [["TM","31.34各二十"]]
 
 【输入】
 ${userInput}
