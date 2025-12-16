@@ -3,10 +3,10 @@
 ╔═══════════════════════════════════════════════════════════════════════════╗
 ║                      六叔火箭计算器 - 版本信息                              ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
-║  版本号: v1.9.0                                                            ║
+║  版本号: v1.9.2                                                            ║
 ║  更新日期: 2025-12-17                                                      ║
-║  提示词版本: v2.0                                                          ║
-║  测试用例版本: v1.0 (32个用例)                                             ║
+║  提示词版本: v2.1                                                          ║
+║  测试用例版本: v1.1 (35个用例)                                             ║
 ╠═══════════════════════════════════════════════════════════════════════════╣
 ║  更新日志:                                                                 ║
 ║  v1.9.0 - 提示词优化v2                                                     ║
@@ -4986,10 +4986,16 @@
         results: []                 // 每轮结果 [{ round: 1, models: { deepseek: {...}, ... } }]
     };
     
+    // 【临时-模型比拼】边缘测试配置
+    // ⚠️ 每次测试新类型时修改这两个变量！
+    const EDGE_TEST_TYPE = '特码';        // 当前测试的玩法类型
+    const EDGE_TEST_VERSION = 'V2';       // 当前测试版本（V1, V2, V3...）
+    
     // 【临时-模型比拼】边缘测试用例库
-    // 用例版本: v1.0 | 更新日期: 2025-12-17 | 用例数: 32
+    // 用例版本: v1.1 | 更新日期: 2025-12-17 | 用例数: 35
     // 更新方法: 用户发案例给AI，AI生成边缘化用例更新此数组
-    const EDGE_TEST_CASES_VERSION = 'v1.0';
+    // v1.1更新: 新增3个多生肖边缘用例（买龙虎兔各30等）
+    const EDGE_TEST_CASES_VERSION = 'v1.1';
     const EDGE_TEST_CASES = [
         // 第一组：分隔符变体（标准答案：特码）
         { input: '10,12,20,22各30', answer: '特码', group: '分隔符' },
@@ -5027,6 +5033,10 @@
         { input: '猴鸡x50', answer: '生肖特码', group: '生肖特码' },
         { input: '狗x80，猴鸡x50', answer: '生肖特码', group: '生肖特码' },
         { input: '买马X50元', answer: '生肖特码', group: '生肖特码' },
+        // V2新增：多生肖+买+各 边缘用例
+        { input: '买龙虎兔各30', answer: '生肖特码', group: '多生肖' },
+        { input: '买鼠牛虎兔各50', answer: '生肖特码', group: '多生肖' },
+        { input: '买猪狗鸡猴各100', answer: '生肖特码', group: '多生肖' },
         
         // 第六组：生肖（标准答案：生肖）
         { input: '猪10', answer: '生肖', group: '生肖' },
@@ -5156,10 +5166,11 @@
         const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `边缘测试历史_${new Date().toISOString().slice(0, 10)}_${Date.now()}.json`;
+        // 【临时-模型比拼】文件名格式：类型_版本_边缘测试历史_日期.json
+        link.download = `${EDGE_TEST_TYPE}_${EDGE_TEST_VERSION}_边缘测试历史_${new Date().toISOString().slice(0, 10)}.json`;
         link.click();
         
-        console.log('📁 已自动导出JSON历史记录');
+        console.log(`📁 已自动导出JSON: ${EDGE_TEST_TYPE}_${EDGE_TEST_VERSION}`);
     }
     
     // 【临时-模型比拼】计算边缘测试统计
@@ -5323,7 +5334,8 @@
         const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `边缘测试报告_${new Date().toISOString().slice(0, 10)}.csv`;
+        // 【临时-模型比拼】文件名格式：类型_版本_边缘测试报告_日期.csv
+        link.download = `${EDGE_TEST_TYPE}_${EDGE_TEST_VERSION}_边缘测试报告_${new Date().toISOString().slice(0, 10)}.csv`;
         link.click();
     }
     
@@ -5660,12 +5672,14 @@ R29=小数/大数+各+金额→特码 R30=单数/双数+各+金额→特码
 
 【核心规则-按优先级判断】
 1. 纯数字+各/每个+金额 → type="特码", r="R1"（如：10 12 20各30）
-2. 生肖+x/X/×/*/@/各+金额 → type="生肖特码", r="R2"（如：龙x10、买猪各20、狗X80）
-3. 多生肖+x+金额 → type="生肖特码", r="R2"（如：猴鸡x50 = 猴和鸡各x50）
+2. 买+生肖(一个或多个)+各+金额 → type="生肖特码", r="R2"（如：买猪各20、买龙虎各20、买鼠牛虎各30）
+3. 生肖+x/X/×/*/@+金额 → type="生肖特码", r="R2"（如：龙x10、狗X80、猴鸡x50）
 4. 特+号码+金额 → type="特码", r="R3"（如：特43 20元）
 5. 小数/大数+各+金额 → type="特码", r="R29"（小数=1-24，大数=25-49）
 6. 单数/双数+各+金额 → type="特码", r="R30"（单数=1,3,5...49，双数=2,4,6...48）
-7. 生肖+金额(无x无各) → type="生肖", r="R4"（如：猪10）
+7. 生肖+金额(无买无x无各) → type="生肖", r="R4"（如：猪10）
+
+【重要】有"买"字+有"各"字 = 一定是生肖特码(R2)，不管有几个生肖！
 
 【金额格式】支持数字(20)和中文(二十/一百)，可带单位(元/块)
 【分隔符】号码间可用：空格、点(.)、逗号(,)、顿号(、)、斜杠(/)、横杠(-)
