@@ -4686,10 +4686,10 @@
     // region: 'cn' = 国内模型（走阿里云代理），'overseas' = 海外模型（走Cloudflare代理），'direct' = 直连（第三方中转API）
     const AI_PROVIDERS = {
         deepseek: {
-            name: 'DeepSeek-R1',
-            shortName: 'DS-R1',
+            name: 'DeepSeek',
+            shortName: 'DS',
             url: 'https://api.deepseek.com/v1/chat/completions',
-            model: 'deepseek-reasoner',  // DeepSeek R1 官方推理模型
+            model: 'deepseek-chat',  // DeepSeek 官方对话模型（稳定）
             region: 'cn',
             apiKey: 'sk-12314485595043fca623f69ae12dbdd4'
         },
@@ -4715,7 +4715,7 @@
             url: 'https://api.tu-zi.com/v1/chat/completions',
             model: 'claude-opus-4-5',  // 兔子API - Claude Opus 4.5
             region: 'cn',  // 走阿里云代理
-            apiKey: 'sk-9oGH0BIdnzPrB5y4sg1Xg6YW7XF4YFj2GUqtoxcA3WFzKVgc'
+            apiKey: 'sk-SMDJFcugwkRYkb699P71XKdPvqKMAfbjWL1xHBMNngD6oGOa'
         },
         gpt: {
             name: 'GPT-5.1',
@@ -4723,7 +4723,7 @@
             url: 'https://api.tu-zi.com/v1/chat/completions',
             model: 'gpt-5.1',  // 兔子API - GPT 5.1
             region: 'cn',  // 走阿里云代理
-            apiKey: 'sk-9oGH0BIdnzPrB5y4sg1Xg6YW7XF4YFj2GUqtoxcA3WFzKVgc'
+            apiKey: 'sk-J8ayveZilFyHLN6mJTlmEVhDLqJjFGVCSjyuGBPyqdtbKUVT'
         }
     };
     
