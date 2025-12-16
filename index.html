@@ -1948,6 +1948,7 @@
         <div class="import-modal-content" style="max-width:95%;width:500px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;">
             <div class="import-modal-title" style="display:flex;justify-content:space-between;align-items:center;">
                 <span>🔬 多模型对比测试</span>
+                <span id="tuzi-site-info" style="font-size:11px;color:#4ade80;background:rgba(74,222,128,0.1);padding:2px 8px;border-radius:4px;margin-left:8px;">当前站点: 广州</span>
                 <button onclick="closeMultiModelModal()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;">×</button>
             </div>
             
@@ -1963,14 +1964,14 @@
                 </button>
                 <button class="model-tab" data-model="tuzi" onclick="switchModelTab('tuzi')">
                     <div class="model-tab-name">Gemini</div>
-                    <div class="model-tab-time" id="tab-time-google">等待中...</div>
+                    <div class="model-tab-time" id="tab-time-tuzi">等待中...</div>
                 </button>
                 <button class="model-tab" data-model="claude" onclick="switchModelTab('claude')">
                     <div class="model-tab-name">Claude</div>
                     <div class="model-tab-time" id="tab-time-claude">等待中...</div>
                 </button>
                 <button class="model-tab" data-model="gpt" onclick="switchModelTab('gpt')">
-                    <div class="model-tab-name">GPT5</div>
+                    <div class="model-tab-name">GPT4o</div>
                     <div class="model-tab-time" id="tab-time-gpt">等待中...</div>
                 </button>
             </div>
@@ -4720,10 +4721,10 @@
             useTuziMultiSite: true  // 标记使用兔子API多站点
         },
         gpt: {
-            name: 'GPT-5-Mini',
-            shortName: 'GPT5',
+            name: 'GPT-4o-Mini',
+            shortName: 'GPT4o',
             url: 'https://api.tu-zi.com/v1/chat/completions',  // 会被多站点切换覆盖
-            model: 'gpt-5-mini',  // 兔子API - GPT 5 Mini（快速版）
+            model: 'gpt-4o-mini',  // 兔子API - GPT-4o Mini（性价比最高）
             region: 'cn',  // 走阿里云代理
             apiKey: 'sk-9ShdAzwU4jHDCqsYccO0cmMfgbTkNkqcBEZmUeCxKO3ypYwZ',
             useTuziMultiSite: true  // 标记使用兔子API多站点
@@ -4866,6 +4867,12 @@
         
         // 显示弹窗
         document.getElementById('multi-model-modal').style.display = 'flex';
+        
+        // 更新站点信息显示
+        const siteInfoEl = document.getElementById('tuzi-site-info');
+        if (siteInfoEl) {
+            siteInfoEl.textContent = '当前站点: ' + tuziSiteManager.getCurrentName();
+        }
         
         // 重置结果（4个模型）
         multiModelResults = {
