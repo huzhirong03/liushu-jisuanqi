@@ -1645,8 +1645,11 @@
                         <button type="button" class="ai-model-btn" data-provider="qwen" onclick="switchAIModel('qwen')">
                             ☁️ 千问
                         </button>
-                        <button type="button" class="ai-model-btn" data-provider="glm" onclick="switchAIModel('glm')">
-                            🧠 智谱
+                        <button type="button" class="ai-model-btn" data-provider="claude" onclick="switchAIModel('claude')">
+                            🤖 Claude
+                        </button>
+                        <button type="button" class="ai-model-btn" data-provider="gpt" onclick="switchAIModel('gpt')">
+                            💡 GPT5
                         </button>
                     </div>
                     <div id="ai-model-status" style="margin-top:8px;padding:8px;background:rgba(76,175,80,0.1);border-radius:6px;font-size:11px;color:#81c784;">
@@ -1659,8 +1662,9 @@
                     <select id="ai-provider">
                         <option value="deepseek" selected>DeepSeek</option>
                         <option value="qwen">通义千问</option>
-                        <option value="glm">智谱GLM</option>
-                        <option value="google">Google Gemini</option>
+                        <option value="claude">Claude Opus</option>
+                        <option value="gpt">GPT 5.1</option>
+                        <option value="tuzi">Gemini 3 Pro</option>
                     </select>
                     <input type="hidden" id="ai-api-key" value="">
                 </div>
@@ -1961,9 +1965,13 @@
                     <div class="model-tab-name">Gemini</div>
                     <div class="model-tab-time" id="tab-time-google">等待中...</div>
                 </button>
-                <button class="model-tab" data-model="glm" onclick="switchModelTab('glm')">
-                    <div class="model-tab-name">智谱</div>
-                    <div class="model-tab-time" id="tab-time-glm">等待中...</div>
+                <button class="model-tab" data-model="claude" onclick="switchModelTab('claude')">
+                    <div class="model-tab-name">Claude</div>
+                    <div class="model-tab-time" id="tab-time-claude">等待中...</div>
+                </button>
+                <button class="model-tab" data-model="gpt" onclick="switchModelTab('gpt')">
+                    <div class="model-tab-name">GPT5</div>
+                    <div class="model-tab-time" id="tab-time-gpt">等待中...</div>
                 </button>
             </div>
             
@@ -4678,18 +4686,18 @@
     // region: 'cn' = 国内模型（走阿里云代理），'overseas' = 海外模型（走Cloudflare代理），'direct' = 直连（第三方中转API）
     const AI_PROVIDERS = {
         deepseek: {
-            name: 'DeepSeek',
-            shortName: 'DS',
+            name: 'DeepSeek-R1',
+            shortName: 'DS-R1',
             url: 'https://api.deepseek.com/v1/chat/completions',
-            model: 'deepseek-chat',
+            model: 'deepseek-reasoner',  // DeepSeek R1 官方推理模型
             region: 'cn',
             apiKey: 'sk-12314485595043fca623f69ae12dbdd4'
         },
         tuzi: {
-            name: 'Gemini(兔子API)',
-            shortName: '谷歌',
+            name: 'Gemini-3-Pro',
+            shortName: 'Gemini3',
             url: 'https://api.tu-zi.com/v1/chat/completions',
-            model: 'gemini-2.0-flash',
+            model: 'gemini-3-pro-preview',  // 兔子API - Gemini 3 Pro
             region: 'cn',  // 走阿里云代理，手机无需VPN
             apiKey: 'sk-9oGH0BIdnzPrB5y4sg1Xg6YW7XF4YFj2GUqtoxcA3WFzKVgc'
         },
@@ -4701,13 +4709,21 @@
             region: 'cn',
             apiKey: 'sk-19f295e0c1294471a112b48ec2814c2c'
         },
-        glm: {
-            name: '智谱GLM',
-            shortName: '智谱',
-            url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
-            model: 'glm-3-turbo',  // 老版本，审核可能较宽松
-            region: 'cn',
-            apiKey: '441ca23345664b47bb0ba8bfcb8856f5.vGvRMBnk6pSJnB9q'
+        claude: {
+            name: 'Claude-Opus',
+            shortName: 'Claude',
+            url: 'https://api.tu-zi.com/v1/chat/completions',
+            model: 'claude-opus-4-5',  // 兔子API - Claude Opus 4.5
+            region: 'cn',  // 走阿里云代理
+            apiKey: 'sk-9oGH0BIdnzPrB5y4sg1Xg6YW7XF4YFj2GUqtoxcA3WFzKVgc'
+        },
+        gpt: {
+            name: 'GPT-5.1',
+            shortName: 'GPT5',
+            url: 'https://api.tu-zi.com/v1/chat/completions',
+            model: 'gpt-5.1',  // 兔子API - GPT 5.1
+            region: 'cn',  // 走阿里云代理
+            apiKey: 'sk-9oGH0BIdnzPrB5y4sg1Xg6YW7XF4YFj2GUqtoxcA3WFzKVgc'
         }
     };
     
@@ -4768,8 +4784,9 @@
     let multiModelResults = {
         deepseek: { status: 'pending', time: 0, raw: '', parsed: [], error: '' },
         qwen: { status: 'pending', time: 0, raw: '', parsed: [], error: '' },
-        google: { status: 'pending', time: 0, raw: '', parsed: [], error: '' },
-        glm: { status: 'pending', time: 0, raw: '', parsed: [], error: '' }
+        tuzi: { status: 'pending', time: 0, raw: '', parsed: [], error: '' },
+        claude: { status: 'pending', time: 0, raw: '', parsed: [], error: '' },
+        gpt: { status: 'pending', time: 0, raw: '', parsed: [], error: '' }
     };
     let currentViewingModel = 'deepseek';
     
@@ -4788,12 +4805,13 @@
         multiModelResults = {
             deepseek: { status: 'running', time: 0, raw: '', parsed: [], error: '' },
             qwen: { status: 'running', time: 0, raw: '', parsed: [], error: '' },
-            google: { status: 'running', time: 0, raw: '', parsed: [], error: '' },
-            glm: { status: 'running', time: 0, raw: '', parsed: [], error: '' }
+            tuzi: { status: 'running', time: 0, raw: '', parsed: [], error: '' },
+            claude: { status: 'running', time: 0, raw: '', parsed: [], error: '' },
+            gpt: { status: 'running', time: 0, raw: '', parsed: [], error: '' }
         };
         
         // 更新UI显示"运行中"
-        ['deepseek', 'qwen', 'tuzi', 'glm'].forEach(model => {
+        ['deepseek', 'qwen', 'tuzi', 'claude', 'gpt'].forEach(model => {
             updateModelTabStatus(model, 'running', '运行中...');
         });
         
@@ -4827,8 +4845,8 @@ ${userInput}
 【输出格式】严格按此JSON格式：
 {"items":[{"type":"类型","raw":"原文"}]}`;
         
-        // 并行调用所有模型（4个）
-        const modelsToTest = ['deepseek', 'qwen', 'tuzi', 'glm'];
+        // 并行调用所有模型（5个）
+        const modelsToTest = ['deepseek', 'qwen', 'tuzi', 'claude', 'gpt'];
         
         const promises = modelsToTest.map(async (modelKey) => {
             const config = AI_PROVIDERS[modelKey];
@@ -5080,8 +5098,9 @@ ${userInput}
         const guides = {
             deepseek: '获取方式：\n1. 访问 platform.deepseek.com\n2. 注册登录后创建API Key',
             qwen: '获取方式：\n1. 访问 dashscope.console.aliyun.com\n2. 开通模型服务并创建API Key',
-            glm: '获取方式：\n1. 访问 open.bigmodel.cn\n2. 注册后在控制台创建API Key',
-            google: '获取方式：\n1. 访问 aistudio.google.com\n2. 登录Google账号创建API Key\n\n⚠️ 注意：需先部署Cloudflare Worker才能在国内使用',
+            tuzi: '获取方式：\n1. 访问 兔子API官网\n2. 注册后充值获取API Key',
+            claude: '使用兔子API中转，无需单独获取',
+            gpt: '使用兔子API中转，无需单独获取',
             openai: '获取方式：\n1. 访问 platform.openai.com\n2. 创建API Key\n\n⚠️ 注意：需先部署Cloudflare Worker才能在国内使用'
         };
         return guides[provider] || '请到对应平台获取API Key';
