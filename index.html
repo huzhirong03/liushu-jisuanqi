@@ -5231,7 +5231,8 @@ ${userInput}
                         model: config.model,
                         messages: [{ role: 'user', content: prompt }],
                         temperature: 0.1,
-                        max_tokens: 2000
+                        max_tokens: 2000,
+                        stream: false  // 兔子API要求：Gemini模型不支持流式输出
                     }),
                     signal: controller.signal
                 });
@@ -5270,9 +5271,12 @@ ${userInput}
                 throw new Error(data.error.message || JSON.stringify(data.error));
             }
             
-            // 检查响应结构
-            const content = data.choices?.[0]?.message?.content;
-            if (!content && data.choices) {
+            // 检查响应结构（兼容兔子API的 data.data 结构和标准 OpenAI 结构）
+            // 兔子API格式: { code: 0, data: { choices: [...] } }
+            // 标准OpenAI格式: { choices: [...] }
+            const responseData = data.data || data;  // 兔子API的数据在data.data里
+            const content = responseData.choices?.[0]?.message?.content;
+            if (!content && responseData.choices) {
                 debugInfo.networkError = `响应结构异常: choices存在但content为空`;
             } else if (!content) {
                 debugInfo.networkError = `响应无choices字段: ${JSON.stringify(data).substring(0, 200)}`;
