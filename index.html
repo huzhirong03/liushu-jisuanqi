@@ -1157,8 +1157,8 @@
                         <!-- 调试按钮 -->
                         <button onclick="showAIDebug()" style="padding:4px 8px;background:linear-gradient(90deg,#9b59b6,#8e44ad);color:white;border:none;border-radius:4px;font-size:10px;cursor:pointer;" title="查看AI识别详情">🤖AI</button>
                         <button onclick="showLocalDebug()" style="padding:4px 8px;background:linear-gradient(90deg,#27ae60,#229954);color:white;border:none;border-radius:4px;font-size:10px;cursor:pointer;" title="查看程序识别详情">📋程序</button>
-                        <!-- 多模型对比按钮 -->
-                        <button onclick="runMultiModelTest()" style="padding:4px 8px;background:linear-gradient(90deg,#f39c12,#e67e22);color:white;border:none;border-radius:4px;font-size:10px;cursor:pointer;" title="多模型对比测试">🔬对比</button>
+                        <!-- 多模型对比按钮 - 直接打开弹窗，支持边缘测试 -->
+                        <button onclick="openMultiModelModal()" style="padding:4px 8px;background:linear-gradient(90deg,#f39c12,#e67e22);color:white;border:none;border-radius:4px;font-size:10px;cursor:pointer;" title="多模型对比测试">🔬对比</button>
                         <!-- 原有按钮 -->
                         <button onclick="showCheckDetail()" style="padding:6px 12px;background:linear-gradient(90deg,#3498db,#2980b9);color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">🔍 核对</button>
                         <button onclick="clearInput()" style="padding:6px 12px;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.2);border-radius:6px;font-size:12px;cursor:pointer;">清空</button>
@@ -5566,6 +5566,42 @@
         gpt: { status: 'pending', time: 0, raw: '', parsed: [], error: '' }
     };
     let currentViewingModel = 'deepseek';
+    
+    // 【临时-模型比拼】打开多模型测试弹窗（不需要输入内容）
+    function openMultiModelModal() {
+        // 直接显示弹窗
+        document.getElementById('multi-model-modal').style.display = 'flex';
+        
+        // 更新站点信息显示
+        const siteInfoEl = document.getElementById('tuzi-site-info');
+        if (siteInfoEl) {
+            siteInfoEl.textContent = '当前站点: ' + tuziSiteManager.getCurrentName();
+        }
+        
+        // 切换到第一个标签
+        switchModelTab('deepseek');
+        
+        // 重置状态显示
+        const models = ['deepseek', 'qwen', 'tuzi', 'claude', 'gpt'];
+        models.forEach(m => {
+            updateModelTabStatus(m, 'pending', '等待中...');
+        });
+        
+        // 清空结果显示
+        document.getElementById('model-result-content').innerHTML = `
+            <div style="text-align:center;color:#888;padding:40px;">
+                <div style="font-size:24px;margin-bottom:10px;">🧪</div>
+                <div>请选择测试方式：</div>
+                <div style="margin-top:10px;font-size:12px;">
+                    • <b>边缘测试</b> - 运行32个预置用例<br>
+                    • <b>5轮测试</b> - 对输入框内容测试5轮（需先输入）<br>
+                    • <b>重新测试</b> - 对输入框内容测试1轮（需先输入）
+                </div>
+            </div>
+        `;
+        
+        console.log('📊 多模型测试弹窗已打开');
+    }
     
     // 运行多模型对比测试
     async function runMultiModelTest() {
