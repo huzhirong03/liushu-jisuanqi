@@ -1948,17 +1948,21 @@
             </div>
             
             <!-- 模型标签切换 -->
-            <div id="model-tabs" style="display:flex;gap:0;margin-bottom:0;border-bottom:1px solid rgba(255,255,255,0.1);">
+            <div id="model-tabs" style="display:flex;gap:0;margin-bottom:0;border-bottom:1px solid rgba(255,255,255,0.1);flex-wrap:wrap;">
                 <button class="model-tab active" data-model="deepseek" onclick="switchModelTab('deepseek')">
                     <div class="model-tab-name">DeepSeek</div>
                     <div class="model-tab-time" id="tab-time-deepseek">等待中...</div>
                 </button>
                 <button class="model-tab" data-model="qwen" onclick="switchModelTab('qwen')">
-                    <div class="model-tab-name">通义千问</div>
+                    <div class="model-tab-name">千问</div>
                     <div class="model-tab-time" id="tab-time-qwen">等待中...</div>
                 </button>
+                <button class="model-tab" data-model="glm" onclick="switchModelTab('glm')">
+                    <div class="model-tab-name">智谱</div>
+                    <div class="model-tab-time" id="tab-time-glm">等待中...</div>
+                </button>
                 <button class="model-tab" data-model="google" onclick="switchModelTab('google')">
-                    <div class="model-tab-name">Google Gemini</div>
+                    <div class="model-tab-name">谷歌</div>
                     <div class="model-tab-time" id="tab-time-google">等待中...</div>
                 </button>
             </div>
@@ -4684,8 +4688,8 @@
         google: {
             name: 'Google Gemini',
             shortName: '谷歌',
-            url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
-            model: 'gemini-2.0-flash',
+            url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+            model: 'gemini-1.5-flash',
             region: 'overseas',
             apiKey: 'AIzaSyAM5fgqzxF1_stVAgLGkAvj_OCi8UQ1HCA'
         },
@@ -4703,7 +4707,7 @@
             url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
             model: 'glm-4-flash',
             region: 'cn',
-            apiKey: ''  // 待配置
+            apiKey: '441ca23345664b47bb0ba8bfcb8856f5.vGvRMBnk6pSJnB9q'
         }
     };
     
@@ -4753,6 +4757,7 @@
     let multiModelResults = {
         deepseek: { status: 'pending', time: 0, raw: '', parsed: [], error: '' },
         qwen: { status: 'pending', time: 0, raw: '', parsed: [], error: '' },
+        glm: { status: 'pending', time: 0, raw: '', parsed: [], error: '' },
         google: { status: 'pending', time: 0, raw: '', parsed: [], error: '' }
     };
     let currentViewingModel = 'deepseek';
@@ -4772,11 +4777,12 @@
         multiModelResults = {
             deepseek: { status: 'running', time: 0, raw: '', parsed: [], error: '' },
             qwen: { status: 'running', time: 0, raw: '', parsed: [], error: '' },
+            glm: { status: 'running', time: 0, raw: '', parsed: [], error: '' },
             google: { status: 'running', time: 0, raw: '', parsed: [], error: '' }
         };
         
         // 更新UI显示"运行中"
-        ['deepseek', 'qwen', 'google'].forEach(model => {
+        ['deepseek', 'qwen', 'glm', 'google'].forEach(model => {
             updateModelTabStatus(model, 'running', '运行中...');
         });
         
@@ -4811,7 +4817,7 @@ ${userInput}
 {"items":[{"type":"类型","raw":"原文"}]}`;
         
         // 并行调用所有模型
-        const modelsToTest = ['deepseek', 'qwen', 'google'];
+        const modelsToTest = ['deepseek', 'qwen', 'glm', 'google'];
         
         const promises = modelsToTest.map(async (modelKey) => {
             const config = AI_PROVIDERS[modelKey];
@@ -4847,9 +4853,12 @@ ${userInput}
                                     const extracted = extractValuesByType(item.type, item.raw);
                                     if (extracted && extracted.length > 0) {
                                         parsed.push(...extracted);
+                                    } else {
+                                        // 即使提取失败也显示原始信息
+                                        parsed.push({ type: item.type, target: item.raw, amount: 0, raw: item.raw });
                                     }
                                 } else {
-                                    parsed.push({ type: item.type, raw: item.raw, amount: 0 });
+                                    parsed.push({ type: item.type, target: item.raw, amount: 0, raw: item.raw });
                                 }
                             }
                         }
