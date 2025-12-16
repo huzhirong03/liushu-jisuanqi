@@ -1,6 +1,6 @@
 // Service Worker - 实现离线功能 + 版本更新检测
 // ⚠️ 每次更新程序时，修改这个版本号！
-const APP_VERSION = 'v1.4.0';  // 多站点智能切换 + GPT-4o-Mini + Gemini-Flash + 站点信息显示
+const APP_VERSION = 'v1.5.0';  // AI预处理优化 + 提示词增强（各字语义）
 const CACHE_NAME = 'liushu-rocket-' + APP_VERSION;
 
 const urlsToCache = [
