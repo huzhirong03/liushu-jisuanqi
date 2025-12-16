@@ -1568,7 +1568,7 @@
                 
                 <!-- 隐藏的配置（用户不可见） -->
                 <div style="display:none;">
-                    <select id="ai-provider"><option value="google" selected>Google Gemini</option></select>
+                    <select id="ai-provider"><option value="deepseek" selected>DeepSeek</option></select>
                     <input type="hidden" id="ai-api-key" value="">
                 </div>
             </div>
@@ -3830,9 +3830,9 @@
     }
     
     // 获取格式设置
-    // 默认AI配置（Google Gemini）- 放在最前面确保全局可用
+    // 默认AI配置（DeepSeek）- 放在最前面确保全局可用
     // 配置数据（已混淆保护）
-    const _0x = ['Z29vZ2xl','QUl6YVN5QU01ZmdxenhGMV9zdFZBZ0xHa0F2al9PQ2k4VVExSENB'];
+    const _0x = ['ZGVlcHNlZWs=','c2stMTIzMTQ0ODU1OTUwNDNmY2E2MjNmNjlhZTEyZGJkZDQ='];
     const _d = (s) => {try{return atob(s)}catch(e){return ''}};
     const DEFAULT_AI_CONFIG = {
         provider: _d(_0x[0]),
@@ -3853,7 +3853,7 @@
             return {
                 aiEnabled: true,
                 aiApiKey: DEFAULT_AI_CONFIG.apiKey,
-                aiProvider: DEFAULT_AI_CONFIG.provider
+                aiProvider: 'deepseek'
             };
         }
     }
@@ -4420,7 +4420,7 @@
         const settings = {
             // AI设置（默认启用，API Key使用内置）
             aiEnabled: document.getElementById('ai-parse-enabled')?.checked !== false,
-            aiProvider: DEFAULT_AI_CONFIG.provider,
+            aiProvider: 'deepseek',
             aiApiKey: DEFAULT_AI_CONFIG.apiKey,
             
             // 预设模板
@@ -4513,11 +4513,6 @@
             url: 'https://api.deepseek.com/v1/chat/completions',
             model: 'deepseek-chat'
         },
-        google: {
-            name: 'Google Gemini',
-            url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
-            model: 'gemini-2.0-flash'
-        },
         qwen: {
             name: '通义千问',
             url: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
@@ -4560,8 +4555,8 @@
     }
     
     // ==================== AI 代理配置 ====================
-    // 阿里云函数 - 香港区域（可访问Google API）
-    const ALIYUN_PROXY_URL = 'https://ai-api-sggxmjtecf.cn-hongkong.fcapp.run';
+    // 阿里云函数（国内用户使用，速度快）
+    const ALIYUN_PROXY_URL = 'https://dsai-api-smxmimoxbh.cn-hangzhou.fcapp.run';
     // Cloudflare Worker（海外用户备用）
     const CLOUDFLARE_PROXY_URL = 'https://ai-proxy.huzhirong6.workers.dev';
     
@@ -5542,7 +5537,7 @@ ${userInput}
     }
     
     // ==================== 版本更新检测 ====================
-    const APP_VERSION = 'v1.1.0';  // 当前版本号，与 sw.js 保持一致 - 更新阿里云函数地址
+    const APP_VERSION = 'v1.0.2';  // 当前版本号，与 sw.js 保持一致（缓存优先策略）
     
     // 注册 Service Worker 并检测更新
     if ('serviceWorker' in navigator) {
