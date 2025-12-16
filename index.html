@@ -3870,6 +3870,11 @@
         const settings = getFormatSettings();
         const shengxiaoList = ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'];
         
+        // 【关键修复】预处理：全角转半角（解决手机输入问题）
+        if (typeof normalizeFullWidth === 'function') {
+            line = normalizeFullWidth(line);
+        }
+        
         // 预处理：转换中文数字
         if (settings.cnNumber !== false) {
         line = convertChineseNumber(line);
@@ -4255,55 +4260,14 @@
                 console.log('AI返回结果:', aiResult); // 调试
                 
                 if (aiResult && aiResult.bets && aiResult.bets.length > 0) {
-                    let typeConflicts = []; // 记录类型冲突
+                    // parseWithAI 已经完成了类型识别和数值提取，直接使用结果
+                    parsedBets = aiResult.bets.map(bet => ({
+                        ...bet,
+                        fromAI: true
+                    }));
                     
-                    for (const aiBet of aiResult.bets) {
-                        console.log('处理AI识别:', aiBet); // 调试
-                        
-                        // 程序也尝试识别这行，用于对比
-                        const localBets = parseBetLine(aiBet.raw || '');
-                        const localType = localBets.length > 0 ? localBets[0].type : '未识别';
-                        
-                        // 如果AI和程序识别的类型不同，记录下来
-                        if (localType !== '未识别' && localType !== aiBet.type) {
-                            typeConflicts.push({
-                                raw: aiBet.raw,
-                                aiType: aiBet.type,
-                                localType: localType
-                            });
-                        }
-                        
-                        // 根据AI识别的类型，用程序提取数值（以AI类型为准）
-                        const extracted = extractValuesByType(aiBet.type, aiBet.raw || '');
-                        console.log('提取结果:', extracted); // 调试
-                        
-                        if (extracted && extracted.length > 0) {
-                            // 标记来源
-                            extracted.forEach(bet => {
-                                bet.fromAI = true;
-                                bet.aiType = aiBet.type;
-                                if (localType !== aiBet.type && localType !== '未识别') {
-                                    bet.localType = localType;
-                                }
-                            });
-                            parsedBets.push(...extracted);
-                        }
-                    }
-                    
-                    // 【AI调试显示】开始
-                    if (parsedBets.length > 0) {
-                        if (typeConflicts.length > 0) {
-                            console.log('⚠️ AI与程序识别不一致:', typeConflicts);
-                            showAutoCloseToast(`⚠️ ${typeConflicts.length}条类型不一致，以AI为准`, 3000);
-                        } else {
-                            showAutoCloseToast(`✅ AI识别 ${parsedBets.length} 条`, 2000);
-                        }
-                    } else {
-                        console.log('AI识别了类型但提取失败，回退本地解析');
-                        showAutoCloseToast('⚠️ AI提取失败，使用本地解析', 2000);
-                        parsedBets = parseBetInput(input);
-                    }
-                    // 【AI调试显示】结束
+                    console.log('AI解析成功，下注数:', parsedBets.length);
+                    showAutoCloseToast(`✅ AI识别 ${parsedBets.length} 条`, 2000);
                 } else {
                     // AI返回空结果，回退本地解析
                     console.log('AI返回空结果，回退本地解析');
@@ -4567,63 +4531,77 @@
         }
     }
     
+    // Cloudflare Worker 代理地址（解决 CORS 问题）
+    // 请在 Cloudflare 创建 Worker 后，将下面的 URL 替换为你的 Worker 地址
+    const AI_PROXY_URL = 'https://ai-proxy.huzhirong6.workers.dev';
+    
+    // 判断是否需要使用代理（线上环境需要，本地不需要）
+    function shouldUseProxy() {
+        const host = window.location.hostname;
+        // 本地开发环境不使用代理
+        return host !== 'localhost' && host !== '127.0.0.1' && !host.startsWith('192.168.');
+    }
+    
     // 调用AI API
     async function callAIAPI(prompt, provider, apiKey) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:callAIAPI',message:'AI API调用开始',data:{provider:provider,apiKeyPrefix:apiKey?.substring(0,10)+'...',hasApiKey:!!apiKey},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1-H2'})}).catch(()=>{});
-        // #endregion
         const config = AI_PROVIDERS[provider];
         if (!config) throw new Error('未知的AI服务商');
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:callAIAPI',message:'API配置信息',data:{url:config.url,model:config.model},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-        // #endregion
         
         // 添加超时控制（15秒）
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
         
         try {
-            const response = await fetch(config.url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: config.model,
-                    messages: [{ role: 'user', content: prompt }],
-                    temperature: 0.1,
-                    max_tokens: 2000
-                }),
-                signal: controller.signal
-            });
+            let response;
+            
+            // 判断是否使用代理
+            if (shouldUseProxy() && AI_PROXY_URL && !AI_PROXY_URL.includes('你的账号')) {
+                // 线上环境：通过 Cloudflare Worker 代理
+                console.log('使用代理模式调用AI API');
+                response = await fetch(AI_PROXY_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        provider: provider,
+                        apiKey: apiKey,
+                        prompt: prompt,
+                        model: config.model
+                    }),
+                    signal: controller.signal
+                });
+            } else {
+                // 本地环境：直接调用 API
+                console.log('使用直连模式调用AI API');
+                response = await fetch(config.url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: config.model,
+                        messages: [{ role: 'user', content: prompt }],
+                        temperature: 0.1,
+                        max_tokens: 2000
+                    }),
+                    signal: controller.signal
+                });
+            }
             
             clearTimeout(timeoutId);
             
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:callAIAPI',message:'API响应状态',data:{status:response.status,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3-H4'})}).catch(()=>{});
-            // #endregion
-            
             if (!response.ok) {
                 const err = await response.text();
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:callAIAPI',message:'API返回错误',data:{status:response.status,error:err},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1-H5'})}).catch(()=>{});
-                // #endregion
                 throw new Error(`API错误: ${response.status} - ${err}`);
             }
             
             const data = await response.json();
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:callAIAPI',message:'API返回成功',data:{hasChoices:!!data.choices,contentLength:data.choices?.[0]?.message?.content?.length||0},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
-            // #endregion
-            console.log('AI API原始响应:', data); // 调试
+            console.log('AI API原始响应:', data);
             return data.choices?.[0]?.message?.content || null;
         } catch (e) {
             clearTimeout(timeoutId);
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:callAIAPI',message:'API调用异常',data:{errorName:e.name,errorMsg:e.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2-H3-H5'})}).catch(()=>{});
-            // #endregion
             if (e.name === 'AbortError') {
                 throw new Error('AI请求超时(15秒)');
             }
@@ -4631,18 +4609,50 @@
         }
     }
     
+    // 【修复手机输入问题】全角转半角函数
+    function normalizeFullWidth(str) {
+        if (!str) return str;
+        let result = str;
+        
+        // 全角数字转半角 (０-９ → 0-9)
+        result = result.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+        
+        // 全角字母转半角 (Ａ-Ｚ, ａ-ｚ → A-Z, a-z)
+        result = result.replace(/[Ａ-Ｚａ-ｚ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+        
+        // 全角空格转半角
+        result = result.replace(/\u3000/g, ' ');
+        
+        // 全角标点转半角
+        const punctMap = {
+            '\uff0e': '.', '\uff0c': ',', '\u3001': ',', '\uff1a': ':', '\uff1b': ';',
+            '\uff01': '!', '\uff1f': '?', '\u201c': '"', '\u201d': '"', '\u2018': "'", '\u2019': "'",
+            '\uff08': '(', '\uff09': ')', '\u3010': '[', '\u3011': ']', '\uff5b': '{', '\uff5d': '}',
+            '\uff0b': '+', '\uff0d': '-', '\uff1d': '=', '\uff0a': '*', '\uff0f': '/', '\uff05': '%',
+            '\uff03': '#', '\uff06': '&', '\uff20': '@', '\uff04': '$', '\uff3e': '^', '\uff5c': '|',
+            '\uff3c': '\\', '\uff5e': '~', '\uff40': '`', '\uff1c': '<', '\uff1e': '>'
+        };
+        for (const [full, half] of Object.entries(punctMap)) {
+            result = result.split(full).join(half);
+        }
+        
+        // 清理多余空格
+        result = result.replace(/\s+/g, ' ').trim();
+        
+        return result;
+    }
+    
     // AI解析下注信息（优化版：严格数据保护）
     async function parseWithAI(userInput) {
-        const settings = JSON.parse(localStorage.getItem('lhc_format_settings') || '{}');
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:parseWithAI',message:'AI设置检查',data:{aiEnabled:settings.aiEnabled,hasApiKey:!!settings.aiApiKey,provider:settings.aiProvider},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
+        // 使用 getFormatSettings() 获取带默认值的设置（确保 aiEnabled 和 apiKey 有默认值）
+        const settings = getFormatSettings();
         if (!settings.aiEnabled || !settings.aiApiKey) {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/14851c39-cfdd-4322-a9f7-c01a4fbf098d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.html:parseWithAI',message:'AI未启用或无API Key',data:{aiEnabled:settings.aiEnabled,hasApiKey:!!settings.aiApiKey},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-            // #endregion
             return null;
         }
+        
+        // 【关键修复】预处理：全角转半角，解决手机输入问题
+        userInput = normalizeFullWidth(userInput);
+        console.log('📱 规范化后的输入:', userInput);
         
         const tema = appState.lotteryNumbers?.[6] || '未知';
         const pingma = appState.lotteryNumbers?.slice(0, 6).join(',') || '未知';
