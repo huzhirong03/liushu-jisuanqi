@@ -1566,9 +1566,15 @@
                     ✨ 会员专享功能，支持识别各种自由格式输入
                 </div>
                 
-                <!-- 隐藏的配置（用户不可见） -->
+                <!-- 隐藏的配置（同步激活页面的选择） -->
                 <div style="display:none;">
-                    <select id="ai-provider"><option value="deepseek" selected>DeepSeek</option></select>
+                    <select id="ai-provider">
+                        <option value="deepseek" selected>DeepSeek</option>
+                        <option value="qwen">通义千问</option>
+                        <option value="glm">智谱GLM</option>
+                        <option value="google">Google Gemini</option>
+                        <option value="openai">OpenAI</option>
+                    </select>
                     <input type="hidden" id="ai-api-key" value="">
                 </div>
             </div>
@@ -1773,6 +1779,31 @@
                 <button class="btn-config btn-export" onclick="showExportOptions()">📤 导出配置</button>
                 <button class="btn-config btn-import" onclick="showImportModal()">📥 导入配置</button>
                 </div>
+            </div>
+            
+            <!-- AI模型选择（测试对比用） -->
+            <div class="setting-group">
+                <div class="setting-group-title">🤖 AI模型选择</div>
+                <div style="font-size:12px;color:#888;margin-bottom:12px;">
+                    选择不同模型对比效果，国内模型无需翻墙
+                </div>
+                <select id="ai-model-selector" onchange="changeAIModel(this.value)" style="width:100%;padding:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;font-size:14px;margin-bottom:10px;">
+                    <optgroup label="🇨🇳 国内模型（推荐）">
+                        <option value="deepseek" selected>DeepSeek（效果好，便宜）</option>
+                        <option value="qwen">通义千问（阿里云）</option>
+                        <option value="glm">智谱GLM（清华）</option>
+                    </optgroup>
+                    <optgroup label="🌏 海外模型（需部署Cloudflare）">
+                        <option value="google">Google Gemini</option>
+                        <option value="openai">OpenAI GPT-3.5</option>
+                    </optgroup>
+                </select>
+                <div id="ai-model-tip" style="padding:10px;background:rgba(76,175,80,0.1);border-radius:6px;font-size:12px;color:#81c784;">
+                    ✅ 当前：DeepSeek（国内直连，速度快）
+                </div>
+                <button onclick="testCurrentAI()" style="width:100%;margin-top:10px;padding:12px;background:linear-gradient(90deg,#667eea,#764ba2);color:white;border:none;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;">
+                    🧪 测试当前模型
+                </button>
             </div>
         </div>
         
@@ -2134,6 +2165,16 @@
             console.log('📂 [init] 加载本地配置...');
             loadConfig();
             console.log('✅ [init] 配置加载完成');
+            
+            // 恢复AI模型选择
+            const savedAIProvider = localStorage.getItem('ai_provider') || 'deepseek';
+            document.getElementById('ai-provider').value = savedAIProvider;
+            const modelSelector = document.getElementById('ai-model-selector');
+            if (modelSelector) {
+                modelSelector.value = savedAIProvider;
+                changeAIModel(savedAIProvider);
+            }
+            console.log('🤖 [init] AI模型:', savedAIProvider);
             
             // 确保默认彩种为新澳门
             if (!appState.currentLotteryType) {
@@ -4507,30 +4548,124 @@
     // ==================== AI智能解析模块 ====================
     
     // AI服务商配置
+    // region: 'cn' = 国内模型（走阿里云代理），'overseas' = 海外模型（走Cloudflare代理）
     const AI_PROVIDERS = {
         deepseek: {
-            name: 'DeepSeek',
+            name: 'DeepSeek（国内推荐）',
             url: 'https://api.deepseek.com/v1/chat/completions',
-            model: 'deepseek-chat'
+            model: 'deepseek-chat',
+            region: 'cn'
         },
         qwen: {
-            name: '通义千问',
+            name: '通义千问（国内）',
             url: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
-            model: 'qwen-turbo'
+            model: 'qwen-turbo',
+            region: 'cn'
         },
         glm: {
-            name: '智谱GLM',
+            name: '智谱GLM（国内）',
             url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
-            model: 'glm-4-flash'
+            model: 'glm-4-flash',
+            region: 'cn'
+        },
+        google: {
+            name: 'Google Gemini（海外）',
+            url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+            model: 'gemini-1.5-flash',
+            region: 'overseas'
         },
         openai: {
-            name: 'OpenAI',
+            name: 'OpenAI GPT（海外）',
             url: 'https://api.openai.com/v1/chat/completions',
-            model: 'gpt-3.5-turbo'
+            model: 'gpt-3.5-turbo',
+            region: 'overseas'
         }
     };
     
-    // 测试AI连接
+    // 切换AI模型
+    function changeAIModel(provider) {
+        // 同步到隐藏的 select
+        document.getElementById('ai-provider').value = provider;
+        
+        // 保存到本地存储
+        localStorage.setItem('ai_provider', provider);
+        
+        // 更新提示信息
+        const config = AI_PROVIDERS[provider];
+        const tipEl = document.getElementById('ai-model-tip');
+        if (tipEl && config) {
+            if (config.region === 'overseas') {
+                tipEl.innerHTML = '⚠️ 当前：' + config.name + '<br><span style="color:#ffa726;">海外模型需先部署Cloudflare Worker</span>';
+                tipEl.style.background = 'rgba(255,152,0,0.1)';
+                tipEl.style.color = '#ffa726';
+            } else {
+                tipEl.innerHTML = '✅ 当前：' + config.name + '（国内直连，速度快）';
+                tipEl.style.background = 'rgba(76,175,80,0.1)';
+                tipEl.style.color = '#81c784';
+            }
+        }
+        
+        console.log('AI模型已切换为:', provider, config);
+    }
+    
+    // 测试当前AI模型
+    async function testCurrentAI() {
+        const provider = document.getElementById('ai-provider').value;
+        const apiKey = document.getElementById('ai-api-key').value;
+        const config = AI_PROVIDERS[provider];
+        
+        if (!apiKey) {
+            alert('❌ 请先配置API Key\n\n当前模型: ' + config.name + '\n\n' + getAPIKeyGuide(provider));
+            return;
+        }
+        
+        showAutoCloseToast('🔄 正在测试 ' + config.name + '...', 10000);
+        
+        try {
+            const startTime = Date.now();
+            const result = await callAIAPI('请回复"连接成功"四个字', provider, apiKey);
+            const elapsed = Date.now() - startTime;
+            
+            if (result) {
+                showAutoCloseToast('✅ ' + config.name + ' 连接成功！\n响应时间: ' + elapsed + 'ms');
+            } else {
+                alert('❌ ' + config.name + ' 连接失败\n请检查API Key是否正确');
+            }
+        } catch (e) {
+            alert('❌ ' + config.name + ' 连接失败\n\n错误: ' + e.message + '\n\n' + getErrorGuide(provider, e.message));
+        }
+    }
+    
+    // 获取API Key配置指南
+    function getAPIKeyGuide(provider) {
+        const guides = {
+            deepseek: '获取方式：\n1. 访问 platform.deepseek.com\n2. 注册登录后创建API Key',
+            qwen: '获取方式：\n1. 访问 dashscope.console.aliyun.com\n2. 开通模型服务并创建API Key',
+            glm: '获取方式：\n1. 访问 open.bigmodel.cn\n2. 注册后在控制台创建API Key',
+            google: '获取方式：\n1. 访问 aistudio.google.com\n2. 登录Google账号创建API Key\n\n⚠️ 注意：需先部署Cloudflare Worker才能在国内使用',
+            openai: '获取方式：\n1. 访问 platform.openai.com\n2. 创建API Key\n\n⚠️ 注意：需先部署Cloudflare Worker才能在国内使用'
+        };
+        return guides[provider] || '请到对应平台获取API Key';
+    }
+    
+    // 获取错误诊断指南
+    function getErrorGuide(provider, errorMsg) {
+        const config = AI_PROVIDERS[provider];
+        if (config.region === 'overseas') {
+            if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
+                return '可能原因：\n1. Cloudflare Worker未正确部署\n2. 网络连接问题\n\n请先按照部署教程配置Cloudflare Worker';
+            }
+        }
+        if (errorMsg.includes('401') || errorMsg.includes('Unauthorized')) {
+            return '可能原因：API Key无效或已过期，请重新获取';
+        }
+        if (errorMsg.includes('429')) {
+            return '可能原因：API调用频率超限或余额不足';
+        }
+        return '请检查网络连接和API Key配置';
+    }
+    
+    // 测试AI连接（保留原函数兼容）
     async function testAIConnection() {
         const provider = document.getElementById('ai-provider').value;
         const apiKey = document.getElementById('ai-api-key').value;
@@ -4555,9 +4690,9 @@
     }
     
     // ==================== AI 代理配置 ====================
-    // 阿里云函数（国内用户使用，速度快）
+    // 阿里云函数（国内模型使用，速度快）
     const ALIYUN_PROXY_URL = 'https://dsai-api-smxmimoxbh.cn-hangzhou.fcapp.run';
-    // Cloudflare Worker（海外用户备用）
+    // Cloudflare Worker（海外模型使用，可访问Google/OpenAI）
     const CLOUDFLARE_PROXY_URL = 'https://ai-proxy.huzhirong6.workers.dev';
     
     // 判断是否需要使用代理（线上环境需要，本地不需要）
@@ -4567,9 +4702,16 @@
         return host !== 'localhost' && host !== '127.0.0.1' && !host.startsWith('192.168.');
     }
     
-    // 获取代理URL（优先使用阿里云，国内访问更稳定）
-    function getProxyUrl() {
-        // 优先使用阿里云函数（国内稳定）
+    // 根据模型区域获取代理URL
+    // 国内模型 → 阿里云（速度快）
+    // 海外模型 → Cloudflare（能访问Google/OpenAI）
+    function getProxyUrl(provider) {
+        const config = AI_PROVIDERS[provider];
+        if (config && config.region === 'overseas') {
+            console.log('📡 海外模型，使用 Cloudflare 代理');
+            return CLOUDFLARE_PROXY_URL;
+        }
+        console.log('📡 国内模型，使用阿里云代理');
         return ALIYUN_PROXY_URL;
     }
     
@@ -4583,9 +4725,11 @@
         const timeoutId = setTimeout(() => controller.abort(), 30000);
         
         // 记录请求模式（用于诊断）
-        const proxyUrl = getProxyUrl();
+        // 根据模型区域选择代理：国内→阿里云，海外→Cloudflare
+        const proxyUrl = getProxyUrl(provider);
         const useProxy = shouldUseProxy() && proxyUrl;
-        const requestMode = useProxy ? '代理模式(阿里云)' : '直连模式';
+        const proxyName = config.region === 'overseas' ? 'Cloudflare' : '阿里云';
+        const requestMode = useProxy ? `代理模式(${proxyName})` : '直连模式';
         const targetUrl = useProxy ? proxyUrl : config.url;
         
         // 保存诊断信息
