@@ -630,6 +630,74 @@
             cursor: pointer;
         }
         
+        /* AI模型切换按钮 */
+        .ai-model-btn {
+            flex: 1;
+            min-width: 60px;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: #ccc;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .ai-model-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        .ai-model-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #667eea;
+            color: white;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+        }
+        .ai-model-btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* 多模型对比标签 */
+        .model-tab {
+            flex: 1;
+            padding: 10px 8px;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: #888;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        .model-tab:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        .model-tab.active {
+            color: #fff;
+            border-bottom-color: #667eea;
+            background: rgba(102,126,234,0.1);
+        }
+        .model-tab.success {
+            color: #81c784;
+        }
+        .model-tab.error {
+            color: #ef5350;
+        }
+        .model-tab.warning {
+            color: #ffa726;
+        }
+        .model-tab-name {
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .model-tab-time {
+            font-size: 10px;
+            margin-top: 2px;
+            opacity: 0.8;
+        }
+        
         .status-card {
             background: rgba(255, 255, 255, 0.05);
             border-radius: 12px;
@@ -1058,6 +1126,8 @@
                         <!-- 调试按钮 -->
                         <button onclick="showAIDebug()" style="padding:4px 8px;background:linear-gradient(90deg,#9b59b6,#8e44ad);color:white;border:none;border-radius:4px;font-size:10px;cursor:pointer;" title="查看AI识别详情">🤖AI</button>
                         <button onclick="showLocalDebug()" style="padding:4px 8px;background:linear-gradient(90deg,#27ae60,#229954);color:white;border:none;border-radius:4px;font-size:10px;cursor:pointer;" title="查看程序识别详情">📋程序</button>
+                        <!-- 多模型对比按钮 -->
+                        <button onclick="runMultiModelTest()" style="padding:4px 8px;background:linear-gradient(90deg,#f39c12,#e67e22);color:white;border:none;border-radius:4px;font-size:10px;cursor:pointer;" title="多模型对比测试">🔬对比</button>
                         <!-- 原有按钮 -->
                         <button onclick="showCheckDetail()" style="padding:6px 12px;background:linear-gradient(90deg,#3498db,#2980b9);color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">🔍 核对</button>
                         <button onclick="clearInput()" style="padding:6px 12px;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.2);border-radius:6px;font-size:12px;cursor:pointer;">清空</button>
@@ -1562,18 +1632,35 @@
                     <input type="checkbox" id="ai-parse-enabled" checked style="width:20px;height:20px;">
                 </div>
                 
-                <div style="margin-top:10px;padding:10px;background:rgba(76,175,80,0.1);border-radius:6px;font-size:12px;color:#81c784;">
-                    ✨ 会员专享功能，支持识别各种自由格式输入
+                <!-- AI模型切换按钮 -->
+                <div style="margin-top:12px;">
+                    <div style="font-size:12px;color:#888;margin-bottom:8px;">选择AI模型：</div>
+                    <div id="ai-model-buttons" style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button type="button" class="ai-model-btn active" data-provider="deepseek" onclick="switchAIModel('deepseek')">
+                            🚀 DS
+                        </button>
+                        <button type="button" class="ai-model-btn" data-provider="google" onclick="switchAIModel('google')">
+                            🌐 谷歌
+                        </button>
+                        <button type="button" class="ai-model-btn" data-provider="qwen" onclick="switchAIModel('qwen')">
+                            ☁️ 千问
+                        </button>
+                        <button type="button" class="ai-model-btn" data-provider="glm" onclick="switchAIModel('glm')">
+                            🧠 智谱
+                        </button>
+                    </div>
+                    <div id="ai-model-status" style="margin-top:8px;padding:8px;background:rgba(76,175,80,0.1);border-radius:6px;font-size:11px;color:#81c784;">
+                        ✅ 当前：DeepSeek（国内直连）
+                    </div>
                 </div>
                 
-                <!-- 隐藏的配置（同步激活页面的选择） -->
+                <!-- 隐藏的配置 -->
                 <div style="display:none;">
                     <select id="ai-provider">
                         <option value="deepseek" selected>DeepSeek</option>
                         <option value="qwen">通义千问</option>
                         <option value="glm">智谱GLM</option>
                         <option value="google">Google Gemini</option>
-                        <option value="openai">OpenAI</option>
                     </select>
                     <input type="hidden" id="ai-api-key" value="">
                 </div>
@@ -1781,30 +1868,6 @@
                 </div>
             </div>
             
-            <!-- AI模型选择（测试对比用） -->
-            <div class="setting-group">
-                <div class="setting-group-title">🤖 AI模型选择</div>
-                <div style="font-size:12px;color:#888;margin-bottom:12px;">
-                    选择不同模型对比效果，国内模型无需翻墙
-                </div>
-                <select id="ai-model-selector" onchange="changeAIModel(this.value)" style="width:100%;padding:12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;font-size:14px;margin-bottom:10px;">
-                    <optgroup label="🇨🇳 国内模型（推荐）">
-                        <option value="deepseek" selected>DeepSeek（效果好，便宜）</option>
-                        <option value="qwen">通义千问（阿里云）</option>
-                        <option value="glm">智谱GLM（清华）</option>
-                    </optgroup>
-                    <optgroup label="🌏 海外模型（需部署Cloudflare）">
-                        <option value="google">Google Gemini</option>
-                        <option value="openai">OpenAI GPT-3.5</option>
-                    </optgroup>
-                </select>
-                <div id="ai-model-tip" style="padding:10px;background:rgba(76,175,80,0.1);border-radius:6px;font-size:12px;color:#81c784;">
-                    ✅ 当前：DeepSeek（国内直连，速度快）
-                </div>
-                <button onclick="testCurrentAI()" style="width:100%;margin-top:10px;padding:12px;background:linear-gradient(90deg,#667eea,#764ba2);color:white;border:none;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;">
-                    🧪 测试当前模型
-                </button>
-            </div>
         </div>
         
         <!-- 核对详情页面 -->
@@ -1872,6 +1935,71 @@
                 <div class="ref-table-wrap">
                     <table class="ref-table" id="ref-jiaqin"></table>
                 </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 多模型对比测试弹窗 -->
+    <div class="import-modal" id="multi-model-modal" style="display:none;">
+        <div class="import-modal-content" style="max-width:95%;width:500px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;">
+            <div class="import-modal-title" style="display:flex;justify-content:space-between;align-items:center;">
+                <span>🔬 多模型对比测试</span>
+                <button onclick="closeMultiModelModal()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;">×</button>
+            </div>
+            
+            <!-- 模型标签切换 -->
+            <div id="model-tabs" style="display:flex;gap:0;margin-bottom:0;border-bottom:1px solid rgba(255,255,255,0.1);">
+                <button class="model-tab active" data-model="deepseek" onclick="switchModelTab('deepseek')">
+                    <div class="model-tab-name">DeepSeek</div>
+                    <div class="model-tab-time" id="tab-time-deepseek">等待中...</div>
+                </button>
+                <button class="model-tab" data-model="qwen" onclick="switchModelTab('qwen')">
+                    <div class="model-tab-name">通义千问</div>
+                    <div class="model-tab-time" id="tab-time-qwen">等待中...</div>
+                </button>
+                <button class="model-tab" data-model="google" onclick="switchModelTab('google')">
+                    <div class="model-tab-name">Google Gemini</div>
+                    <div class="model-tab-time" id="tab-time-google">等待中...</div>
+                </button>
+            </div>
+            
+            <!-- 对比内容区域 -->
+            <div style="flex:1;overflow-y:auto;padding:12px 0;">
+                <!-- 原始输出 -->
+                <div style="margin-bottom:12px;">
+                    <div style="font-size:11px;color:#888;margin-bottom:4px;">[原始输出内容]</div>
+                    <div id="model-raw-output" style="background:rgba(0,0,0,0.3);border-radius:6px;padding:10px;font-size:12px;color:#ccc;max-height:150px;overflow-y:auto;font-family:monospace;white-space:pre-wrap;word-break:break-all;">
+                        等待运行...
+                    </div>
+                </div>
+                
+                <!-- 解析结果 -->
+                <div style="margin-bottom:12px;">
+                    <div style="font-size:11px;color:#888;margin-bottom:4px;">[解析结果]</div>
+                    <div id="model-parsed-result" style="background:rgba(0,0,0,0.3);border-radius:6px;padding:10px;font-size:12px;color:#81c784;max-height:120px;overflow-y:auto;">
+                        等待运行...
+                    </div>
+                </div>
+                
+                <!-- 状态和操作 -->
+                <div id="model-status-area" style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:rgba(255,255,255,0.05);border-radius:6px;">
+                    <div id="model-status" style="font-size:12px;color:#888;">
+                        ⏳ 等待运行
+                    </div>
+                    <button id="model-use-btn" onclick="useModelResult()" style="display:none;padding:8px 16px;background:linear-gradient(90deg,#27ae60,#2ecc71);color:white;border:none;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;">
+                        ✅ 选用此结果
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 底部操作 -->
+            <div style="padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);display:flex;gap:10px;">
+                <button onclick="runMultiModelTest()" style="flex:1;padding:12px;background:linear-gradient(90deg,#667eea,#764ba2);color:white;border:none;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;">
+                    🔄 重新测试
+                </button>
+                <button onclick="closeMultiModelModal()" style="flex:1;padding:12px;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.2);border-radius:8px;font-size:14px;cursor:pointer;">
+                    关闭
+                </button>
             </div>
         </div>
     </div>
@@ -2168,12 +2296,7 @@
             
             // 恢复AI模型选择
             const savedAIProvider = localStorage.getItem('ai_provider') || 'deepseek';
-            document.getElementById('ai-provider').value = savedAIProvider;
-            const modelSelector = document.getElementById('ai-model-selector');
-            if (modelSelector) {
-                modelSelector.value = savedAIProvider;
-                changeAIModel(savedAIProvider);
-            }
+            switchAIModel(savedAIProvider);
             console.log('🤖 [init] AI模型:', savedAIProvider);
             
             // 确保默认彩种为新澳门
@@ -4551,36 +4674,328 @@
     // region: 'cn' = 国内模型（走阿里云代理），'overseas' = 海外模型（走Cloudflare代理）
     const AI_PROVIDERS = {
         deepseek: {
-            name: 'DeepSeek（国内推荐）',
+            name: 'DeepSeek',
+            shortName: 'DS',
             url: 'https://api.deepseek.com/v1/chat/completions',
             model: 'deepseek-chat',
-            region: 'cn'
-        },
-        qwen: {
-            name: '通义千问（国内）',
-            url: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
-            model: 'qwen-turbo',
-            region: 'cn'
-        },
-        glm: {
-            name: '智谱GLM（国内）',
-            url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
-            model: 'glm-4-flash',
-            region: 'cn'
+            region: 'cn',
+            apiKey: 'sk-12314485595043fca623f69ae12dbdd4'
         },
         google: {
-            name: 'Google Gemini（海外）',
+            name: 'Google Gemini',
+            shortName: '谷歌',
             url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
             model: 'gemini-1.5-flash',
-            region: 'overseas'
+            region: 'overseas',
+            apiKey: 'AIzaSyAM5fgqzxF1_stVAgLGkAvj_OCi8UQ1HCA'
         },
-        openai: {
-            name: 'OpenAI GPT（海外）',
-            url: 'https://api.openai.com/v1/chat/completions',
-            model: 'gpt-3.5-turbo',
-            region: 'overseas'
+        qwen: {
+            name: '通义千问',
+            shortName: '千问',
+            url: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+            model: 'qwen-turbo',
+            region: 'cn',
+            apiKey: ''  // 待配置
+        },
+        glm: {
+            name: '智谱GLM',
+            shortName: '智谱',
+            url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+            model: 'glm-4-flash',
+            region: 'cn',
+            apiKey: ''  // 待配置
         }
     };
+    
+    // 切换AI模型（按钮点击）
+    function switchAIModel(provider) {
+        const config = AI_PROVIDERS[provider];
+        if (!config) return;
+        
+        // 更新隐藏的 select
+        document.getElementById('ai-provider').value = provider;
+        document.getElementById('ai-api-key').value = config.apiKey || '';
+        
+        // 更新按钮状态
+        document.querySelectorAll('.ai-model-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.provider === provider) {
+                btn.classList.add('active');
+            }
+        });
+        
+        // 更新状态显示
+        const statusEl = document.getElementById('ai-model-status');
+        if (statusEl) {
+            if (!config.apiKey) {
+                // API Key 未配置
+                statusEl.innerHTML = '⚠️ ' + config.name + '：API Key 未配置';
+                statusEl.style.background = 'rgba(244,67,54,0.1)';
+                statusEl.style.color = '#ef5350';
+            } else {
+                const regionText = config.region === 'overseas' ? '海外Cloudflare代理' : '国内直连';
+                statusEl.innerHTML = '✅ 当前：' + config.name + '（' + regionText + '）';
+                statusEl.style.background = config.region === 'overseas' 
+                    ? 'rgba(255,152,0,0.1)' 
+                    : 'rgba(76,175,80,0.1)';
+                statusEl.style.color = config.region === 'overseas' ? '#ffa726' : '#81c784';
+            }
+        }
+        
+        // 保存选择
+        localStorage.setItem('ai_provider', provider);
+        console.log('🤖 AI模型切换为:', provider, config.name);
+    }
+    
+    // ==================== 多模型对比测试 ====================
+    
+    // 存储各模型的测试结果
+    let multiModelResults = {
+        deepseek: { status: 'pending', time: 0, raw: '', parsed: [], error: '' },
+        qwen: { status: 'pending', time: 0, raw: '', parsed: [], error: '' },
+        google: { status: 'pending', time: 0, raw: '', parsed: [], error: '' }
+    };
+    let currentViewingModel = 'deepseek';
+    
+    // 运行多模型对比测试
+    async function runMultiModelTest() {
+        const input = document.getElementById('bet-input').value.trim();
+        if (!input) {
+            alert('请先输入下注内容');
+            return;
+        }
+        
+        // 显示弹窗
+        document.getElementById('multi-model-modal').style.display = 'flex';
+        
+        // 重置结果
+        multiModelResults = {
+            deepseek: { status: 'running', time: 0, raw: '', parsed: [], error: '' },
+            qwen: { status: 'running', time: 0, raw: '', parsed: [], error: '' },
+            google: { status: 'running', time: 0, raw: '', parsed: [], error: '' }
+        };
+        
+        // 更新UI显示"运行中"
+        ['deepseek', 'qwen', 'google'].forEach(model => {
+            updateModelTabStatus(model, 'running', '运行中...');
+        });
+        
+        // 切换到第一个标签
+        switchModelTab('deepseek');
+        
+        // 构建提示词（复用现有逻辑）
+        let userInput = input;
+        if (typeof normalizeChineseText === 'function') {
+            userInput = normalizeChineseText(input);
+        }
+        
+        const prompt = `你是下注类型分类器。任务：识别每条下注属于什么玩法类型。
+
+【你只需要做一件事】判断玩法类型，不需要提取数字！
+
+【玩法类型】共23种：
+1. 特码 - 含"特"字或纯数字下注(01-49)
+2. 生肖特码 - "买X各Y"格式，买某生肖的所有号码做特码
+3. 生肖 - 单个生肖下注如"猪10""龙x10"
+4. 波色 - 含"红/蓝/绿"+"波"
+5. 半波 - 波色+大小/单双
+6. 平特一肖 - 含"平特"或"一友"
+7. 平特二连肖 - 含"二连肖"或"二友"
+8. 平特三连肖 - 含"三连肖"或"三友"
+9-23. 其他玩法...
+
+【用户输入】
+${userInput}
+
+【输出格式】严格按此JSON格式：
+{"items":[{"type":"类型","raw":"原文"}]}`;
+        
+        // 并行调用所有模型
+        const modelsToTest = ['deepseek', 'qwen', 'google'];
+        
+        const promises = modelsToTest.map(async (modelKey) => {
+            const config = AI_PROVIDERS[modelKey];
+            if (!config || !config.apiKey) {
+                multiModelResults[modelKey] = {
+                    status: 'error',
+                    time: 0,
+                    raw: '',
+                    parsed: [],
+                    error: 'API Key 未配置'
+                };
+                updateModelTabStatus(modelKey, 'error', '未配置');
+                return;
+            }
+            
+            const startTime = Date.now();
+            try {
+                const result = await callAIAPI(prompt, modelKey, config.apiKey);
+                const elapsed = Date.now() - startTime;
+                
+                if (result) {
+                    // 解析结果
+                    let parsed = [];
+                    try {
+                        let jsonStr = result.trim();
+                        if (jsonStr.startsWith('```')) {
+                            jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+                        }
+                        const aiResult = JSON.parse(jsonStr);
+                        if (aiResult.items && Array.isArray(aiResult.items)) {
+                            for (const item of aiResult.items) {
+                                if (typeof extractValuesByType === 'function') {
+                                    const extracted = extractValuesByType(item.type, item.raw);
+                                    if (extracted && extracted.length > 0) {
+                                        parsed.push(...extracted);
+                                    }
+                                } else {
+                                    parsed.push({ type: item.type, raw: item.raw, amount: 0 });
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('解析JSON失败:', e);
+                    }
+                    
+                    multiModelResults[modelKey] = {
+                        status: parsed.length > 0 ? 'success' : 'warning',
+                        time: elapsed,
+                        raw: result,
+                        parsed: parsed,
+                        error: ''
+                    };
+                    
+                    updateModelTabStatus(modelKey, parsed.length > 0 ? 'success' : 'warning', `耗时: ${(elapsed/1000).toFixed(1)}s`);
+                } else {
+                    throw new Error('返回结果为空');
+                }
+            } catch (e) {
+                const elapsed = Date.now() - startTime;
+                multiModelResults[modelKey] = {
+                    status: 'error',
+                    time: elapsed,
+                    raw: '',
+                    parsed: [],
+                    error: e.message
+                };
+                updateModelTabStatus(modelKey, 'error', '请求失败');
+            }
+            
+            // 如果当前正在查看这个模型，更新显示
+            if (currentViewingModel === modelKey) {
+                displayModelResult(modelKey);
+            }
+        });
+        
+        await Promise.all(promises);
+        console.log('🔬 多模型测试完成:', multiModelResults);
+    }
+    
+    // 更新模型标签状态
+    function updateModelTabStatus(model, status, timeText) {
+        const tab = document.querySelector(`.model-tab[data-model="${model}"]`);
+        if (tab) {
+            tab.classList.remove('success', 'error', 'warning');
+            if (status !== 'running') {
+                tab.classList.add(status);
+            }
+        }
+        const timeEl = document.getElementById(`tab-time-${model}`);
+        if (timeEl) {
+            timeEl.textContent = timeText;
+        }
+    }
+    
+    // 切换模型标签
+    function switchModelTab(model) {
+        currentViewingModel = model;
+        
+        // 更新标签激活状态
+        document.querySelectorAll('.model-tab').forEach(tab => {
+            tab.classList.remove('active');
+            if (tab.dataset.model === model) {
+                tab.classList.add('active');
+            }
+        });
+        
+        // 显示该模型的结果
+        displayModelResult(model);
+    }
+    
+    // 显示模型结果
+    function displayModelResult(model) {
+        const result = multiModelResults[model];
+        const config = AI_PROVIDERS[model];
+        
+        // 原始输出
+        const rawEl = document.getElementById('model-raw-output');
+        if (result.status === 'running') {
+            rawEl.textContent = '⏳ 正在请求 ' + (config?.name || model) + '...';
+        } else if (result.status === 'error') {
+            rawEl.textContent = '❌ 错误: ' + result.error;
+        } else {
+            rawEl.textContent = result.raw || '(无输出)';
+        }
+        
+        // 解析结果
+        const parsedEl = document.getElementById('model-parsed-result');
+        if (result.status === 'running') {
+            parsedEl.innerHTML = '⏳ 等待结果...';
+        } else if (result.status === 'error') {
+            parsedEl.innerHTML = '<span style="color:#ef5350;">请求失败</span>';
+        } else if (result.parsed && result.parsed.length > 0) {
+            parsedEl.innerHTML = result.parsed.map(bet => 
+                `${bet.type} → ${bet.numbers?.join(',') || bet.target || ''} × ${bet.amount}元`
+            ).join('<br>');
+        } else {
+            parsedEl.innerHTML = '<span style="color:#ffa726;">无法解析或结果为空</span>';
+        }
+        
+        // 状态区域
+        const statusEl = document.getElementById('model-status');
+        const useBtnEl = document.getElementById('model-use-btn');
+        
+        if (result.status === 'running') {
+            statusEl.innerHTML = '⏳ 运行中...';
+            useBtnEl.style.display = 'none';
+        } else if (result.status === 'success') {
+            statusEl.innerHTML = `✅ 解析成功 (${result.parsed.length}条下注)`;
+            useBtnEl.style.display = 'block';
+        } else if (result.status === 'warning') {
+            statusEl.innerHTML = '⚠️ 部分错误';
+            useBtnEl.style.display = 'block';
+        } else {
+            statusEl.innerHTML = '❌ 请求失败';
+            useBtnEl.style.display = 'none';
+        }
+    }
+    
+    // 使用当前模型的结果
+    function useModelResult() {
+        const result = multiModelResults[currentViewingModel];
+        if (result && result.parsed && result.parsed.length > 0) {
+            // 将解析结果应用到主界面
+            parsedBets = result.parsed;
+            
+            // 切换到该模型
+            switchAIModel(currentViewingModel);
+            
+            // 关闭弹窗
+            closeMultiModelModal();
+            
+            // 执行计算
+            calculateBets();
+            
+            showAutoCloseToast('✅ 已选用 ' + AI_PROVIDERS[currentViewingModel].name + ' 的结果');
+        }
+    }
+    
+    // 关闭多模型弹窗
+    function closeMultiModelModal() {
+        document.getElementById('multi-model-modal').style.display = 'none';
+    }
+    
+    // ==================== 结束多模型对比测试 ====================
     
     // 切换AI模型
     function changeAIModel(provider) {
@@ -4720,6 +5135,10 @@
         const config = AI_PROVIDERS[provider];
         if (!config) throw new Error('未知的AI服务商');
         
+        // 优先使用内置的 API Key
+        const useApiKey = apiKey || config.apiKey;
+        if (!useApiKey) throw new Error(config.name + ' 的 API Key 未配置');
+        
         // 添加超时控制（30秒，AI API 需要更长时间）
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -4756,7 +5175,7 @@
                     },
                     body: JSON.stringify({
                         provider: provider,
-                        apiKey: apiKey,
+                        apiKey: useApiKey,
                         prompt: prompt,
                         model: config.model
                     }),
@@ -4769,7 +5188,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
+                        'Authorization': `Bearer ${useApiKey}`
                     },
                     body: JSON.stringify({
                         model: config.model,
