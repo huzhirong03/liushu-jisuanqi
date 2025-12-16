@@ -1,6 +1,6 @@
 // Service Worker - 实现离线功能 + 版本更新检测
 // ⚠️ 每次更新程序时，修改这个版本号！
-const APP_VERSION = 'v1.1.0';  // 更新阿里云函数地址
+const APP_VERSION = 'v1.0.9';  // 更新阿里云函数地址
 const CACHE_NAME = 'liushu-rocket-' + APP_VERSION;
 
 const urlsToCache = [
