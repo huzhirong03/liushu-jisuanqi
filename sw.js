@@ -1,6 +1,6 @@
 // Service Worker - 实现离线功能 + 版本更新检测
 // ⚠️ 每次更新程序时，修改这个版本号！
-const APP_VERSION = 'v1.1.5';  // 修复Google模型为gemini-2.0-flash
+const APP_VERSION = 'v1.1.7';  // 添加智谱GLM，4模型对比测试
 const CACHE_NAME = 'liushu-rocket-' + APP_VERSION;
 
 const urlsToCache = [
