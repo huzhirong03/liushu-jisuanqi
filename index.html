@@ -48,6 +48,12 @@
 ║                                                                           ║
 ║  【别名映射】                                                              ║
 ║  一友=平特一肖  二友=平特二连肖  三友=平特三连肖  平码=单平  +=十(号码)     ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║  ★★★ 8. 【临时-模型比拼】大模型测试系统（后期删除） ★★★                   ║
+║     搜索: 【临时-模型比拼】                                                ║
+║     说明: 用于比拼各大模型性能，找到最适合的模型组合                        ║
+║     删除: 告诉AI"删除临时-模型比拼功能"即可移除                            ║
+║     包含: 5轮测试、标准答案对比、CSV导出、评分统计                         ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 -->
 <html lang="zh-CN">
@@ -1950,6 +1956,74 @@
                 <span>🔬 多模型对比测试</span>
                 <span id="tuzi-site-info" style="font-size:11px;color:#4ade80;background:rgba(74,222,128,0.1);padding:2px 8px;border-radius:4px;margin-left:8px;">当前站点: 广州</span>
                 <button onclick="closeMultiModelModal()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;">×</button>
+            </div>
+            
+            <!-- 【临时-模型比拼】测试控制区 -->
+            <div id="model-test-control" style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.1);display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+                <div style="display:flex;align-items:center;gap:4px;">
+                    <label style="font-size:11px;color:#888;">标准答案:</label>
+                    <select id="standard-answer" style="padding:4px 8px;border-radius:4px;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.3);color:#fff;font-size:11px;">
+                        <option value="">--请选择--</option>
+                        <optgroup label="特码类">
+                            <option value="特码">特码</option>
+                            <option value="生肖特码">生肖特码</option>
+                            <option value="大小单双">大小单双</option>
+                        </optgroup>
+                        <optgroup label="平特类">
+                            <option value="平特一肖">平特一肖(一友)</option>
+                            <option value="平特二连肖">平特二连肖(二友)</option>
+                            <option value="平特三连肖">平特三连肖(三友)</option>
+                            <option value="平特四连肖">平特四连肖</option>
+                            <option value="平特五连肖">平特五连肖</option>
+                            <option value="平特尾数">平特尾数</option>
+                        </optgroup>
+                        <optgroup label="生肖类">
+                            <option value="生肖">生肖</option>
+                            <option value="六肖">六肖</option>
+                            <option value="合肖">合肖</option>
+                            <option value="正肖">正肖</option>
+                        </optgroup>
+                        <optgroup label="波色类">
+                            <option value="波色">波色</option>
+                            <option value="半波">半波</option>
+                        </optgroup>
+                        <optgroup label="平码类">
+                            <option value="单平">单平/平码</option>
+                        </optgroup>
+                        <optgroup label="连码类">
+                            <option value="二中二">二中二</option>
+                            <option value="三中三">三中三</option>
+                            <option value="二全中">二全中</option>
+                            <option value="三全中">三全中</option>
+                            <option value="二中特">二中特</option>
+                            <option value="三中特">三中特</option>
+                            <option value="特串">特串</option>
+                        </optgroup>
+                        <optgroup label="不中类">
+                            <option value="五不中">五不中</option>
+                            <option value="六不中">六不中</option>
+                            <option value="七不中">七不中</option>
+                            <option value="八不中">八不中</option>
+                            <option value="九不中">九不中</option>
+                            <option value="十不中">十不中</option>
+                            <option value="十一不中">十一不中</option>
+                            <option value="十二不中">十二不中</option>
+                        </optgroup>
+                        <optgroup label="其他">
+                            <option value="总和大小单双">总和大小单双</option>
+                            <option value="五行">五行</option>
+                            <option value="家禽野兽">家禽野兽</option>
+                            <option value="头尾数">头尾数</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <button onclick="runMultiRoundTest(5)" style="padding:4px 10px;background:linear-gradient(90deg,#3498db,#2980b9);color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">
+                    🔄 5轮测试
+                </button>
+                <span id="test-progress" style="font-size:11px;color:#888;display:none;">进度: 0/5</span>
+                <button onclick="exportTestReport()" id="export-btn" style="padding:4px 10px;background:linear-gradient(90deg,#27ae60,#2ecc71);color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;display:none;">
+                    📊 导出CSV
+                </button>
             </div>
             
             <!-- 模型标签切换 -->
@@ -4873,6 +4947,203 @@
         return result;
     }
     
+    // ==================== 【临时-模型比拼】测试数据存储 ====================
+    // 存储多轮测试结果
+    let multiRoundTestData = {
+        inputContent: '',           // 输入内容
+        standardAnswer: '',         // 标准答案
+        totalRounds: 5,             // 总轮数
+        currentRound: 0,            // 当前轮次
+        isRunning: false,           // 是否正在运行
+        results: []                 // 每轮结果 [{ round: 1, models: { deepseek: {...}, ... } }]
+    };
+    
+    // 【临时-模型比拼】运行多轮测试
+    async function runMultiRoundTest(rounds = 5) {
+        const input = document.getElementById('bet-input').value.trim();
+        const standardAnswer = document.getElementById('standard-answer').value;
+        
+        if (!input) {
+            alert('请先输入下注内容');
+            return;
+        }
+        if (!standardAnswer) {
+            alert('请选择标准答案，用于评估模型准确率');
+            return;
+        }
+        
+        // 初始化测试数据
+        multiRoundTestData = {
+            inputContent: input,
+            standardAnswer: standardAnswer,
+            totalRounds: rounds,
+            currentRound: 0,
+            isRunning: true,
+            results: []
+        };
+        
+        // 显示进度
+        document.getElementById('test-progress').style.display = 'inline';
+        document.getElementById('export-btn').style.display = 'none';
+        
+        // 运行多轮测试
+        for (let i = 1; i <= rounds; i++) {
+            multiRoundTestData.currentRound = i;
+            document.getElementById('test-progress').textContent = `进度: ${i}/${rounds}`;
+            
+            // 运行单轮测试
+            await runMultiModelTest();
+            
+            // 保存本轮结果
+            const roundResult = {
+                round: i,
+                timestamp: new Date().toISOString(),
+                models: {}
+            };
+            
+            for (const [modelKey, result] of Object.entries(multiModelResults)) {
+                const aiItems = result.aiItems || [];
+                const firstItem = aiItems[0] || {};
+                roundResult.models[modelKey] = {
+                    耗时: result.time,
+                    格式正确: result.status === 'success' || result.status === 'warning',
+                    类型输出: firstItem.type || '(解析失败)',
+                    理由代码: firstItem.r || '',
+                    准确: firstItem.type === standardAnswer,
+                    原始输出: result.raw?.substring(0, 200) || ''
+                };
+            }
+            
+            multiRoundTestData.results.push(roundResult);
+            
+            // 等待一小段时间，避免请求过快
+            if (i < rounds) {
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        }
+        
+        multiRoundTestData.isRunning = false;
+        document.getElementById('test-progress').textContent = `✅ 完成 ${rounds}轮`;
+        document.getElementById('export-btn').style.display = 'inline';
+        
+        // 显示汇总
+        showTestSummary();
+        console.log('📊 多轮测试完成:', multiRoundTestData);
+    }
+    
+    // 【临时-模型比拼】显示测试汇总
+    function showTestSummary() {
+        const summary = calculateTestSummary();
+        const siteInfoEl = document.getElementById('tuzi-site-info');
+        if (siteInfoEl) {
+            const bestModel = summary.ranking[0];
+            siteInfoEl.innerHTML = `
+                <span style="color:#4ade80;">🏆 ${bestModel.name} 准确率${bestModel.准确率}</span>
+                <span style="margin-left:6px;color:#888;">站点:${tuziSiteManager.getCurrentName()}</span>
+            `;
+        }
+    }
+    
+    // 【临时-模型比拼】计算测试汇总
+    function calculateTestSummary() {
+        const models = ['deepseek', 'qwen', 'tuzi', 'claude', 'gpt'];
+        const modelNames = { deepseek: 'DS', qwen: '千问', tuzi: 'Gem', claude: 'Cld', gpt: 'GPT' };
+        
+        const stats = {};
+        models.forEach(m => {
+            stats[m] = { name: modelNames[m], 总耗时: 0, 格式正确: 0, 类型正确: 0, 准确: 0, 轮数: 0 };
+        });
+        
+        // 统计每个模型的表现
+        for (const round of multiRoundTestData.results) {
+            for (const [modelKey, result] of Object.entries(round.models)) {
+                if (stats[modelKey]) {
+                    stats[modelKey].轮数++;
+                    stats[modelKey].总耗时 += result.耗时 || 0;
+                    if (result.格式正确) stats[modelKey].格式正确++;
+                    if (result.类型输出 && result.类型输出 !== '(解析失败)' && result.类型输出 !== '玩法') {
+                        stats[modelKey].类型正确++;
+                    }
+                    if (result.准确) stats[modelKey].准确++;
+                }
+            }
+        }
+        
+        // 计算百分比和排名
+        const ranking = models.map(m => {
+            const s = stats[m];
+            const rounds = s.轮数 || 1;
+            return {
+                key: m,
+                name: s.name,
+                平均耗时: (s.总耗时 / rounds / 1000).toFixed(1) + 's',
+                格式正确率: Math.round(s.格式正确 / rounds * 100) + '%',
+                类型正确率: Math.round(s.类型正确 / rounds * 100) + '%',
+                准确率: Math.round(s.准确 / rounds * 100) + '%',
+                准确数: s.准确,
+                综合分: s.准确 * 3 + s.类型正确 * 2 + s.格式正确 - (s.总耗时 / rounds / 1000)
+            };
+        }).sort((a, b) => b.综合分 - a.综合分);
+        
+        return { stats, ranking };
+    }
+    
+    // 【临时-模型比拼】导出CSV报告
+    function exportTestReport() {
+        if (multiRoundTestData.results.length === 0) {
+            alert('没有测试数据可导出');
+            return;
+        }
+        
+        const summary = calculateTestSummary();
+        
+        // 生成CSV内容
+        let csv = '\ufeff';  // BOM for Excel
+        
+        // 测试信息
+        csv += '===== 测试信息 =====\n';
+        csv += `测试时间,${new Date().toLocaleString()}\n`;
+        csv += `输入内容,"${multiRoundTestData.inputContent.replace(/"/g, '""')}"\n`;
+        csv += `标准答案,${multiRoundTestData.standardAnswer}\n`;
+        csv += `测试轮数,${multiRoundTestData.totalRounds}\n`;
+        csv += `站点,${tuziSiteManager.getCurrentName()}\n\n`;
+        
+        // 汇总表
+        csv += '===== 模型评分汇总 =====\n';
+        csv += '排名,模型,平均耗时,格式正确率,类型正确率,准确率,综合评分\n';
+        summary.ranking.forEach((m, i) => {
+            const stars = m.准确率 === '100%' ? '⭐⭐⭐⭐⭐' : 
+                          m.准确率 >= '80%' ? '⭐⭐⭐⭐' :
+                          m.准确率 >= '60%' ? '⭐⭐⭐' :
+                          m.准确率 >= '40%' ? '⭐⭐' : '⭐';
+            csv += `${i+1},${m.name},${m.平均耗时},${m.格式正确率},${m.类型正确率},${m.准确率},${stars}\n`;
+        });
+        csv += '\n';
+        
+        // 明细表
+        csv += '===== 详细结果 =====\n';
+        csv += '轮次,模型,耗时(ms),格式正确,类型输出,理由代码,准确\n';
+        for (const round of multiRoundTestData.results) {
+            for (const [modelKey, result] of Object.entries(round.models)) {
+                const modelName = { deepseek: 'DeepSeek', qwen: '通义千问', tuzi: 'Gemini', claude: 'Claude', gpt: 'GPT4o' }[modelKey];
+                csv += `${round.round},${modelName},${result.耗时},${result.格式正确 ? '✓' : '✗'},${result.类型输出},${result.理由代码},${result.准确 ? '✓' : '✗'}\n`;
+            }
+        }
+        
+        // 下载文件
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `模型测试报告_${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        alert('✅ CSV报告已导出！\n\n你可以发给AI分析，获取优化建议。');
+    }
+    
     // ==================== 理由代码映射表 ====================
     const REASON_CODES = {
         'R1': '纯数字+各+金额',
@@ -4967,24 +5238,26 @@
         
         const prompt = `【强制规则】只输出JSON，禁止任何解释！
 
-【理由代码】必须从以下代码中选择：
-R1=纯数字+各/统一+金额 R2=买+生肖+各+金额 R3=含特字 R4=生肖+金额(无买各)
-R5=红/蓝/绿+波 R6=波色+大小单双 R7=含平特或一友 R8=含二连肖或二友
-R9=含三连肖或三友 R10=含四连肖 R11=含五连肖 R12=平特尾
-R13=含六肖 R14=含合肖 R15=含正肖 R16=单平或平码
-R17=二中二 R18=三中三 R19=二全中 R20=三全中 R21=二中特 R22=三中特 R23=特串
-R24=N不中 R25=总和大小单双 R26=五行 R27=家禽野兽 R28=头尾数
+【type必须是以下之一】（禁止输出其他值！）
+特码/生肖特码/生肖/波色/半波/平特一肖/平特二连肖/平特三连肖/平特四连肖/平特五连肖/平特尾数/六肖/合肖/正肖/单平/二中二/三中三/二全中/三全中/二中特/三中特/特串/五不中/六不中/七不中/八不中/九不中/十不中/十一不中/十二不中/总和大小单双/五行/家禽野兽/头尾数
+
+【理由代码r】必须是R1-R28之一：
+R1=纯数字+各+金额→特码 R2=买+生肖+各→生肖特码 R3=含特字→特码 R4=生肖+金额→生肖
+R5=红蓝绿+波→波色 R6=波色+大小单双→半波 R7=平特或一友→平特一肖 R8=二连肖或二友→平特二连肖
+R9=三连肖或三友→平特三连肖 R10=四连肖→平特四连肖 R11=五连肖→平特五连肖 R12=平特尾→平特尾数
+R13=六肖 R14=合肖 R15=正肖 R16=单平或平码→单平 R17=二中二 R18=三中三 R19=二全中 R20=三全中
+R21=二中特 R22=三中特 R23=特串 R24=N不中 R25=总和大小单双 R26=五行 R27=家禽野兽 R28=头尾数
 
 【核心规则】
-1. 纯数字+各+金额 → 特码(R1)，如：10 12 20各20
-2. 买+生肖+各+金额 → 生肖特码(R2)，如：买猪各10
-3. 生肖+金额(无买各) → 生肖(R4)，如：猪10
+1. 纯数字+各+金额 → type="特码", r="R1"
+2. 买+生肖+各+金额 → type="生肖特码", r="R2"
+3. 生肖+金额(无买各) → type="生肖", r="R4"
 
 【用户输入】
 ${userInput}
 
-【输出格式】
-{"items":[{"type":"玩法","raw":"原文","r":"理由代码"}]}`;
+【输出格式】严格按此格式，type必须是上面列出的玩法名！
+{"items":[{"type":"特码","raw":"原文","r":"R1"}]}`;
         
         // 并行调用所有模型（5个）
         const modelsToTest = ['deepseek', 'qwen', 'tuzi', 'claude', 'gpt'];
