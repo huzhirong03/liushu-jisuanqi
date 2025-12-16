@@ -4873,6 +4873,46 @@
         return result;
     }
     
+    // ==================== 理由代码映射表 ====================
+    const REASON_CODES = {
+        'R1': '纯数字+各+金额',
+        'R2': '买+生肖+各+金额',
+        'R3': '含"特"字',
+        'R4': '生肖+金额(无买各)',
+        'R5': '红/蓝/绿+波',
+        'R6': '波色+大小单双',
+        'R7': '含平特或一友',
+        'R8': '含二连肖或二友',
+        'R9': '含三连肖或三友',
+        'R10': '含四连肖',
+        'R11': '含五连肖',
+        'R12': '平特尾',
+        'R13': '含六肖',
+        'R14': '含合肖',
+        'R15': '含正肖',
+        'R16': '单平或平码',
+        'R17': '二中二',
+        'R18': '三中三',
+        'R19': '二全中',
+        'R20': '三全中',
+        'R21': '二中特',
+        'R22': '三中特',
+        'R23': '特串',
+        'R24': 'N不中',
+        'R25': '总和大小单双',
+        'R26': '五行',
+        'R27': '家禽野兽',
+        'R28': '头尾数'
+    };
+    
+    // 获取理由代码的可读文字
+    function getReasonText(code) {
+        if (!code) return '';
+        // 支持多个代码，如 "R1,R3"
+        const codes = code.split(',').map(c => c.trim().toUpperCase());
+        return codes.map(c => REASON_CODES[c] || c).join('+');
+    }
+    
     // ==================== 多模型对比测试 ====================
     
     // 存储各模型的测试结果（4个模型）
@@ -4925,30 +4965,26 @@
         // 【预处理】标准化分隔符和金额符号（确定性规则，不依赖AI）
         userInput = normalizeForAI(userInput);
         
-        const prompt = `你是下注类型分类器。任务：识别每条下注属于什么玩法类型。
+        const prompt = `【强制规则】只输出JSON，禁止任何解释！
 
-【核心规则】"各"字的两种用法：
-1. 纯数字+各+金额 → 特码（每个号码下注该金额）
-   例：10 12 20 30各20 → 特码，4个号码每个20元
-2. 生肖名+各+金额 → 生肖特码（买该生肖所有号码）
-   例：买猪各10 → 生肖特码，猪的所有号码每个10元
+【理由代码】必须从以下代码中选择：
+R1=纯数字+各/统一+金额 R2=买+生肖+各+金额 R3=含特字 R4=生肖+金额(无买各)
+R5=红/蓝/绿+波 R6=波色+大小单双 R7=含平特或一友 R8=含二连肖或二友
+R9=含三连肖或三友 R10=含四连肖 R11=含五连肖 R12=平特尾
+R13=含六肖 R14=含合肖 R15=含正肖 R16=单平或平码
+R17=二中二 R18=三中三 R19=二全中 R20=三全中 R21=二中特 R22=三中特 R23=特串
+R24=N不中 R25=总和大小单双 R26=五行 R27=家禽野兽 R28=头尾数
 
-【玩法类型】共23种：
-1. 特码 - 含"特"字，或纯数字+各+金额（如 10 12 20各10）
-2. 生肖特码 - "买X各Y"格式，X是生肖名（如 买猪各10）
-3. 生肖 - 单个生肖下注如"猪10"（无"买"和"各"）
-4. 波色 - 含"红/蓝/绿"+"波"
-5. 半波 - 波色+大小/单双
-6. 平特一肖 - 含"平特"或"一友"
-7. 平特二连肖 - 含"二连肖"或"二友"
-8. 平特三连肖 - 含"三连肖"或"三友"
-9-23. 其他玩法...
+【核心规则】
+1. 纯数字+各+金额 → 特码(R1)，如：10 12 20各20
+2. 买+生肖+各+金额 → 生肖特码(R2)，如：买猪各10
+3. 生肖+金额(无买各) → 生肖(R4)，如：猪10
 
 【用户输入】
 ${userInput}
 
-【输出格式】严格按此JSON格式：
-{"items":[{"type":"类型","raw":"原文"}]}`;
+【输出格式】
+{"items":[{"type":"玩法","raw":"原文","r":"理由代码"}]}`;
         
         // 并行调用所有模型（5个）
         const modelsToTest = ['deepseek', 'qwen', 'tuzi', 'claude', 'gpt'];
@@ -4975,6 +5011,7 @@ ${userInput}
                 if (result) {
                     // 解析结果
                     let parsed = [];
+                    let aiItems = [];  // 保存AI原始输出的items（用于投票）
                     try {
                         let jsonStr = result.trim();
                         if (jsonStr.startsWith('```')) {
@@ -4982,22 +5019,31 @@ ${userInput}
                         }
                         const aiResult = JSON.parse(jsonStr);
                         if (aiResult.items && Array.isArray(aiResult.items)) {
+                            aiItems = aiResult.items;  // 保存原始items
                             for (const item of aiResult.items) {
                                 if (typeof extractValuesByType === 'function') {
+                                    // 获取理由代码的可读文字
+                                    const reasonCode = item.r || item.reason || '';
+                                    const reasonText = getReasonText(reasonCode);
+                                    
                                     const extracted = extractValuesByType(item.type, item.raw);
                                     if (extracted && extracted.length > 0) {
+                                        // 给每个提取的结果添加理由
+                                        extracted.forEach(e => e.reason = reasonText);
                                         parsed.push(...extracted);
                                     } else {
                                         // 即使提取失败也显示原始信息
-                                        parsed.push({ type: item.type, target: item.raw, amount: 0, raw: item.raw });
+                                        parsed.push({ type: item.type, target: item.raw, amount: 0, raw: item.raw, reason: reasonText, reasonCode: reasonCode });
                                     }
                                 } else {
-                                    parsed.push({ type: item.type, target: item.raw, amount: 0, raw: item.raw });
+                                    const reasonCode = item.r || item.reason || '';
+                                    const reasonText = getReasonText(reasonCode);
+                                    parsed.push({ type: item.type, target: item.raw, amount: 0, raw: item.raw, reason: reasonText, reasonCode: reasonCode });
                                 }
                             }
                         }
                     } catch (e) {
-                        console.warn('解析JSON失败:', e);
+                        console.warn('解析JSON失败:', e, '原始内容:', result.substring(0, 200));
                     }
                     
                     multiModelResults[modelKey] = {
@@ -5005,6 +5051,7 @@ ${userInput}
                         time: elapsed,
                         raw: result,
                         parsed: parsed,
+                        aiItems: aiItems,  // 保存用于投票
                         error: ''
                     };
                     
@@ -5032,6 +5079,85 @@ ${userInput}
         
         await Promise.all(promises);
         console.log('🔬 多模型测试完成:', multiModelResults);
+        
+        // 投票统计
+        const voteResult = calculateVoteResult();
+        displayVoteResult(voteResult);
+    }
+    
+    // 投票统计逻辑
+    function calculateVoteResult() {
+        const votes = {};  // { "类型组合": { count: N, models: [], items: [] } }
+        const validModels = [];
+        
+        // 收集各模型的结果
+        for (const [modelKey, result] of Object.entries(multiModelResults)) {
+            if (result.status === 'success' && result.aiItems && result.aiItems.length > 0) {
+                validModels.push(modelKey);
+                
+                // 生成投票 key（按类型排序的组合）
+                const types = result.aiItems.map(item => item.type).sort().join('|');
+                
+                if (!votes[types]) {
+                    votes[types] = { count: 0, models: [], items: result.aiItems };
+                }
+                votes[types].count++;
+                votes[types].models.push(modelKey);
+            }
+        }
+        
+        // 找出最高票
+        let maxVote = null;
+        let maxCount = 0;
+        for (const [types, vote] of Object.entries(votes)) {
+            if (vote.count > maxCount) {
+                maxCount = vote.count;
+                maxVote = vote;
+            }
+        }
+        
+        // 计算可信度
+        let confidence = 'low';
+        let confidenceText = '⚠️ 需人工审核';
+        let confidenceColor = '#ffa726';
+        
+        if (maxCount >= 4) {
+            confidence = 'high';
+            confidenceText = '✅ 高可信（' + maxCount + '/5票一致）';
+            confidenceColor = '#4ade80';
+        } else if (maxCount === 3) {
+            confidence = 'medium';
+            confidenceText = '⚡ 中可信（3/5票一致）';
+            confidenceColor = '#60a5fa';
+        } else {
+            confidence = 'low';
+            confidenceText = '⚠️ 需人工审核（分歧较大）';
+            confidenceColor = '#ffa726';
+        }
+        
+        return {
+            votes: votes,
+            winner: maxVote,
+            winnerCount: maxCount,
+            totalModels: validModels.length,
+            confidence: confidence,
+            confidenceText: confidenceText,
+            confidenceColor: confidenceColor
+        };
+    }
+    
+    // 显示投票结果
+    function displayVoteResult(voteResult) {
+        const siteInfoEl = document.getElementById('tuzi-site-info');
+        if (siteInfoEl && voteResult.winner) {
+            siteInfoEl.innerHTML = `
+                <span style="color:${voteResult.confidenceColor}">${voteResult.confidenceText}</span>
+                <span style="margin-left:8px;color:#888;">站点: ${tuziSiteManager.getCurrentName()}</span>
+            `;
+            siteInfoEl.style.background = 'rgba(0,0,0,0.2)';
+        }
+        
+        console.log('🗳️ 投票结果:', voteResult);
     }
     
     // 更新模型标签状态
@@ -5087,9 +5213,11 @@ ${userInput}
         } else if (result.status === 'error') {
             parsedEl.innerHTML = '<span style="color:#ef5350;">请求失败</span>';
         } else if (result.parsed && result.parsed.length > 0) {
-            parsedEl.innerHTML = result.parsed.map(bet => 
-                `${bet.type} → ${bet.numbers?.join(',') || bet.target || ''} × ${bet.amount}元`
-            ).join('<br>');
+            parsedEl.innerHTML = result.parsed.map(bet => {
+                const target = bet.numbers?.join(',') || bet.target || '';
+                const reason = bet.reason ? `<span style="color:#888;font-size:10px;"> (${bet.reason})</span>` : '';
+                return `${bet.type} → ${target} × ${bet.amount}元${reason}`;
+            }).join('<br>');
         } else {
             parsedEl.innerHTML = '<span style="color:#ffa726;">无法解析或结果为空</span>';
         }
