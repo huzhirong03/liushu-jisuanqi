@@ -4845,6 +4845,34 @@
         console.log('🤖 AI模型切换为:', provider, config.name);
     }
     
+    // ==================== AI 预处理函数 ====================
+    // 标准化用户输入，让 AI 更容易理解（确定性规则，不依赖 AI）
+    function normalizeForAI(text) {
+        if (!text) return text;
+        
+        let result = text;
+        
+        // 1. 分隔符统一为空格（点、逗号、顿号、斜杠、短横线）
+        result = result.replace(/[\.。,，、\/\-]/g, ' ');
+        
+        // 2. 金额符号统一为"各"
+        // 统一 → 各，统 → 各，× → 各，X → 各，x → 各，* → 各，@ → 各
+        result = result.replace(/统一/g, '各');
+        result = result.replace(/统(?!\d)/g, '各');  // "统"后面不是数字时才替换
+        result = result.replace(/[×\*@]/g, '各');
+        // x/X 在数字后面时替换为"各"（如 10x20 → 10各20）
+        result = result.replace(/(\d)\s*[xX]\s*(\d)/g, '$1各$2');
+        
+        // 3. 去掉金额单位
+        result = result.replace(/元|块|圆/g, '');
+        
+        // 4. 清理多余空格
+        result = result.replace(/\s+/g, ' ').trim();
+        
+        console.log('🔄 AI预处理:', text, '→', result);
+        return result;
+    }
+    
     // ==================== 多模型对比测试 ====================
     
     // 存储各模型的测试结果（4个模型）
@@ -4893,18 +4921,22 @@
         
         // 构建提示词（复用现有逻辑）
         let userInput = input;
-        if (typeof normalizeChineseText === 'function') {
-            userInput = normalizeChineseText(input);
-        }
+        
+        // 【预处理】标准化分隔符和金额符号（确定性规则，不依赖AI）
+        userInput = normalizeForAI(userInput);
         
         const prompt = `你是下注类型分类器。任务：识别每条下注属于什么玩法类型。
 
-【你只需要做一件事】判断玩法类型，不需要提取数字！
+【核心规则】"各"字的两种用法：
+1. 纯数字+各+金额 → 特码（每个号码下注该金额）
+   例：10 12 20 30各20 → 特码，4个号码每个20元
+2. 生肖名+各+金额 → 生肖特码（买该生肖所有号码）
+   例：买猪各10 → 生肖特码，猪的所有号码每个10元
 
 【玩法类型】共23种：
-1. 特码 - 含"特"字或纯数字下注(01-49)
-2. 生肖特码 - "买X各Y"格式，买某生肖的所有号码做特码
-3. 生肖 - 单个生肖下注如"猪10""龙x10"
+1. 特码 - 含"特"字，或纯数字+各+金额（如 10 12 20各10）
+2. 生肖特码 - "买X各Y"格式，X是生肖名（如 买猪各10）
+3. 生肖 - 单个生肖下注如"猪10"（无"买"和"各"）
 4. 波色 - 含"红/蓝/绿"+"波"
 5. 半波 - 波色+大小/单双
 6. 平特一肖 - 含"平特"或"一友"
