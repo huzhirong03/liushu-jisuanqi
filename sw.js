@@ -1,6 +1,6 @@
 // Service Worker - 实现离线功能 + 版本更新检测
 // ⚠️ 每次更新程序时，修改这个版本号！
-const APP_VERSION = 'v1.1.0';  // 添加多模型支持（Google/OpenAI）
+const APP_VERSION = 'v1.1.2';  // 添加多模型并行对比测试功能
 const CACHE_NAME = 'liushu-rocket-' + APP_VERSION;
 
 const urlsToCache = [
