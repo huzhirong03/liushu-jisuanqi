@@ -1,6 +1,6 @@
 // Service Worker - 实现离线功能 + 版本更新检测
 // ⚠️ 每次更新程序时，修改这个版本号！
-const APP_VERSION = 'v1.0.2';  // 改为缓存优先策略，大幅减少流量
+const APP_VERSION = 'v1.0.3';  // 修复POST请求缓存错误
 const CACHE_NAME = 'liushu-rocket-' + APP_VERSION;
 
 const urlsToCache = [
@@ -60,6 +60,12 @@ self.addEventListener('activate', event => {
 
 // 请求拦截 - 缓存优先策略（大幅减少流量消耗！）
 self.addEventListener('fetch', event => {
+    // POST 请求不能缓存，直接走网络
+    if (event.request.method !== 'GET') {
+        event.respondWith(fetch(event.request).catch(() => new Response('Network error', { status: 503 })));
+        return;
+    }
+    
     // 对于 data.json，始终从网络获取最新数据
     if (event.request.url.includes('data.json')) {
         event.respondWith(
@@ -80,8 +86,9 @@ self.addEventListener('fetch', event => {
     
     // 对于 API 请求，始终走网络（不缓存）
     if (event.request.url.includes('api') || event.request.url.includes('marksix') || 
-        event.request.url.includes('corsproxy') || event.request.url.includes('allorigins')) {
-        event.respondWith(fetch(event.request));
+        event.request.url.includes('corsproxy') || event.request.url.includes('allorigins') ||
+        event.request.url.includes('workers.dev') || event.request.url.includes('deepseek')) {
+        event.respondWith(fetch(event.request).catch(() => new Response('Network error', { status: 503 })));
         return;
     }
     

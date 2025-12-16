@@ -1568,7 +1568,7 @@
                 
                 <!-- 隐藏的配置（用户不可见） -->
                 <div style="display:none;">
-                    <select id="ai-provider"><option value="deepseek" selected>DeepSeek</option></select>
+                    <select id="ai-provider"><option value="google" selected>Google Gemini</option></select>
                     <input type="hidden" id="ai-api-key" value="">
                 </div>
             </div>
@@ -1986,6 +1986,29 @@
         if (debugInfo.lastError) {
             content += `<div style="background:#c0392b;padding:10px;border-radius:6px;margin-bottom:10px;">
                 <strong>❌ 错误：</strong>${debugInfo.lastError}
+            </div>`;
+        }
+        
+        // 显示网络诊断信息
+        if (debugInfo.requestMode || debugInfo.networkError) {
+            content += `<div style="background:rgba(52,152,219,0.3);padding:10px;border-radius:6px;margin-bottom:10px;">
+                <strong>🌐 网络诊断：</strong><br>
+                <small>请求模式: ${debugInfo.requestMode || '未知'}</small><br>
+                <small>目标地址: ${(debugInfo.targetUrl || '').substring(0, 50)}...</small>`;
+            if (debugInfo.networkError) {
+                content += `<br><span style="color:#e74c3c;"><strong>⚠️ ${debugInfo.networkError}</strong></span>`;
+            }
+            if (debugInfo.rawResponse && !debugInfo.aiOutput) {
+                content += `<br><small style="color:#95a5a6;">原始响应: ${(debugInfo.rawResponse || '').substring(0, 100)}...</small>`;
+            }
+            content += `</div>`;
+        }
+        
+        // 显示字符规范化信息（诊断手机输入问题）
+        if (debugInfo.normalizeInfo) {
+            content += `<div style="background:rgba(241,196,15,0.3);padding:10px;border-radius:6px;margin-bottom:10px;">
+                <strong>📱 字符规范化：</strong>${debugInfo.normalizeInfo}
+                <br><small style="color:#f1c40f;">（检测到特殊字符，已自动转换）</small>
             </div>`;
         }
         
@@ -3807,9 +3830,9 @@
     }
     
     // 获取格式设置
-    // 默认AI配置（DeepSeek）- 放在最前面确保全局可用
+    // 默认AI配置（Google Gemini）- 放在最前面确保全局可用
     // 配置数据（已混淆保护）
-    const _0x = ['ZGVlcHNlZWs=','c2stMTIzMTQ0ODU1OTUwNDNmY2E2MjNmNjlhZTEyZGJkZDQ='];
+    const _0x = ['Z29vZ2xl','QUl6YVN5QU01ZmdxenhGMV9zdFZBZ0xHa0F2al9PQ2k4VVExSENB'];
     const _d = (s) => {try{return atob(s)}catch(e){return ''}};
     const DEFAULT_AI_CONFIG = {
         provider: _d(_0x[0]),
@@ -3830,7 +3853,7 @@
             return {
                 aiEnabled: true,
                 aiApiKey: DEFAULT_AI_CONFIG.apiKey,
-                aiProvider: 'deepseek'
+                aiProvider: DEFAULT_AI_CONFIG.provider
             };
         }
     }
@@ -4397,7 +4420,7 @@
         const settings = {
             // AI设置（默认启用，API Key使用内置）
             aiEnabled: document.getElementById('ai-parse-enabled')?.checked !== false,
-            aiProvider: 'deepseek',
+            aiProvider: DEFAULT_AI_CONFIG.provider,
             aiApiKey: DEFAULT_AI_CONFIG.apiKey,
             
             // 预设模板
@@ -4490,6 +4513,11 @@
             url: 'https://api.deepseek.com/v1/chat/completions',
             model: 'deepseek-chat'
         },
+        google: {
+            name: 'Google Gemini',
+            url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+            model: 'gemini-2.0-flash'
+        },
         qwen: {
             name: '通义千问',
             url: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
@@ -4531,9 +4559,11 @@
         }
     }
     
-    // Cloudflare Worker 代理地址（解决 CORS 问题）
-    // 请在 Cloudflare 创建 Worker 后，将下面的 URL 替换为你的 Worker 地址
-    const AI_PROXY_URL = 'https://ai-proxy.huzhirong6.workers.dev';
+    // ==================== AI 代理配置 ====================
+    // 阿里云函数（国内用户使用，速度快）
+    const ALIYUN_PROXY_URL = 'https://ai-proxy-cuhmfmasbq.cn-hangzhou.fcapp.run';
+    // Cloudflare Worker（海外用户备用）
+    const CLOUDFLARE_PROXY_URL = 'https://ai-proxy.huzhirong6.workers.dev';
     
     // 判断是否需要使用代理（线上环境需要，本地不需要）
     function shouldUseProxy() {
@@ -4542,23 +4572,45 @@
         return host !== 'localhost' && host !== '127.0.0.1' && !host.startsWith('192.168.');
     }
     
-    // 调用AI API
+    // 获取代理URL（优先使用阿里云，国内访问更稳定）
+    function getProxyUrl() {
+        // 优先使用阿里云函数（国内稳定）
+        return ALIYUN_PROXY_URL;
+    }
+    
+    // 调用AI API（增强版：详细错误诊断）
     async function callAIAPI(prompt, provider, apiKey) {
         const config = AI_PROVIDERS[provider];
         if (!config) throw new Error('未知的AI服务商');
         
-        // 添加超时控制（15秒）
+        // 添加超时控制（30秒，AI API 需要更长时间）
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        
+        // 记录请求模式（用于诊断）
+        const proxyUrl = getProxyUrl();
+        const useProxy = shouldUseProxy() && proxyUrl;
+        const requestMode = useProxy ? '代理模式(阿里云)' : '直连模式';
+        const targetUrl = useProxy ? proxyUrl : config.url;
+        
+        // 保存诊断信息
+        debugInfo.requestMode = requestMode;
+        debugInfo.targetUrl = targetUrl;
+        debugInfo.networkError = '';
+        
+        console.log(`🌐 AI请求模式: ${requestMode}`);
+        console.log(`🌐 目标URL: ${targetUrl}`);
+        console.log(`🌐 当前域名: ${window.location.hostname}`);
         
         try {
             let response;
+            const startTime = Date.now();
             
             // 判断是否使用代理
-            if (shouldUseProxy() && AI_PROXY_URL && !AI_PROXY_URL.includes('你的账号')) {
-                // 线上环境：通过 Cloudflare Worker 代理
-                console.log('使用代理模式调用AI API');
-                response = await fetch(AI_PROXY_URL, {
+            if (useProxy) {
+                // 线上环境：通过阿里云函数代理（国内稳定）
+                console.log('使用阿里云代理模式调用AI API');
+                response = await fetch(proxyUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -4591,29 +4643,91 @@
             }
             
             clearTimeout(timeoutId);
+            const elapsed = Date.now() - startTime;
+            console.log(`🌐 请求耗时: ${elapsed}ms, 状态码: ${response.status}`);
             
             if (!response.ok) {
                 const err = await response.text();
+                debugInfo.networkError = `HTTP ${response.status}: ${err.substring(0, 200)}`;
                 throw new Error(`API错误: ${response.status} - ${err}`);
             }
             
-            const data = await response.json();
-            console.log('AI API原始响应:', data);
-            return data.choices?.[0]?.message?.content || null;
+            const responseText = await response.text();
+            console.log('AI API原始响应文本:', responseText);
+            
+            // 记录原始响应（用于诊断）
+            debugInfo.rawResponse = responseText.substring(0, 500);
+            
+            // 尝试解析 JSON
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch (parseErr) {
+                debugInfo.networkError = `JSON解析失败: ${responseText.substring(0, 100)}`;
+                throw new Error('代理返回非JSON数据: ' + responseText.substring(0, 100));
+            }
+            
+            console.log('AI API解析后:', data);
+            
+            // 检查是否有错误信息
+            if (data.error) {
+                debugInfo.networkError = `API返回错误: ${JSON.stringify(data.error).substring(0, 200)}`;
+                throw new Error(data.error.message || JSON.stringify(data.error));
+            }
+            
+            // 检查响应结构
+            const content = data.choices?.[0]?.message?.content;
+            if (!content && data.choices) {
+                debugInfo.networkError = `响应结构异常: choices存在但content为空`;
+            } else if (!content) {
+                debugInfo.networkError = `响应无choices字段: ${JSON.stringify(data).substring(0, 200)}`;
+            }
+            
+            return content || null;
         } catch (e) {
             clearTimeout(timeoutId);
+            console.error('🌐 网络请求失败:', e);
+            
             if (e.name === 'AbortError') {
-                throw new Error('AI请求超时(15秒)');
+                debugInfo.networkError = '请求超时(30秒)，AI响应太慢';
+                throw new Error('AI请求超时(30秒)');
             }
+            
+            // 详细记录网络错误
+            if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+                debugInfo.networkError = `网络错误: ${requestMode}请求失败，可能是CORS/网络问题`;
+            } else if (!debugInfo.networkError) {
+                debugInfo.networkError = e.message;
+            }
+            
             throw e;
         }
     }
     
-    // 【修复手机输入问题】全角转半角函数
+    // 【修复手机输入问题】全角转半角 + 清理不可见字符（增强版）
     function normalizeFullWidth(str) {
         if (!str) return str;
         let result = str;
         
+        // ========== 1. 移除iOS/手机输入法产生的不可见字符 ==========
+        // 零宽字符 (Zero-width characters)
+        result = result.replace(/[\u200B-\u200D\uFEFF]/g, '');
+        // 零宽空格、零宽连接符、零宽非连接符、BOM
+        
+        // 变体选择器 (Variation Selectors) - iOS常见问题
+        result = result.replace(/[\uFE00-\uFE0F]/g, '');
+        
+        // 软连字符
+        result = result.replace(/\u00AD/g, '');
+        
+        // 其他不可见控制字符（保留换行符 \n \r）
+        result = result.replace(/[\u0000-\u0009\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '');
+        // 注：\u000A=\n, \u000D=\r 被保留
+        
+        // 组合用标记（Combining Marks）- 可能导致字符显示异常
+        result = result.replace(/[\u0300-\u036F]/g, '');
+        
+        // ========== 2. 全角转半角 ==========
         // 全角数字转半角 (０-９ → 0-9)
         result = result.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
         
@@ -4623,21 +4737,58 @@
         // 全角空格转半角
         result = result.replace(/\u3000/g, ' ');
         
-        // 全角标点转半角
+        // 不间断空格转普通空格
+        result = result.replace(/\u00A0/g, ' ');
+        
+        // ========== 3. 特殊数字字符转换 ==========
+        // 圈数字 ①-⑨ → 1-9
+        const circledNums = {'\u2460':'1','\u2461':'2','\u2462':'3','\u2463':'4','\u2464':'5',
+                            '\u2465':'6','\u2466':'7','\u2467':'8','\u2468':'9','\u2469':'10'};
+        for (const [special, normal] of Object.entries(circledNums)) {
+            result = result.split(special).join(normal);
+        }
+        
+        // 上标数字 ⁰-⁹
+        const superNums = {'\u2070':'0','\u00B9':'1','\u00B2':'2','\u00B3':'3','\u2074':'4',
+                          '\u2075':'5','\u2076':'6','\u2077':'7','\u2078':'8','\u2079':'9'};
+        for (const [special, normal] of Object.entries(superNums)) {
+            result = result.split(special).join(normal);
+        }
+        
+        // ========== 4. 全角标点转半角 ==========
         const punctMap = {
             '\uff0e': '.', '\uff0c': ',', '\u3001': ',', '\uff1a': ':', '\uff1b': ';',
             '\uff01': '!', '\uff1f': '?', '\u201c': '"', '\u201d': '"', '\u2018': "'", '\u2019': "'",
             '\uff08': '(', '\uff09': ')', '\u3010': '[', '\u3011': ']', '\uff5b': '{', '\uff5d': '}',
             '\uff0b': '+', '\uff0d': '-', '\uff1d': '=', '\uff0a': '*', '\uff0f': '/', '\uff05': '%',
             '\uff03': '#', '\uff06': '&', '\uff20': '@', '\uff04': '$', '\uff3e': '^', '\uff5c': '|',
-            '\uff3c': '\\', '\uff5e': '~', '\uff40': '`', '\uff1c': '<', '\uff1e': '>'
+            '\uff3c': '\\', '\uff5e': '~', '\uff40': '`', '\uff1c': '<', '\uff1e': '>',
+            '\u2014': '-', '\u2013': '-', '\u2012': '-', '\u2010': '-', // 各种横线转减号
+            '\u00D7': 'x', '\u2715': 'x', '\u2716': 'x', '\u2717': 'x', // 乘号转x
+            '\u00F7': '/'  // 除号转斜杠
         };
         for (const [full, half] of Object.entries(punctMap)) {
             result = result.split(full).join(half);
         }
         
-        // 清理多余空格
-        result = result.replace(/\s+/g, ' ').trim();
+        // ========== 5. 规范化换行和空格 ==========
+        // 统一换行符为 \n
+        result = result.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        // 清理每行首尾空格，但保留换行
+        result = result.split('\n').map(line => line.replace(/[ \t]+/g, ' ').trim()).join('\n');
+        // 清理多个连续空行为单个
+        result = result.replace(/\n{3,}/g, '\n\n');
+        
+        // ========== 6. 调试日志 ==========
+        if (str !== result) {
+            console.log('📱 字符规范化:', {
+                原始: str,
+                原始长度: str.length,
+                处理后: result,
+                处理后长度: result.length,
+                原始字符码: [...str].map(c => c.charCodeAt(0).toString(16)).join(' ')
+            });
+        }
         
         return result;
     }
@@ -4651,8 +4802,21 @@
         }
         
         // 【关键修复】预处理：全角转半角，解决手机输入问题
+        const originalInput = userInput;
         userInput = normalizeFullWidth(userInput);
-        console.log('📱 规范化后的输入:', userInput);
+        
+        // 记录规范化信息（用于诊断手机输入问题）
+        if (originalInput !== userInput) {
+            console.log('📱 检测到特殊字符，已规范化:', {
+                原始输入: originalInput,
+                规范化后: userInput,
+                原始长度: originalInput.length,
+                规范化后长度: userInput.length
+            });
+            debugInfo.normalizeInfo = `原始(${originalInput.length}字符) → 规范化(${userInput.length}字符)`;
+        } else {
+            debugInfo.normalizeInfo = '';
+        }
         
         const tema = appState.lotteryNumbers?.[6] || '未知';
         const pingma = appState.lotteryNumbers?.slice(0, 6).join(',') || '未知';
@@ -5378,7 +5542,7 @@ ${userInput}
     }
     
     // ==================== 版本更新检测 ====================
-    const APP_VERSION = 'v1.0.2';  // 当前版本号，与 sw.js 保持一致（缓存优先策略）
+    const APP_VERSION = 'v1.0.9';  // 当前版本号，与 sw.js 保持一致（缓存优先策略）- 支持Google Gemini
     
     // 注册 Service Worker 并检测更新
     if ('serviceWorker' in navigator) {
