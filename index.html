@@ -6850,8 +6850,8 @@
                                         'Z9': '猴', 'Z10': '鸡', 'Z11': '狗', 'Z12': '猪'
                                     };
                                     const zodiacName = ZODIAC_MAP[zodiacCode] || zodiacCode;
-                                    // 获取该生肖对应的号码
-                                    const zodiacNumbers = getZodiacNumbers ? getZodiacNumbers(zodiacName) : [];
+                                    // 获取该生肖对应的号码（使用 LHC_DATA.shengxiao）
+                                    const zodiacNumbers = LHC_DATA.shengxiao[zodiacName] || [];
                                     for (const num of zodiacNumbers) {
                                         extracted.push({
                                             type: '生肖特码',
