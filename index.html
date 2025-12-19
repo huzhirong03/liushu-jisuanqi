@@ -4800,6 +4800,22 @@
             model: 'qwen-turbo',
             region: 'cn'
         },
+        // 智谱GLM - 支持Function Calling
+        zhipu: {
+            name: '智谱GLM',
+            shortName: '智谱',
+            url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+            model: 'glm-4-flash',  // 智谱GLM-4 Flash（免费额度）
+            region: 'cn'
+        },
+        // 豆包 - 字节跳动，支持Function Calling
+        doubao: {
+            name: '豆包',
+            shortName: '豆包',
+            url: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
+            model: 'doubao-lite-32k',  // 豆包轻量版（性价比高）
+            region: 'cn'
+        },
         claude: {
             name: 'Claude-Sonnet',
             shortName: 'Claude',
@@ -4950,6 +4966,185 @@
         
         console.log('🔄 AI预处理:', text, '→', result);
         return result;
+    }
+    
+    // ==================== 【安全脱敏系统 v1.0】 ====================
+    // 发送给AI之前脱敏，收到结果后还原
+    // 确保敏感词不经过网络传输
+    
+    // 脱敏映射表（敏感词 → 代号）
+    const SANITIZE_MAP = {
+        // === 生肖（最重要，按长度排序）===
+        '鼠': 'Z1', '牛': 'Z2', '虎': 'Z3', '兔': 'Z4',
+        '龙': 'Z5', '蛇': 'Z6', '马': 'Z7', '羊': 'Z8',
+        '猴': 'Z9', '鸡': 'Z10', '狗': 'Z11', '猪': 'Z12',
+        
+        // === 玩法关键词（按长度降序）===
+        '平特一肖': 'PT1', '平特二连肖': 'PT2', '平特三连肖': 'PT3',
+        '平特四连肖': 'PT4', '平特五连肖': 'PT5',
+        '二连肖': 'PT2', '三连肖': 'PT3', '四连肖': 'PT4', '五连肖': 'PT5',
+        '平特尾': 'PTW', '平尾': 'PTW', '平特': 'PT',
+        '一友': 'PT1', '二友': 'PT2', '三友': 'PT3',
+        '六肖': 'LX6', '合肖': 'HX', '正肖': 'ZX',
+        '单平': 'DP', '平码': 'DP',
+        '二中二': 'E2', '三中三': 'S3',
+        '二全中': 'LM2Q', '三全中': 'LM3Q', 
+        '二中特': 'LM2Z', '三中特': 'LM3Z', '特串': 'LMTC',
+        '五不中': 'BZ5', '六不中': 'BZ6', '七不中': 'BZ7', '八不中': 'BZ8',
+        '九不中': 'BZ9', '十不中': 'BZ10', '十一不中': 'BZ11', '十二不中': 'BZ12',
+        '特码': 'TM', '特': 'T',
+        
+        // === 波色（按长度降序）===
+        '红波': 'C1', '蓝波': 'C2', '绿波': 'C3',
+        '红单': 'C1S', '红双': 'C1D', '红大': 'C1B', '红小': 'C1X',
+        '蓝单': 'C2S', '蓝双': 'C2D', '蓝大': 'C2B', '蓝小': 'C2X',
+        '绿单': 'C3S', '绿双': 'C3D', '绿大': 'C3B', '绿小': 'C3X',
+        
+        // === 其他玩法 ===
+        '总和大': 'ZHB', '总和小': 'ZHX', '总和单': 'ZHS', '总和双': 'ZHD',
+        '总和': 'ZH',
+        '家禽': 'JYJ', '野兽': 'JYY',
+        '小数': 'XS', '大数': 'DS',
+        '单数': 'ODD', '双数': 'EVEN',
+        
+        // === 五行 ===
+        '金': 'WXJ', '木': 'WXM', '水': 'WXS', '火': 'WXH', '土': 'WXT',
+        
+        // === 敏感词替换 ===
+        '六合彩': '数据', '六合': '数据',
+        '买': '选', '下注': '选择', '投注': '选择',
+        '开奖': '结果', '中奖': '命中', '赔率': '比率'
+    };
+    
+    // 生成还原映射表（代号 → 敏感词）
+    const RESTORE_MAP = {};
+    for (const [key, value] of Object.entries(SANITIZE_MAP)) {
+        RESTORE_MAP[value] = key;
+    }
+    
+    // 获取按长度降序排列的键（避免短词先替换导致问题）
+    const SANITIZE_KEYS_SORTED = Object.keys(SANITIZE_MAP).sort((a, b) => b.length - a.length);
+    const RESTORE_KEYS_SORTED = Object.keys(RESTORE_MAP).sort((a, b) => b.length - a.length);
+    
+    /**
+     * 脱敏函数：将敏感词替换为代号
+     * @param {string} text 原始文本
+     * @returns {string} 脱敏后的文本
+     */
+    function sanitizeText(text) {
+        if (!text) return text;
+        let result = text;
+        
+        for (const key of SANITIZE_KEYS_SORTED) {
+            // 使用全局替换
+            result = result.split(key).join(SANITIZE_MAP[key]);
+        }
+        
+        console.log('🔒 脱敏:', text, '→', result);
+        return result;
+    }
+    
+    /**
+     * 还原函数：将代号还原为敏感词
+     * @param {string} text 脱敏后的文本
+     * @returns {string} 还原后的文本
+     */
+    function restoreText(text) {
+        if (!text) return text;
+        let result = text;
+        
+        for (const key of RESTORE_KEYS_SORTED) {
+            result = result.split(key).join(RESTORE_MAP[key]);
+        }
+        
+        console.log('🔓 还原:', text, '→', result);
+        return result;
+    }
+    
+    /**
+     * 还原AI返回的结果数组
+     * @param {Array} aiResult AI返回的 [["类型","原文"], ...] 数组
+     * @returns {Array} 还原后的数组
+     */
+    function restoreAIResult(aiResult) {
+        if (!Array.isArray(aiResult)) return aiResult;
+        
+        return aiResult.map(item => {
+            if (Array.isArray(item) && item.length >= 2) {
+                return [item[0], restoreText(item[1])];
+            }
+            return item;
+        });
+    }
+    
+    /**
+     * JSON修复函数：修复AI输出的常见格式错误
+     * @param {string} str AI返回的原始字符串
+     * @returns {string} 修复后的JSON字符串
+     */
+    function repairJSON(str) {
+        if (!str) return str;
+        let result = str.trim();
+        
+        // 1. 移除markdown代码块
+        result = result.replace(/```json?\n?/g, '').replace(/```/g, '');
+        
+        // 2. 提取JSON数组（移除前后的解释文字）
+        const jsonMatch = result.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+            result = jsonMatch[0];
+        }
+        
+        // 3. 修复尾部逗号 [["a","b"],] → [["a","b"]]
+        result = result.replace(/,(\s*[\]\}])/g, '$1');
+        
+        // 4. 修复缺失引号的类型 [[TM,"xxx"]] → [["TM","xxx"]]
+        result = result.replace(/\[([A-Z][A-Z0-9]*),/g, '["$1",');
+        
+        // 5. 修复单引号 [['TM','xxx']] → [["TM","xxx"]]
+        result = result.replace(/'/g, '"');
+        
+        return result;
+    }
+    
+    /**
+     * 校验AI返回结果的格式
+     * @param {Array} data 解析后的数据
+     * @returns {{valid: boolean, error?: string}}
+     */
+    function validateAIResult(data) {
+        const validTypes = [
+            'TM', 'T', 'SXTM', 'SX', 'BS', 'BB',
+            'PT', 'PT1', 'PT2', 'PT3', 'PT4', 'PT5', 'PTW',
+            'LX6', 'HX', 'ZX', 'DP', 'DXDS',
+            'E2', 'S3', 'BZ5', 'BZ6', 'BZ7', 'BZ8', 'BZ9', 'BZ10', 'BZ11', 'BZ12',
+            'LM2Q', 'LM3Q', 'LM2Z', 'LM3Z', 'LMTC',
+            'C1', 'C2', 'C3', 'C1S', 'C1D', 'C1B', 'C1X', 'C2S', 'C2D', 'C2B', 'C2X', 'C3S', 'C3D', 'C3B', 'C3X',
+            'ZH', 'ZHB', 'ZHX', 'ZHS', 'ZHD',
+            'WXJ', 'WXM', 'WXS', 'WXH', 'WXT',
+            'JYJ', 'JYY', 'XS', 'DS', 'ODD', 'EVEN',
+            // 兼容旧代号
+            'LX', 'BZ', 'LM', 'WX', 'JY'
+        ];
+        
+        if (!Array.isArray(data)) {
+            return { valid: false, error: '返回值不是数组' };
+        }
+        
+        for (let i = 0; i < data.length; i++) {
+            const item = data[i];
+            if (!Array.isArray(item) || item.length < 2) {
+                return { valid: false, error: `第${i+1}项格式错误` };
+            }
+            // 类型可以是新代号或旧代号
+            const typeCode = item[0];
+            if (!validTypes.includes(typeCode)) {
+                // 不是严格错误，只是警告
+                console.warn(`⚠️ 未知类型代号: ${typeCode}，将尝试处理`);
+            }
+        }
+        
+        return { valid: true };
     }
     
     // ==================== 【临时-模型比拼】测试数据存储 ====================
@@ -6341,158 +6536,197 @@ ${userInput}
         return result;
     }
     
-    // AI解析下注信息（优化版：严格数据保护）
+    // AI解析下注信息（优化版：完整脱敏 + JSON修复 + 重试机制）
     async function parseWithAI(userInput) {
         // 使用 getFormatSettings() 获取带默认值的设置（API Key 已在后端）
         const settings = getFormatSettings();
-        if (!settings.aiEnabled || !settings.aiApiKey) {
+        if (!settings.aiEnabled) {
             return null;
         }
         
-        // 【关键修复】预处理：全角转半角，解决手机输入问题
+        // 【步骤1】预处理：全角转半角，解决手机输入问题
         const originalInput = userInput;
         userInput = normalizeFullWidth(userInput);
         
-        // 记录规范化信息（用于诊断手机输入问题）
+        // 记录规范化信息
         if (originalInput !== userInput) {
             console.log('📱 检测到特殊字符，已规范化:', {
                 原始输入: originalInput,
-                规范化后: userInput,
-                原始长度: originalInput.length,
-                规范化后长度: userInput.length
+                规范化后: userInput
             });
             debugInfo.normalizeInfo = `原始(${originalInput.length}字符) → 规范化(${userInput.length}字符)`;
         } else {
             debugInfo.normalizeInfo = '';
         }
         
-        const tema = appState.lotteryNumbers?.[6] || '未知';
-        const pingma = appState.lotteryNumbers?.slice(0, 6).join(',') || '未知';
+        // 【步骤2】🔒 脱敏处理：敏感词→代号（关键！）
+        const sanitizedInput = sanitizeText(userInput);
+        console.log('🔒 脱敏完成:', userInput, '→', sanitizedInput);
+        
+        // 保存脱敏前后的对应关系（用于调试）
+        debugInfo.originalInput = userInput;
+        debugInfo.sanitizedInput = sanitizedInput;
         
         // ╔════════════════════════════════════════════════════════════════╗
-        // ║          【AI提示词 v2.0】规避敏感词 + 代号输出                  ║
-        // ║  AI只做分类（输出代号），数值提取由程序正则完成                  ║
-        // ║  详见：AI提示词优化.md 和 AI智能识别方案.md                     ║
+        // ║     【AI提示词 v3.0】完全脱敏版 - 发送给AI的全是代号            ║
+        // ║  所有敏感词已替换为代号，AI只看到代号，不知道具体含义            ║
         // ╚════════════════════════════════════════════════════════════════╝
-        const prompt = `你是数据分析分类器。任务：判断每条信息的类型代号。
+        const prompt = `你是数据分类器。判断每条数据的类型代号。
 
 【类型代号】
-TM=特选 SXTM=属相特选 SX=属相 BS=颜色组 BB=半组
-PT1=组合一 PT2=组合二连 PT3=组合三连 PT4=组合四连 PT5=组合五连
-PTW=组合尾 LX=六选 DP=单选 DXDS=大小单双
-E2=二配二 S3=三配三 BZ=排除组 HX=合选 LM=连选
-ZX=正选 ZH=总计 WX=五类 JY=分类 XS=小范围 DS=大范围
+TM/T=T类 SXTM=Z选类 SX=Z类 
+C1/C2/C3=C类 C1S/C1D/C2B/C2X=C半类
+PT/PT1=PT类1 PT2=PT类2 PT3=PT类3 PT4=PT类4 PT5=PT类5 PTW=PT尾类
+LX6=LX类 HX=HX类 ZX=ZX类 DP=DP类 DXDS=大小单双类
+E2=E2类 S3=S3类 BZ5-BZ12=BZ类
+LM2Q/LM3Q/LM2Z/LM3Z/LMTC=LM类
+ZH/ZHB/ZHX/ZHS/ZHD=ZH类
+WXJ/WXM/WXS/WXH/WXT=WX类
+JYJ/JYY=JY类 XS=XS类 DS=DS类 ODD/EVEN=奇偶类
+
+【Z代号】Z1-Z12代表12种属性分类
 
 【识别规则】按优先级：
-1. 属相词+x/X/×/*/@/各+数值→SXTM（如：龙x10、买猪各20、狗X80、猴鸡x50）
-2. 含"特"→TM
-3. 含"平特/一友"→PT1 | "二连/二友"→PT2 | "三连/三友"→PT3 | "四连"→PT4 | "五连"→PT5
-4. 含"平特尾/平尾"→PTW
-5. 含"六肖"→LX
-6. 含"X不中"→BZ | "二中二"→E2 | "三中三"→S3
-7. 含"合肖/X肖"(非六肖)→HX
-8. 含"单平/平码"→DP | "正肖"→ZX
-9. 含"红波/蓝波/绿波"→BS | "红单/蓝双/绿大"等→BB
-10. 含"总和"→ZH | "金/木/水/火/土"→WX | "家禽/野兽"→JY
-11. 含"小数"→XS | "大数"→DS
-12. "大/小/单/双"+数值→DXDS
-13. 属相词+纯数值(无x无各)→SX（如：猪10，直接买生肖）
-14. 纯数字+各/每个+数值→TM
-
-【属相词】鼠牛虎兔龙蛇马羊猴鸡狗猪
-【金额格式】支持数字(20)和中文(二十/一百)，可带单位(元/块)
-【分隔符】号码间可用：空格、点(.)、逗号(,)、顿号(、)、斜杠(/)、横杠(-)
-
-【一行多条用逗号分隔的要拆分成独立项】
+1. Z代号+x/X/各+数值 → SXTM（如：Z5x10、选Z12各20）
+2. 含"T"字 → TM（如：T43 20）
+3. 含PT/PT1 → PT1 | PT2→PT2 | PT3→PT3 | PT4→PT4 | PT5→PT5
+4. 含PTW → PTW
+5. 含LX6 → LX6
+6. 含BZ+数字 → BZ类（BZ5/BZ6/.../BZ12）
+7. 含E2 → E2 | S3 → S3
+8. 含HX → HX | ZX → ZX | DP → DP
+9. 含C1/C2/C3 → C类 | C1S/C2D等 → C半类
+10. 含ZH → ZH类 | WX代号 → WX类 | JY代号 → JY类
+11. 含XS → XS | DS → DS | ODD → ODD | EVEN → EVEN
+12. "大/小/单/双"+数值 → DXDS
+13. Z代号+纯数值(无x无各) → SX
+14. 纯数字+各+数值 → TM
 
 【示例】
-输入: 买猪各10
-输出: [["SXTM","买猪各10"]]
+输入: 选Z12各10
+输出: [["SXTM","选Z12各10"]]
 
-输入: 龙x10
-输出: [["SXTM","龙x10"]]
+输入: Z5x10
+输出: [["SXTM","Z5x10"]]
 
-输入: 狗x80，猴鸡x50
-输出: [["SXTM","狗x80"],["SXTM","猴鸡x50"]]
+输入: Z11x80，Z9Z10x50
+输出: [["SXTM","Z11x80"],["SXTM","Z9Z10x50"]]
 
-输入: 猪10
-输出: [["SX","猪10"]]
+输入: Z12 10
+输出: [["SX","Z12 10"]]
 
 输入: 10 12 20各30
 输出: [["TM","10 12 20各30"]]
 
-输入: 小数各20
-输出: [["XS","小数各20"]]
+输入: XS各20
+输出: [["XS","XS各20"]]
 
-输入: 大数各30
-输出: [["DS","大数各30"]]
+输入: DS各30
+输出: [["DS","DS各30"]]
 
-输入: 平特羊300，三友羊鸡猴100，35，47，X10
-输出: [["PT1","平特羊300"],["PT3","三友羊鸡猴100"],["TM","35，47，X10"]]
+输入: PT Z8 300，PT3 Z8Z10Z9 100，35，47，X10
+输出: [["PT1","PT Z8 300"],["PT3","PT3 Z8Z10Z9 100"],["TM","35，47，X10"]]
 
-输入: 五不中01,02,03,04,05各100
-输出: [["BZ","五不中01,02,03,04,05各100"]]
+输入: BZ5 01,02,03,04,05各100
+输出: [["BZ5","BZ5 01,02,03,04,05各100"]]
+
+输入: C1 100
+输出: [["C1","C1 100"]]
 
 输入: 31.34各二十
 输出: [["TM","31.34各二十"]]
 
 【输入】
-${userInput}
+${sanitizedInput}
 
-【输出】只输出JSON数组，禁止任何解释：`;
+【输出】只输出JSON数组：`;
 
         // 保存输入到调试信息
-        debugInfo.aiInput = userInput;
+        debugInfo.aiInput = sanitizedInput;  // 记录脱敏后的输入
         debugInfo.lastError = '';
         
         try {
-            console.log('🤖 开始调用AI API...');
-            const result = await callAIAPI(prompt, settings.aiProvider, settings.aiApiKey);
+            console.log('🤖 开始调用AI API（脱敏数据）...');
+            console.log('🔒 发送给AI的内容:', sanitizedInput);
+            
+            const result = await callAIAPI(prompt, settings.aiProvider);
             console.log('🤖 AI返回原始结果:', result);
             
             // 保存AI原始输出
             debugInfo.aiOutput = result || '(空)';
             
             if (result) {
-                // 提取JSON（处理可能的markdown代码块）
-                let jsonStr = result.trim();
-                if (jsonStr.startsWith('```')) {
-                    jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+                // 【步骤3】JSON修复：处理AI可能的格式错误
+                let jsonStr = repairJSON(result);
+                console.log('🔧 JSON修复后:', jsonStr);
+                
+                // 解析JSON
+                let aiResult;
+                try {
+                    aiResult = JSON.parse(jsonStr);
+                } catch (parseError) {
+                    console.error('❌ JSON解析失败:', parseError.message);
+                    debugInfo.lastError = 'JSON解析失败: ' + parseError.message;
+                    return null;
                 }
                 
-                console.log('🤖 解析JSON:', jsonStr);
-                const aiResult = JSON.parse(jsonStr);
-                console.log('🤖 AI识别结果:', aiResult);
+                // 【步骤4】校验结果格式
+                const validation = validateAIResult(aiResult);
+                if (!validation.valid) {
+                    console.warn('⚠️ AI结果校验警告:', validation.error);
+                }
                 
-                // 保存解析后的JSON
-                debugInfo.aiParsed = aiResult;
+                console.log('🤖 AI识别结果（脱敏）:', aiResult);
                 
-                // 【代号→类型名映射】
+                // 【步骤5】🔓 还原脱敏数据：代号→敏感词
+                const restoredResult = restoreAIResult(aiResult);
+                console.log('🔓 还原后结果:', restoredResult);
+                
+                // 保存解析后的JSON（还原后的）
+                debugInfo.aiParsed = restoredResult;
+                
+                // 【代号→类型名映射】（扩展版，支持新旧代号）
                 const CODE_TO_TYPE = {
-                    'TM': '特码', 'SXTM': '生肖特码', 'SX': '生肖',
-                    'BS': '波色', 'BB': '半波',
-                    'PT1': '平特一肖', 'PT2': '平特二连肖', 'PT3': '平特三连肖',
+                    // 基础类型
+                    'TM': '特码', 'T': '特码', 'SXTM': '生肖特码', 'SX': '生肖',
+                    // 波色
+                    'BS': '波色', 'C1': '波色', 'C2': '波色', 'C3': '波色',
+                    'BB': '半波', 'C1S': '半波', 'C1D': '半波', 'C1B': '半波', 'C1X': '半波',
+                    'C2S': '半波', 'C2D': '半波', 'C2B': '半波', 'C2X': '半波',
+                    'C3S': '半波', 'C3D': '半波', 'C3B': '半波', 'C3X': '半波',
+                    // 平特类
+                    'PT': '平特一肖', 'PT1': '平特一肖', 'PT2': '平特二连肖', 'PT3': '平特三连肖',
                     'PT4': '平特四连肖', 'PT5': '平特五连肖', 'PTW': '平特尾数',
-                    'LX': '六肖', 'DP': '单平', 'DXDS': '大小单双',
-                    'E2': '二中二', 'S3': '三中三', 'BZ': '不中',
-                    'HX': '合肖', 'LM': '连码', 'ZX': '正肖',
-                    'ZH': '总和', 'WX': '五行', 'JY': '家野',
-                    'XS': '小数', 'DS': '大数', 'UK': '未知'
+                    // 生肖组合
+                    'LX': '六肖', 'LX6': '六肖', 'HX': '合肖', 'ZX': '正肖',
+                    // 平码
+                    'DP': '单平', 'DXDS': '大小单双',
+                    // 连码
+                    'E2': '二中二', 'S3': '三中三',
+                    'LM': '连码', 'LM2Q': '二全中', 'LM3Q': '三全中', 
+                    'LM2Z': '二中特', 'LM3Z': '三中特', 'LMTC': '特串',
+                    // 不中
+                    'BZ': '不中', 'BZ5': '五不中', 'BZ6': '六不中', 'BZ7': '七不中',
+                    'BZ8': '八不中', 'BZ9': '九不中', 'BZ10': '十不中',
+                    'BZ11': '十一不中', 'BZ12': '十二不中',
+                    // 其他
+                    'ZH': '总和', 'ZHB': '总和大', 'ZHX': '总和小', 'ZHS': '总和单', 'ZHD': '总和双',
+                    'WX': '五行', 'WXJ': '五行', 'WXM': '五行', 'WXS': '五行', 'WXH': '五行', 'WXT': '五行',
+                    'JY': '家野', 'JYJ': '家野', 'JYY': '家野',
+                    'XS': '小数', 'DS': '大数', 'ODD': '单数', 'EVEN': '双数',
+                    'UK': '未知'
                 };
                 
-                // 【核心】AI返回代号数组，程序提取具体数值
-                // 新格式: [["代号","原文"],["代号","原文"]]
-                // 兼容旧格式: {"items":[{"type":"类型","raw":"原文"}]}
+                // 【核心】处理还原后的结果，提取具体数值
                 const bets = [];
                 
-                if (Array.isArray(aiResult)) {
-                    // 新格式: [["代号","原文"]]
-                    for (const item of aiResult) {
+                if (Array.isArray(restoredResult)) {
+                    for (const item of restoredResult) {
                         if (Array.isArray(item) && item.length >= 2) {
                             const code = item[0];
-                            const raw = item[1];
-                            const type = CODE_TO_TYPE[code] || code; // 代号转类型名
-                            console.log('🤖 处理项:', code, '→', type, raw);
+                            const raw = item[1];  // 这里是还原后的原文
+                            const type = CODE_TO_TYPE[code] || code;
+                            console.log('🤖 处理项:', code, '→', type, '原文:', raw);
                             const extracted = extractValuesByType(type, raw);
                             console.log('🤖 提取结果:', extracted);
                             if (extracted && extracted.length > 0) {
@@ -6500,12 +6734,10 @@ ${userInput}
                             }
                         }
                     }
-                } else if (aiResult.items && Array.isArray(aiResult.items)) {
-                    // 兼容旧格式: {"items":[{"type":"类型","raw":"原文"}]}
-                    for (const item of aiResult.items) {
-                        console.log('🤖 处理项:', item);
+                } else if (restoredResult.items && Array.isArray(restoredResult.items)) {
+                    // 兼容旧格式
+                    for (const item of restoredResult.items) {
                         const extracted = extractValuesByType(item.type, item.raw);
-                        console.log('🤖 提取结果:', extracted);
                         if (extracted && extracted.length > 0) {
                             bets.push(...extracted);
                         }
