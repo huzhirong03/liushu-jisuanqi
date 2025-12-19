@@ -6959,7 +6959,59 @@
                     console.log('%c═══════════════════════════════════════════════════════', 'color: #e91e63');
                     console.log('%c📋 【前端处理结果汇总】', 'color: #e91e63; font-weight: bold; font-size: 14px');
                     console.log('%c═══════════════════════════════════════════════════════', 'color: #e91e63');
+                    
+                    // 📺 显示当天开奖信息
+                    const typeNames = { xam: '新澳', hk: '香港', am: '澳门' };
+                    const currentType = appState.currentLotteryType || 'xam';
+                    const currentData = appState.lotteryData[currentType];
+                    const lotteryNumbers = currentData?.numbers || [];
+                    const tema = lotteryNumbers[6]; // 特码
+                    
+                    if (currentData && lotteryNumbers.length === 7) {
+                        const numsStr = lotteryNumbers.slice(0, 6).map(n => String(n).padStart(2, '0')).join(' ');
+                        const temaStr = String(tema).padStart(2, '0');
+                        console.log(`   🎰 当期开奖: ${typeNames[currentType]} 第${currentData.issue}期`);
+                        console.log(`   🔢 开奖号码: ${numsStr} + 特码 ${temaStr}`);
+                    } else {
+                        console.log(`   🎰 当期开奖: 未设置`);
+                    }
+                    console.log('   ---');
+                    
+                    // 获取赔率设置
+                    const savedOdds = JSON.parse(localStorage.getItem('lhc_odds') || '{}');
+                    const temaOdds = parseFloat(savedOdds['odds-tema']) || 43;
+                    const sxtmOdds = parseFloat(savedOdds['odds-tema']) || 43; // 生肖特码也用特码赔率
+                    
+                    // 计算中奖情况
+                    let winBets = [];
+                    let totalWinAmount = 0;
+                    
+                    if (tema) {
+                        bets.forEach(bet => {
+                            const betNum = parseInt(bet.value) || parseInt(bet.number);
+                            if (bet.type === '特码' && betNum === tema) {
+                                const winAmount = bet.amount * temaOdds;
+                                winBets.push({ ...bet, winAmount, odds: temaOdds });
+                                totalWinAmount += winAmount;
+                            } else if (bet.type === '生肖特码' && betNum === tema) {
+                                const winAmount = bet.amount * sxtmOdds;
+                                winBets.push({ ...bet, winAmount, odds: sxtmOdds });
+                                totalWinAmount += winAmount;
+                            }
+                        });
+                    }
+                    
                     console.log(`   共生成 ${bets.length} 注下注:`);
+                    
+                    // 🎯 显示中奖信息
+                    if (winBets.length > 0) {
+                        console.log('%c   ─────────────────────────────────────', 'color: #4CAF50');
+                        console.log('%c   🎯 中奖号码:', 'color: #4CAF50; font-weight: bold');
+                        winBets.forEach(wb => {
+                            console.log(`%c      ${wb.type} ${wb.value} → ${wb.amount}元 × 赔率${wb.odds} = ${wb.winAmount}元`, 'color: #4CAF50');
+                        });
+                        console.log('%c   ─────────────────────────────────────', 'color: #4CAF50');
+                    }
                     
                     // 按类型分组显示
                     const betsByType = {};
@@ -6974,9 +7026,28 @@
                     for (const [type, typeBets] of Object.entries(betsByType)) {
                         const nums = typeBets.map(b => b.value).join(', ');
                         const amt = typeBets[0]?.amount || 0;
-                        console.log(`   📌 ${type}: ${nums} (各${amt}元, 共${typeBets.length}注)`);
+                        const typeTotal = typeBets.reduce((sum, b) => sum + (b.amount || 0), 0);
+                        console.log(`   📌 ${type}: ${nums} (各${amt}元, 共${typeBets.length}注) ${amt}×${typeBets.length}=${typeTotal}元`);
                     }
-                    console.log(`   💰 总金额: ${totalAmount}元`);
+                    
+                    console.log('   ---');
+                    console.log(`   💰 下注金额: ${totalAmount}元`);
+                    
+                    // 显示中奖金额和盈亏
+                    if (tema) {
+                        console.log(`   🎁 中奖金额: ${totalWinAmount}元`);
+                        const profit = totalWinAmount - totalAmount;
+                        if (profit > 0) {
+                            console.log(`%c   📈 总计: ${totalWinAmount} - ${totalAmount} = +${profit}元 (盈利)`, 'color: #4CAF50; font-weight: bold');
+                        } else if (profit < 0) {
+                            console.log(`%c   📉 总计: ${totalWinAmount} - ${totalAmount} = ${profit}元 (亏损)`, 'color: #e91e63; font-weight: bold');
+                        } else {
+                            console.log(`   📊 总计: ${totalWinAmount} - ${totalAmount} = 0元 (持平)`);
+                        }
+                    } else {
+                        console.log('   ⚠️ 未设置开奖号码，无法计算中奖');
+                    }
+                    
                     console.log('%c═══════════════════════════════════════════════════════', 'color: #e91e63');
                     
                     console.log('🤖 最终bets:', bets);
