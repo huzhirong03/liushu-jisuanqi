@@ -2198,46 +2198,81 @@
             </div>
         </div>
         
-        <!-- 反馈弹窗（底部弹出，不遮挡计算结果） -->
-        <div class="import-modal" id="feedback-modal" style="align-items:flex-end;">
-            <div class="import-modal-content" style="max-width:100%;width:100%;margin:0;border-radius:20px 20px 0 0;max-height:70vh;overflow-y:auto;">
-                <div class="import-modal-title" style="display:flex;justify-content:space-between;align-items:center;">
-                    <span>📝 提交反馈</span>
-                    <button onclick="hideFeedbackModal()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;">×</button>
-                </div>
-                
-                <div style="margin-bottom:15px;">
-                    <label style="display:block;color:#aaa;font-size:12px;margin-bottom:6px;">问题类型 *</label>
-                    <select id="feedback-type" style="width:100%;padding:12px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:8px;font-size:14px;" onchange="updateFeedbackDetail()">
-                        <option value="">请选择问题类型</option>
-                        <option value="type_error">类型识别错误</option>
-                        <option value="number_error">号码提取错误</option>
-                        <option value="win_error">中奖判断错误</option>
-                        <option value="lose_error">不中奖判断错误</option>
-                        <option value="calc_error">金额计算错误</option>
-                        <option value="other">其他问题</option>
-                    </select>
-                </div>
-                
-                <div style="margin-bottom:15px;">
-                    <label style="display:block;color:#aaa;font-size:12px;margin-bottom:6px;">具体问题（可选）</label>
-                    <select id="feedback-detail" style="width:100%;padding:12px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:8px;font-size:14px;">
-                        <option value="">请先选择问题类型</option>
-                    </select>
-                </div>
-                
-                <div style="margin-bottom:15px;">
-                    <label style="display:block;color:#aaa;font-size:12px;margin-bottom:6px;">补充说明（可选）</label>
-                    <textarea id="feedback-comment" placeholder="描述一下问题..." style="width:100%;height:80px;padding:12px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:8px;font-size:14px;resize:none;box-sizing:border-box;"></textarea>
-                </div>
-                
-                <button onclick="submitFeedback()" style="width:100%;padding:14px;background:linear-gradient(90deg,#e94560,#c23a51);color:white;border:none;border-radius:8px;font-size:15px;font-weight:bold;cursor:pointer;">
-                    📤 提交反馈
+        <!-- ╔════════════════════════════════════════════════════════════════╗ -->
+        <!-- ║                 全屏反馈评价页面（新版）                         ║ -->
+        <!-- ╚════════════════════════════════════════════════════════════════╝ -->
+        <div class="page" id="page-feedback">
+            <div class="page-header" style="position:sticky;top:0;background:linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);z-index:10;padding:10px 0;">
+                <button class="btn-back" onclick="showPage('page-main')">←</button>
+                <div class="page-title">📝 反馈评价</div>
+            </div>
+            
+            <!-- 用户输入显示 -->
+            <div class="setting-group" style="padding:12px;margin-bottom:10px;">
+                <div class="setting-group-title" style="margin-bottom:8px;">📋 你的输入</div>
+                <div id="feedback-user-input" style="background:rgba(0,0,0,0.3);border-radius:8px;padding:10px;font-family:'Courier New',monospace;font-size:13px;color:#ccc;white-space:pre-wrap;max-height:80px;overflow-y:auto;"></div>
+            </div>
+            
+            <!-- 开奖信息显示 -->
+            <div class="setting-group" style="padding:12px;margin-bottom:10px;">
+                <div class="setting-group-title" style="margin-bottom:8px;">🎰 开奖信息</div>
+                <div id="feedback-lottery-info" style="font-size:13px;color:#ccc;"></div>
+            </div>
+            
+            <!-- 快捷操作按钮 -->
+            <div style="display:flex;gap:8px;margin-bottom:10px;padding:0 5px;">
+                <button onclick="feedbackQuickAll('correct')" style="flex:1;padding:10px;background:rgba(76,175,80,0.2);border:1px solid #4caf50;border-radius:8px;color:#4caf50;font-size:12px;font-weight:bold;cursor:pointer;">
+                    ✓ 全部正确
                 </button>
-                
-                <div style="text-align:center;color:#666;font-size:11px;margin-top:12px;">
-                    反馈将帮助我们改进计算精准度
+                <button onclick="feedbackQuickAll('error')" style="flex:1;padding:10px;background:rgba(244,67,54,0.2);border:1px solid #f44336;border-radius:8px;color:#f44336;font-size:12px;font-weight:bold;cursor:pointer;">
+                    ✗ 全部有问题
+                </button>
+                <button onclick="feedbackQuickAll('reset')" style="flex:1;padding:10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.3);border-radius:8px;color:#aaa;font-size:12px;cursor:pointer;">
+                    重置
+                </button>
+            </div>
+            
+            <!-- 统计提示 -->
+            <div id="feedback-stats" style="text-align:center;padding:8px;background:rgba(102,126,234,0.1);border-radius:8px;margin-bottom:10px;font-size:12px;color:#a78bfa;">
+                📊 当前标记: 0项中 0项正确 / 0项有问题
+            </div>
+            
+            <!-- AI识别结果（逐项评价） -->
+            <div class="setting-group" style="padding:12px;margin-bottom:10px;">
+                <div class="setting-group-title" style="margin-bottom:10px;">🔍 AI识别结果（请逐项评价）</div>
+                <div id="feedback-items-list"></div>
+            </div>
+            
+            <!-- 计算结果评价 -->
+            <div class="setting-group" style="padding:12px;margin-bottom:10px;">
+                <div class="setting-group-title" style="margin-bottom:8px;">💰 计算结果</div>
+                <div id="feedback-calc-result" style="font-size:13px;color:#ccc;margin-bottom:10px;"></div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button class="feedback-btn" data-calc="correct" onclick="toggleCalcFeedback('correct')" style="padding:8px 12px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#888;">
+                        ✓计算正确
+                    </button>
+                    <button class="feedback-btn" data-calc="win_error" onclick="toggleCalcFeedback('win_error')" style="padding:8px 12px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#888;">
+                        ✗中奖判断错
+                    </button>
+                    <button class="feedback-btn" data-calc="amount_error" onclick="toggleCalcFeedback('amount_error')" style="padding:8px 12px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#888;">
+                        ✗金额算错
+                    </button>
                 </div>
+            </div>
+            
+            <!-- 其他补充说明 -->
+            <div class="setting-group" style="padding:12px;margin-bottom:15px;">
+                <div class="setting-group-title" style="margin-bottom:8px;">📝 其他补充（可选）</div>
+                <textarea id="feedback-general-note" placeholder="输入其他想说的..." style="width:100%;height:60px;padding:10px;background:rgba(0,0,0,0.3);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:8px;font-size:13px;resize:none;box-sizing:border-box;"></textarea>
+            </div>
+            
+            <!-- 提交按钮 -->
+            <button onclick="submitFeedbackNew()" style="width:100%;padding:16px;background:linear-gradient(90deg,#e94560,#c23a51);color:white;border:none;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer;margin-bottom:20px;">
+                📤 提交反馈
+            </button>
+            
+            <div style="text-align:center;color:#666;font-size:11px;margin-bottom:30px;">
+                您的反馈将帮助我们改进AI识别精准度，感谢支持！
             </div>
         </div>
         
@@ -7878,40 +7913,368 @@
         const SUPABASE_URL = 'https://cdvoeabekfuujaehxocl.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkdm9lYWJla2Z1dWphZWh4b2NsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNjM3MDQsImV4cCI6MjA4MTczOTcwNH0.VrT3fJfKKXwwOF_dx1v_vMkNm1bXIEhhL_4iui0RKB8';
         
-        // 反馈详情选项（根据问题类型动态变化）
-        const FEEDBACK_DETAILS = {
-            type_error: ['特码识别成其他类型', '生肖特码识别错误', '平特识别错误', '波色识别错误', '连码识别错误', '不中识别错误', '其他类型错误'],
-            number_error: ['号码少了', '号码多了', '金额提取错误', '格式没识别出来'],
-            win_error: ['特码中奖判断错误', '生肖中奖判断错误', '波色中奖判断错误', '平特中奖判断错误', '其他玩法判断错误'],
-            lose_error: ['特码不中判断错误', '生肖不中判断错误', '波色不中判断错误', '平特不中判断错误', '其他玩法判断错误'],
-            calc_error: ['赔率计算错误', '金额计算错误', '总金额错误'],
-            other: ['界面问题', '功能建议', '其他']
+        // ╔════════════════════════════════════════════════════════════════╗
+        // ║              全屏反馈评价系统（新版）                           ║
+        // ╚════════════════════════════════════════════════════════════════╝
+        
+        // 反馈数据存储
+        let feedbackData = {
+            items: [],      // 每项的评价数据
+            calcFeedback: { // 计算结果评价
+                correct: false,
+                win_error: false,
+                amount_error: false
+            }
         };
         
-        // 显示反馈弹窗
+        // 支持的玩法类型列表（用于智能选择）
+        const PLAY_TYPES = [
+            '特码', '生肖特码', '生肖', '波色', '半波',
+            '平特一肖', '平特二连肖', '平特三连肖', '平特四连肖', '平特五连肖', '平特尾数',
+            '六肖', '合肖', '正肖', '单平', '大小单双',
+            '二中二', '三中三', '二全中', '三全中', '二中特', '三中特', '特串',
+            '五不中', '六不中', '七不中', '八不中', '九不中', '十不中', '十一不中', '十二不中',
+            '总和大小单双', '五行', '家禽野兽', '头尾数'
+        ];
+        
+        // 显示反馈评价页面
         function showFeedbackModal() {
-            document.getElementById('feedback-modal').classList.add('show');
-            document.getElementById('feedback-type').value = '';
-            document.getElementById('feedback-detail').innerHTML = '<option value="">请先选择问题类型</option>';
-            document.getElementById('feedback-comment').value = '';
-        }
-        
-        // 隐藏反馈弹窗
-        function hideFeedbackModal() {
-            document.getElementById('feedback-modal').classList.remove('show');
-        }
-        
-        // 更新详情下拉选项
-        function updateFeedbackDetail() {
-            const type = document.getElementById('feedback-type').value;
-            const detailSelect = document.getElementById('feedback-detail');
+            // 初始化反馈数据
+            feedbackData = {
+                items: [],
+                calcFeedback: { correct: false, win_error: false, amount_error: false }
+            };
             
-            if (type && FEEDBACK_DETAILS[type]) {
-                detailSelect.innerHTML = '<option value="">请选择具体问题</option>' + 
-                    FEEDBACK_DETAILS[type].map(d => `<option value="${d}">${d}</option>`).join('');
-            } else {
-                detailSelect.innerHTML = '<option value="">请先选择问题类型</option>';
+            // 获取用户输入
+            const userInput = document.getElementById('bet-input')?.value || '';
+            document.getElementById('feedback-user-input').textContent = userInput || '(无输入)';
+            
+            // 获取开奖信息
+            const currentType = appState.currentLotteryType || 'xam';
+            const typeNames = { xam: '新澳', hk: '香港', am: '澳门' };
+            const lotteryNums = appState.lotteryNumbers || [];
+            const tema = lotteryNums[6];
+            const issue = appState.lotteryData[currentType]?.issue || '未知';
+            
+            const lotteryInfoHtml = `
+                <div style="margin-bottom:5px;"><span style="color:#e94560;font-weight:bold;">${typeNames[currentType]}</span> 第${issue}期</div>
+                <div>平码: <span style="color:#fbbf24;">${lotteryNums.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') || '未设置'}</span></div>
+                <div>特码: <span style="color:#e94560;font-weight:bold;">${tema ? String(tema).padStart(2,'0') : '未设置'}</span></div>
+            `;
+            document.getElementById('feedback-lottery-info').innerHTML = lotteryInfoHtml;
+            
+            // 渲染识别结果项
+            renderFeedbackItems();
+            
+            // 显示计算结果
+            renderCalcResult();
+            
+            // 更新统计
+            updateFeedbackStats();
+            
+            // 切换到反馈页面
+            showPage('page-feedback');
+        }
+        
+        // 渲染反馈项列表
+        function renderFeedbackItems() {
+            const listEl = document.getElementById('feedback-items-list');
+            
+            if (!parsedBets || parsedBets.length === 0) {
+                listEl.innerHTML = '<div style="text-align:center;color:#666;padding:20px;">暂无识别结果</div>';
+                return;
             }
+            
+            // 初始化每项的反馈数据
+            feedbackData.items = parsedBets.map((bet, index) => ({
+                index: index + 1,
+                original: bet.raw || '',
+                recognized_type: bet.type || '',
+                numbers: bet.number || bet.value || bet.numbers?.join(',') || '',
+                amount: bet.amount || 0,
+                feedback: {
+                    correct: false,
+                    type_error: false,
+                    number_error: false,
+                    amount_error: false,
+                    note: '',
+                    correct_type: ''  // 用户认为正确的类型
+                }
+            }));
+            
+            // 渲染HTML
+            listEl.innerHTML = feedbackData.items.map((item, index) => `
+                <div class="feedback-item" data-index="${index}" style="background:rgba(255,255,255,0.05);border-radius:10px;padding:12px;margin-bottom:10px;border-left:3px solid #666;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <span style="color:#e94560;font-weight:bold;">第${item.index}项</span>
+                    </div>
+                    <div style="font-size:12px;color:#888;margin-bottom:3px;">原文: "${item.original}"</div>
+                    <div style="font-size:13px;color:#fff;margin-bottom:3px;">识别: <span style="color:#fbbf24;">${item.recognized_type}</span></div>
+                    <div style="font-size:12px;color:#ccc;margin-bottom:8px;">号码: ${item.numbers}  金额: ${item.amount}元</div>
+                    
+                    <div style="border-top:1px dashed rgba(255,255,255,0.1);padding-top:8px;margin-bottom:8px;">
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            <button class="item-feedback-btn" data-index="${index}" data-type="correct" onclick="toggleItemFeedback(${index}, 'correct')" style="padding:6px 10px;border-radius:5px;font-size:11px;cursor:pointer;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#888;">
+                                ✓正确
+                            </button>
+                            <button class="item-feedback-btn" data-index="${index}" data-type="type_error" onclick="toggleItemFeedback(${index}, 'type_error')" style="padding:6px 10px;border-radius:5px;font-size:11px;cursor:pointer;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#888;">
+                                ✗类型错
+                            </button>
+                            <button class="item-feedback-btn" data-index="${index}" data-type="number_error" onclick="toggleItemFeedback(${index}, 'number_error')" style="padding:6px 10px;border-radius:5px;font-size:11px;cursor:pointer;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#888;">
+                                ✗号码错
+                            </button>
+                            <button class="item-feedback-btn" data-index="${index}" data-type="amount_error" onclick="toggleItemFeedback(${index}, 'amount_error')" style="padding:6px 10px;border-radius:5px;font-size:11px;cursor:pointer;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#888;">
+                                ✗金额错
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 类型选择器（点击类型错后显示） -->
+                    <div id="type-selector-${index}" style="display:none;margin-bottom:8px;">
+                        <div style="font-size:11px;color:#888;margin-bottom:5px;">你认为正确的类型是？</div>
+                        <select onchange="setCorrectType(${index}, this.value)" style="width:100%;padding:8px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:6px;font-size:12px;">
+                            <option value="">请选择...</option>
+                            ${PLAY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
+                        </select>
+                    </div>
+                    
+                    <!-- 备注输入 -->
+                    <div style="margin-top:8px;">
+                        <input type="text" id="item-note-${index}" placeholder="备注（可选）..." oninput="setItemNote(${index}, this.value)" style="width:100%;padding:8px;background:rgba(0,0,0,0.3);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // 切换单项评价按钮
+        function toggleItemFeedback(index, type) {
+            const item = feedbackData.items[index];
+            if (!item) return;
+            
+            // 如果点击"正确"，清除所有错误标记
+            if (type === 'correct') {
+                item.feedback.correct = !item.feedback.correct;
+                if (item.feedback.correct) {
+                    item.feedback.type_error = false;
+                    item.feedback.number_error = false;
+                    item.feedback.amount_error = false;
+                }
+            } else {
+                // 如果点击错误类型，清除"正确"标记
+                item.feedback[type] = !item.feedback[type];
+                if (item.feedback[type]) {
+                    item.feedback.correct = false;
+                }
+            }
+            
+            // 更新按钮样式
+            updateItemButtonStyles(index);
+            
+            // 显示/隐藏类型选择器
+            const typeSelector = document.getElementById(`type-selector-${index}`);
+            if (typeSelector) {
+                typeSelector.style.display = item.feedback.type_error ? 'block' : 'none';
+            }
+            
+            // 更新卡片边框颜色
+            updateItemCardStyle(index);
+            
+            // 更新统计
+            updateFeedbackStats();
+        }
+        
+        // 更新单项按钮样式
+        function updateItemButtonStyles(index) {
+            const item = feedbackData.items[index];
+            const buttons = document.querySelectorAll(`.item-feedback-btn[data-index="${index}"]`);
+            
+            buttons.forEach(btn => {
+                const type = btn.dataset.type;
+                const isActive = item.feedback[type];
+                
+                if (type === 'correct') {
+                    btn.style.background = isActive ? 'rgba(76,175,80,0.3)' : 'transparent';
+                    btn.style.borderColor = isActive ? '#4caf50' : 'rgba(255,255,255,0.2)';
+                    btn.style.color = isActive ? '#4caf50' : '#888';
+                } else {
+                    btn.style.background = isActive ? 'rgba(244,67,54,0.3)' : 'transparent';
+                    btn.style.borderColor = isActive ? '#f44336' : 'rgba(255,255,255,0.2)';
+                    btn.style.color = isActive ? '#f44336' : '#888';
+                }
+            });
+        }
+        
+        // 更新单项卡片样式
+        function updateItemCardStyle(index) {
+            const item = feedbackData.items[index];
+            const card = document.querySelector(`.feedback-item[data-index="${index}"]`);
+            if (!card) return;
+            
+            if (item.feedback.correct) {
+                card.style.borderLeftColor = '#4caf50';
+                card.style.background = 'rgba(76,175,80,0.1)';
+            } else if (item.feedback.type_error || item.feedback.number_error || item.feedback.amount_error) {
+                card.style.borderLeftColor = '#f44336';
+                card.style.background = 'rgba(244,67,54,0.1)';
+            } else {
+                card.style.borderLeftColor = '#666';
+                card.style.background = 'rgba(255,255,255,0.05)';
+            }
+        }
+        
+        // 设置用户认为正确的类型
+        function setCorrectType(index, type) {
+            if (feedbackData.items[index]) {
+                feedbackData.items[index].feedback.correct_type = type;
+            }
+        }
+        
+        // 设置单项备注
+        function setItemNote(index, note) {
+            if (feedbackData.items[index]) {
+                feedbackData.items[index].feedback.note = note;
+            }
+        }
+        
+        // 切换计算结果评价
+        function toggleCalcFeedback(type) {
+            // 如果点击"正确"，清除所有错误标记
+            if (type === 'correct') {
+                feedbackData.calcFeedback.correct = !feedbackData.calcFeedback.correct;
+                if (feedbackData.calcFeedback.correct) {
+                    feedbackData.calcFeedback.win_error = false;
+                    feedbackData.calcFeedback.amount_error = false;
+                }
+            } else {
+                feedbackData.calcFeedback[type] = !feedbackData.calcFeedback[type];
+                if (feedbackData.calcFeedback[type]) {
+                    feedbackData.calcFeedback.correct = false;
+                }
+            }
+            
+            // 更新按钮样式
+            updateCalcButtonStyles();
+        }
+        
+        // 更新计算结果按钮样式
+        function updateCalcButtonStyles() {
+            const buttons = document.querySelectorAll('.feedback-btn[data-calc]');
+            buttons.forEach(btn => {
+                const type = btn.dataset.calc;
+                const isActive = feedbackData.calcFeedback[type];
+                
+                if (type === 'correct') {
+                    btn.style.background = isActive ? 'rgba(76,175,80,0.3)' : 'transparent';
+                    btn.style.borderColor = isActive ? '#4caf50' : 'rgba(255,255,255,0.2)';
+                    btn.style.color = isActive ? '#4caf50' : '#888';
+                } else {
+                    btn.style.background = isActive ? 'rgba(244,67,54,0.3)' : 'transparent';
+                    btn.style.borderColor = isActive ? '#f44336' : 'rgba(255,255,255,0.2)';
+                    btn.style.color = isActive ? '#f44336' : '#888';
+                }
+            });
+        }
+        
+        // 渲染计算结果
+        function renderCalcResult() {
+            const totalBet = calcResults?.reduce((sum, r) => sum + r.amount, 0) || 0;
+            const winCount = calcResults?.filter(r => r.isWin).length || 0;
+            const winAmount = calcResults?.filter(r => r.isWin).reduce((sum, r) => sum + r.winAmount, 0) || 0;
+            const profit = winAmount - totalBet;
+            
+            const calcEl = document.getElementById('feedback-calc-result');
+            calcEl.innerHTML = `
+                <div>总下注: <span style="color:#fbbf24;">${totalBet}元</span></div>
+                <div>中奖: <span style="color:#4caf50;">${winCount}注</span> / <span style="color:#4caf50;">${winAmount}元</span></div>
+                <div>盈亏: <span style="color:${profit >= 0 ? '#4caf50' : '#f44336'};">${profit >= 0 ? '+' : ''}${profit}元</span></div>
+            `;
+        }
+        
+        // 快捷操作：全部正确/全部有问题/重置
+        function feedbackQuickAll(action) {
+            feedbackData.items.forEach((item, index) => {
+                if (action === 'correct') {
+                    item.feedback.correct = true;
+                    item.feedback.type_error = false;
+                    item.feedback.number_error = false;
+                    item.feedback.amount_error = false;
+                } else if (action === 'error') {
+                    item.feedback.correct = false;
+                    item.feedback.type_error = true;
+                } else if (action === 'reset') {
+                    item.feedback.correct = false;
+                    item.feedback.type_error = false;
+                    item.feedback.number_error = false;
+                    item.feedback.amount_error = false;
+                    item.feedback.note = '';
+                    item.feedback.correct_type = '';
+                    // 清空备注输入框
+                    const noteInput = document.getElementById(`item-note-${index}`);
+                    if (noteInput) noteInput.value = '';
+                }
+                
+                updateItemButtonStyles(index);
+                updateItemCardStyle(index);
+                
+                // 隐藏类型选择器
+                const typeSelector = document.getElementById(`type-selector-${index}`);
+                if (typeSelector) {
+                    typeSelector.style.display = action === 'error' ? 'block' : 'none';
+                }
+            });
+            
+            // 计算结果也处理
+            if (action === 'correct') {
+                feedbackData.calcFeedback = { correct: true, win_error: false, amount_error: false };
+            } else if (action === 'error') {
+                feedbackData.calcFeedback = { correct: false, win_error: true, amount_error: false };
+            } else if (action === 'reset') {
+                feedbackData.calcFeedback = { correct: false, win_error: false, amount_error: false };
+            }
+            updateCalcButtonStyles();
+            
+            // 更新统计
+            updateFeedbackStats();
+            
+            showAutoCloseToast(action === 'correct' ? '✅ 已标记全部正确' : action === 'error' ? '❌ 已标记全部有问题' : '🔄 已重置', 1500);
+        }
+        
+        // 更新统计提示
+        function updateFeedbackStats() {
+            const total = feedbackData.items.length;
+            let correctCount = 0;
+            let errorCount = 0;
+            
+            feedbackData.items.forEach(item => {
+                if (item.feedback.correct) {
+                    correctCount++;
+                } else if (item.feedback.type_error || item.feedback.number_error || item.feedback.amount_error) {
+                    errorCount++;
+                }
+            });
+            
+            const unmarked = total - correctCount - errorCount;
+            const statsEl = document.getElementById('feedback-stats');
+            
+            let statsText = `📊 当前标记: ${total}项中 `;
+            if (correctCount > 0) statsText += `<span style="color:#4caf50;">${correctCount}项正确</span>`;
+            if (correctCount > 0 && errorCount > 0) statsText += ' / ';
+            if (errorCount > 0) statsText += `<span style="color:#f44336;">${errorCount}项有问题</span>`;
+            if (unmarked > 0) {
+                if (correctCount > 0 || errorCount > 0) statsText += ' / ';
+                statsText += `<span style="color:#888;">${unmarked}项未标记</span>`;
+            }
+            
+            statsEl.innerHTML = statsText;
+        }
+        
+        // 兼容旧函数
+        function hideFeedbackModal() {
+            showPage('page-main');
+        }
+        
+        function updateFeedbackDetail() {
+            // 保留兼容性，但新版不再使用
         }
         
         // 收集完整调试信息（中文字段名，方便查看）
@@ -8045,26 +8408,83 @@ ${winDetailText}║    ───────────────────
         }
         
         // 提交反馈到 Supabase
+        // 旧版提交函数（保留兼容性）
         async function submitFeedback() {
-            const feedbackType = document.getElementById('feedback-type').value;
-            const feedbackDetail = document.getElementById('feedback-detail').value;
-            const feedbackComment = document.getElementById('feedback-comment').value;
+            // 调用新版提交函数
+            await submitFeedbackNew();
+        }
+        
+        // 新版提交反馈函数
+        async function submitFeedbackNew() {
+            // 检查是否有标记
+            const hasAnyMark = feedbackData.items.some(item => 
+                item.feedback.correct || item.feedback.type_error || 
+                item.feedback.number_error || item.feedback.amount_error
+            ) || feedbackData.calcFeedback.correct || 
+               feedbackData.calcFeedback.win_error || 
+               feedbackData.calcFeedback.amount_error;
             
-            if (!feedbackType) {
-                alert('请选择问题类型');
+            const generalNote = document.getElementById('feedback-general-note')?.value || '';
+            
+            if (!hasAnyMark && !generalNote.trim()) {
+                showAutoCloseToast('⚠️ 请至少标记一项或填写补充说明', 2000);
                 return;
             }
             
-            // 收集调试信息
-            const debugData = collectDebugInfo();
+            // 获取开奖信息
+            const currentType = appState.currentLotteryType || 'xam';
+            const typeNames = { xam: '新澳', hk: '香港', am: '澳门' };
+            const lotteryNums = appState.lotteryNumbers || [];
             
-            // 构建提交数据
-            const feedbackData = {
+            // 构建新版数据结构
+            const totalBet = calcResults?.reduce((sum, r) => sum + r.amount, 0) || 0;
+            const winCount = calcResults?.filter(r => r.isWin).length || 0;
+            const winAmount = calcResults?.filter(r => r.isWin).reduce((sum, r) => sum + r.winAmount, 0) || 0;
+            const profit = winAmount - totalBet;
+            
+            const submitData = {
                 version: APP_VERSION,
-                feedback_type: feedbackType,
-                feedback_detail: feedbackDetail || null,
-                user_comment: feedbackComment || null,
-                debug_info: debugData
+                input: document.getElementById('bet-input')?.value || '',
+                lottery: {
+                    type: typeNames[currentType] || currentType,
+                    issue: appState.lotteryData[currentType]?.issue || '未知',
+                    numbers: lotteryNums
+                },
+                items: feedbackData.items.map(item => ({
+                    index: item.index,
+                    original: item.original,
+                    recognized_type: item.recognized_type,
+                    numbers: item.numbers,
+                    amount: item.amount,
+                    feedback: {
+                        correct: item.feedback.correct,
+                        type_error: item.feedback.type_error,
+                        number_error: item.feedback.number_error,
+                        amount_error: item.feedback.amount_error,
+                        note: item.feedback.note,
+                        correct_type: item.feedback.correct_type || null
+                    }
+                })),
+                calc_result: {
+                    total_bet: totalBet,
+                    win_count: winCount,
+                    win_amount: winAmount,
+                    profit: profit,
+                    feedback: {
+                        calc_correct: feedbackData.calcFeedback.correct,
+                        win_error: feedbackData.calcFeedback.win_error,
+                        amount_error: feedbackData.calcFeedback.amount_error
+                    }
+                },
+                general_note: generalNote,
+                // 统计信息
+                stats: {
+                    total_items: feedbackData.items.length,
+                    correct_items: feedbackData.items.filter(i => i.feedback.correct).length,
+                    error_items: feedbackData.items.filter(i => 
+                        i.feedback.type_error || i.feedback.number_error || i.feedback.amount_error
+                    ).length
+                }
             };
             
             try {
@@ -8078,12 +8498,20 @@ ${winDetailText}║    ───────────────────
                         'Authorization': `Bearer ${SUPABASE_KEY}`,
                         'Prefer': 'return=minimal'
                     },
-                    body: JSON.stringify(feedbackData)
+                    body: JSON.stringify({
+                        version: APP_VERSION,
+                        feedback_type: 'detailed_review',
+                        feedback_detail: `${submitData.stats.correct_items}/${submitData.stats.total_items}正确`,
+                        user_comment: generalNote || null,
+                        debug_info: submitData
+                    })
                 });
                 
                 if (response.ok) {
-                    showAutoCloseToast('✅ 反馈提交成功！感谢您的反馈', 3000);
-                    hideFeedbackModal();
+                    showAutoCloseToast('✅ 反馈提交成功！感谢您的评价', 3000);
+                    setTimeout(() => {
+                        showPage('page-main');
+                    }, 1000);
                 } else {
                     const errorText = await response.text();
                     console.error('反馈提交失败:', errorText);
