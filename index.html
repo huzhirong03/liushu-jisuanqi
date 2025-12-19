@@ -7914,44 +7914,131 @@
             }
         }
         
-        // 收集完整调试信息
+        // 收集完整调试信息（中文字段名，方便查看）
         function collectDebugInfo() {
+            // 获取开奖信息
+            const currentType = appState.currentLotteryType || 'xam';
+            const typeNames = { xam: '新澳', hk: '香港', am: '澳门' };
+            const lotteryNums = appState.lotteryNumbers || [];
+            const tema = lotteryNums[6];
+            
+            // 格式化下注列表（中文）
+            const betsFormatted = (parsedBets || []).map((b, i) => ({
+                序号: i + 1,
+                类型: b.type,
+                号码: b.number || b.value || '',
+                金额: b.amount + '元'
+            }));
+            
+            // 格式化计算结果（中文）
+            const resultsFormatted = (calcResults || []).map((r, i) => ({
+                序号: i + 1,
+                类型: r.type,
+                号码: r.number || r.value || '',
+                下注: r.amount + '元',
+                是否中奖: r.isWin ? '✓中奖' : '✗未中',
+                中奖金额: r.isWin ? r.winAmount + '元' : '0元'
+            }));
+            
+            // 计算汇总数据
+            const totalBet = calcResults?.reduce((sum, r) => sum + r.amount, 0) || 0;
+            const winCount = calcResults?.filter(r => r.isWin).length || 0;
+            const winAmount = calcResults?.filter(r => r.isWin).reduce((sum, r) => sum + r.winAmount, 0) || 0;
+            const profit = winAmount - totalBet;
+            
+            // ═══════════════════════════════════════════════════════════════
+            // 📊 生成控制台风格的易读总结（方便在Supabase后台快速查看）
+            // ═══════════════════════════════════════════════════════════════
+            const userInput = document.getElementById('bet-input')?.value || '';
+            const pingmaStr = lotteryNums.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') || '未设置';
+            const temaStr = tema ? String(tema).padStart(2,'0') : '未设置';
+            
+            // 按类型分组统计
+            const betsByType = {};
+            (parsedBets || []).forEach(b => {
+                const key = b.type;
+                if (!betsByType[key]) betsByType[key] = { nums: [], amount: b.amount, count: 0 };
+                betsByType[key].nums.push(b.number || b.value || '');
+                betsByType[key].count++;
+            });
+            
+            // 生成下注明细文本
+            let betDetailText = '';
+            for (const [type, data] of Object.entries(betsByType)) {
+                const numsStr = data.nums.slice(0, 10).join(',') + (data.nums.length > 10 ? '...' : '');
+                betDetailText += `   📌 ${type}: ${numsStr} 各${data.amount}元 (${data.count}注)\n`;
+            }
+            
+            // 生成中奖明细文本
+            const winBets = (calcResults || []).filter(r => r.isWin);
+            let winDetailText = '';
+            if (winBets.length > 0) {
+                winBets.forEach(w => {
+                    winDetailText += `   🎯 ${w.type} ${w.number || w.value} → ${w.amount}元×${w.odds}倍=${w.winAmount}元\n`;
+                });
+            } else {
+                winDetailText = '   (无中奖)\n';
+            }
+            
+            // 组装控制台风格总结
+            const summaryText = `
+╔══════════════════════════════════════════════════════════════╗
+║                    📊 反馈数据快速总结                        ║
+╠══════════════════════════════════════════════════════════════╣
+║ 📝 用户输入:
+║    "${userInput.substring(0, 60)}${userInput.length > 60 ? '...' : ''}"
+╠══════════════════════════════════════════════════════════════╣
+║ 🎰 开奖信息:
+║    彩种: ${typeNames[currentType] || currentType}  期号: ${appState.lotteryData[currentType]?.issue || '未知'}
+║    平码: ${pingmaStr}
+║    特码: ${temaStr}
+╠══════════════════════════════════════════════════════════════╣
+║ 🤖 AI处理:
+║    发送内容: "${(debugInfo.aiInput || '').substring(0, 50)}${(debugInfo.aiInput || '').length > 50 ? '...' : ''}"
+║    错误信息: ${debugInfo.lastError || '无'}
+╠══════════════════════════════════════════════════════════════╣
+║ 📋 识别结果: 共${parsedBets?.length || 0}注
+${betDetailText}╠══════════════════════════════════════════════════════════════╣
+║ 💰 计算结果:
+║    总下注: ${totalBet}元
+║    中奖: ${winCount}注 / ${winAmount}元
+${winDetailText}║    ────────────────────────────
+║    ${profit >= 0 ? '📈 盈利' : '📉 亏损'}: ${profit >= 0 ? '+' : ''}${profit}元
+╚══════════════════════════════════════════════════════════════╝`;
+
             const info = {
-                // 1. 用户原始输入
-                raw_input: document.getElementById('bet-input')?.value || '',
+                '1_用户原始输入': userInput,
                 
-                // 2. AI处理信息
-                ai_process: {
-                    sanitized_input: debugInfo.aiInput || '',
-                    ai_raw_response: debugInfo.aiOutput || '',
-                    ai_parsed: debugInfo.aiParsed || null,
-                    ai_error: debugInfo.lastError || ''
+                '2_AI处理': {
+                    '发送给AI的内容': debugInfo.aiInput || '',
+                    'AI返回原文': debugInfo.aiOutput || '',
+                    'AI解析结果': debugInfo.aiParsed || null,
+                    '错误信息': debugInfo.lastError || '无'
                 },
                 
-                // 3. 前端解析结果
-                frontend_parse: {
-                    total_bets: parsedBets?.length || 0,
-                    bets: parsedBets || []
+                '3_前端解析结果': {
+                    '识别注数': (parsedBets?.length || 0) + '注',
+                    '下注明细': betsFormatted
                 },
                 
-                // 4. 开奖信息
-                lottery_info: {
-                    type: appState.currentLotteryType || 'xam',
-                    issue: appState.lotteryData[appState.currentLotteryType]?.issue || '',
-                    numbers: appState.lotteryNumbers || [],
-                    tema: appState.lotteryNumbers?.[6] || null
+                '4_开奖信息': {
+                    '彩种': typeNames[currentType] || currentType,
+                    '期号': appState.lotteryData[currentType]?.issue || '未知',
+                    '平码': lotteryNums.slice(0,6).join(',') || '未设置',
+                    '特码': tema || '未设置'
                 },
                 
-                // 5. 赔率设置
-                odds_settings: JSON.parse(localStorage.getItem('lhc_odds') || '{}'),
+                '5_赔率设置': JSON.parse(localStorage.getItem('lhc_odds') || '{}'),
                 
-                // 6. 计算结果
-                calc_result: {
-                    total_bet: calcResults?.reduce((sum, r) => sum + r.amount, 0) || 0,
-                    win_count: calcResults?.filter(r => r.isWin).length || 0,
-                    total_win: calcResults?.filter(r => r.isWin).reduce((sum, r) => sum + r.winAmount, 0) || 0,
-                    results: calcResults || []
-                }
+                '6_计算结果': {
+                    '总下注': totalBet + '元',
+                    '中奖注数': winCount + '注',
+                    '中奖金额': winAmount + '元',
+                    '盈亏': (profit >= 0 ? '+' : '') + profit + '元',
+                    '计算明细': resultsFormatted
+                },
+                
+                '7_快速总结': summaryText
             };
             
             return info;
