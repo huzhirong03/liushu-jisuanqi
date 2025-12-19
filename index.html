@@ -6335,25 +6335,54 @@
                 // 判断是否使用代理（必须使用代理，API Key 在后端）
                 if (useProxy) {
                     // 线上环境：通过阿里云函数代理（API Key 在后端环境变量）
-                    console.log('使用阿里云代理模式调用AI API（Key在后端）');
-                    const requestBody = {
-                        provider: provider,
-                        prompt: prompt,
-                        model: config.model
-                        // ⚠️ 不再传递 apiKey，由后端从环境变量读取
-                    };
-                    // 如果是兔子API多站点，传入当前站点URL
-                    if (tuziUrl) {
-                        requestBody.tuziUrl = tuziUrl;
+                    // 🆕 使用新版 /api/analyze 接口，支持 Function Calling
+                    const isAliyunProxy = proxyUrl === ALIYUN_PROXY_URL;
+                    
+                    if (isAliyunProxy) {
+                        // 阿里云代理：使用新版 /api/analyze 接口 (Function Calling)
+                        console.log('📡 使用阿里云代理 /api/analyze 接口（Function Calling）');
+                        
+                        // 从 prompt 中提取实际文本内容
+                        let text = prompt;
+                        if (prompt.includes('【输入】')) {
+                            text = prompt.split('【输入】').pop().trim();
+                        }
+                        
+                        const requestBody = {
+                            provider: provider,
+                            text: text,
+                            model: config.model,
+                            extract_values: true  // 启用数值提取模式
+                        };
+                        
+                        response = await fetch(`${proxyUrl}/api/analyze`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(requestBody),
+                            signal: controller.signal
+                        });
+                    } else {
+                        // Cloudflare/其他代理：使用旧版接口
+                        console.log('使用代理模式调用AI API（Key在后端）');
+                        const requestBody = {
+                            provider: provider,
+                            prompt: prompt,
+                            model: config.model
+                        };
+                        if (tuziUrl) {
+                            requestBody.tuziUrl = tuziUrl;
+                        }
+                        response = await fetch(proxyUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(requestBody),
+                            signal: controller.signal
+                        });
                     }
-                    response = await fetch(proxyUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(requestBody),
-                        signal: controller.signal
-                    });
                 } else {
                     // 本地调试：仍需通过代理（因为Key在后端）
                     console.log('⚠️ 直连模式已禁用，请使用代理模式');
@@ -6393,15 +6422,35 @@
                     throw new Error(data.error.message || JSON.stringify(data.error));
                 }
                 
-                // 检查响应结构（兼容兔子API的 data.data 结构和标准 OpenAI 结构）
+                // 检查响应结构
+                // 🆕 新版阿里云 /api/analyze 格式: { success: true, data: [...], model_used: "...", latency_ms: 123 }
                 // 兔子API格式: { code: 0, data: { choices: [...] } }
                 // 标准OpenAI格式: { choices: [...] }
-                const responseData = data.data || data;  // 兔子API的数据在data.data里
-                const content = responseData.choices?.[0]?.message?.content;
-                if (!content && responseData.choices) {
-                    debugInfo.networkError = `响应结构异常: choices存在但content为空`;
-                } else if (!content) {
-                    debugInfo.networkError = `响应无choices字段: ${JSON.stringify(data).substring(0, 200)}`;
+                
+                let content = null;
+                
+                // 检查是否是新版 /api/analyze 响应
+                if (data.success !== undefined && data.data !== undefined) {
+                    // 🆕 新版 Function Calling 响应
+                    console.log('📦 收到 Function Calling 响应:', data);
+                    if (data.success) {
+                        // data.data 是数组格式: [["code", "original", numbers?, amount?], ...]
+                        // 转换为旧版格式以兼容现有解析逻辑
+                        content = JSON.stringify(data.data);
+                        console.log(`✅ Function Calling 成功: 模型=${data.model_used}, 耗时=${data.latency_ms}ms`);
+                    } else {
+                        debugInfo.networkError = `API返回错误: ${data.error || '未知错误'}`;
+                        throw new Error(data.error || 'AI分析失败');
+                    }
+                } else {
+                    // 旧版响应格式
+                    const responseData = data.data || data;  // 兔子API的数据在data.data里
+                    content = responseData.choices?.[0]?.message?.content;
+                    if (!content && responseData.choices) {
+                        debugInfo.networkError = `响应结构异常: choices存在但content为空`;
+                    } else if (!content) {
+                        debugInfo.networkError = `响应无choices字段: ${JSON.stringify(data).substring(0, 200)}`;
+                    }
                 }
                 
                 // 🐰 兔子API多站点：请求成功
