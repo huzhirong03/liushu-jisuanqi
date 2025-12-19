@@ -784,8 +784,14 @@
                 overflow-y: auto;
             }
             
+            .result-buttons {
+                display: flex;
+                gap: 10px;
+                margin-top: 10px;
+            }
+            
             .btn-copy-result {
-                width: 100%;
+                flex: 1;
                 background: linear-gradient(90deg, #3498db, #2980b9);
                 color: white;
                 padding: 12px;
@@ -794,7 +800,18 @@
                 font-size: 14px;
                 font-weight: bold;
                 cursor: pointer;
-                margin-top: 10px;
+            }
+            
+            .btn-feedback {
+                flex: 1;
+                background: linear-gradient(90deg, #e74c3c, #c0392b);
+                color: white;
+                padding: 12px;
+                border: none;
+                border-radius: 8px;
+                font-size: 13px;
+                font-weight: bold;
+                cursor: pointer;
             }
 
             /* 开奖输入 */
@@ -1181,7 +1198,10 @@
                 <div class="result-section" id="result-section">
                     <div class="result-title">计算结果</div>
                     <div class="result-content" id="result-content"></div>
-                    <button class="btn-copy-result" onclick="copyResult()">📋 复制结果</button>
+                    <div class="result-buttons">
+                        <button class="btn-copy-result" onclick="copyResult()">📋 复制结果</button>
+                        <button class="btn-feedback" onclick="showFeedbackModal()">❌ 结果有误？提交反馈</button>
+                    </div>
                 </div>
             </div>
             
@@ -2175,6 +2195,49 @@
                 <button onclick="hideImportModal()" style="width:100%;padding:12px;background:transparent;color:#666;border:none;font-size:13px;cursor:pointer;margin-top:10px;">
                     取消
                 </button>
+            </div>
+        </div>
+        
+        <!-- 反馈弹窗 -->
+        <div class="import-modal" id="feedback-modal">
+            <div class="import-modal-content" style="max-width:400px;">
+                <div class="import-modal-title" style="display:flex;justify-content:space-between;align-items:center;">
+                    <span>📝 提交反馈</span>
+                    <button onclick="hideFeedbackModal()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;">×</button>
+                </div>
+                
+                <div style="margin-bottom:15px;">
+                    <label style="display:block;color:#aaa;font-size:12px;margin-bottom:6px;">问题类型 *</label>
+                    <select id="feedback-type" style="width:100%;padding:12px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:8px;font-size:14px;" onchange="updateFeedbackDetail()">
+                        <option value="">请选择问题类型</option>
+                        <option value="type_error">类型识别错误</option>
+                        <option value="number_error">号码提取错误</option>
+                        <option value="win_error">中奖判断错误</option>
+                        <option value="lose_error">不中奖判断错误</option>
+                        <option value="calc_error">金额计算错误</option>
+                        <option value="other">其他问题</option>
+                    </select>
+                </div>
+                
+                <div style="margin-bottom:15px;">
+                    <label style="display:block;color:#aaa;font-size:12px;margin-bottom:6px;">具体问题（可选）</label>
+                    <select id="feedback-detail" style="width:100%;padding:12px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:8px;font-size:14px;">
+                        <option value="">请先选择问题类型</option>
+                    </select>
+                </div>
+                
+                <div style="margin-bottom:15px;">
+                    <label style="display:block;color:#aaa;font-size:12px;margin-bottom:6px;">补充说明（可选）</label>
+                    <textarea id="feedback-comment" placeholder="描述一下问题..." style="width:100%;height:80px;padding:12px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:8px;font-size:14px;resize:none;box-sizing:border-box;"></textarea>
+                </div>
+                
+                <button onclick="submitFeedback()" style="width:100%;padding:14px;background:linear-gradient(90deg,#e94560,#c23a51);color:white;border:none;border-radius:8px;font-size:15px;font-weight:bold;cursor:pointer;">
+                    📤 提交反馈
+                </button>
+                
+                <div style="text-align:center;color:#666;font-size:11px;margin-top:12px;">
+                    反馈将帮助我们改进计算精准度
+                </div>
             </div>
         </div>
         
@@ -7788,6 +7851,141 @@
         
         // 显示当前版本（可选，调试用）
         console.log('📱 六叔火箭计算器 ' + APP_VERSION);
+        
+        // ==================== 反馈系统 ====================
+        // Supabase 配置
+        const SUPABASE_URL = 'https://cdvoeabekfuujaehxocl.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkdm9lYWJla2Z1dWphZWh4b2NsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNjM3MDQsImV4cCI6MjA4MTczOTcwNH0.VrT3fJfKKXwwOF_dx1v_vMkNm1bXIEhhL_4iui0RKB8';
+        
+        // 反馈详情选项（根据问题类型动态变化）
+        const FEEDBACK_DETAILS = {
+            type_error: ['特码识别成其他类型', '生肖特码识别错误', '平特识别错误', '波色识别错误', '连码识别错误', '不中识别错误', '其他类型错误'],
+            number_error: ['号码少了', '号码多了', '金额提取错误', '格式没识别出来'],
+            win_error: ['特码中奖判断错误', '生肖中奖判断错误', '波色中奖判断错误', '平特中奖判断错误', '其他玩法判断错误'],
+            lose_error: ['特码不中判断错误', '生肖不中判断错误', '波色不中判断错误', '平特不中判断错误', '其他玩法判断错误'],
+            calc_error: ['赔率计算错误', '金额计算错误', '总金额错误'],
+            other: ['界面问题', '功能建议', '其他']
+        };
+        
+        // 显示反馈弹窗
+        function showFeedbackModal() {
+            document.getElementById('feedback-modal').classList.add('show');
+            document.getElementById('feedback-type').value = '';
+            document.getElementById('feedback-detail').innerHTML = '<option value="">请先选择问题类型</option>';
+            document.getElementById('feedback-comment').value = '';
+        }
+        
+        // 隐藏反馈弹窗
+        function hideFeedbackModal() {
+            document.getElementById('feedback-modal').classList.remove('show');
+        }
+        
+        // 更新详情下拉选项
+        function updateFeedbackDetail() {
+            const type = document.getElementById('feedback-type').value;
+            const detailSelect = document.getElementById('feedback-detail');
+            
+            if (type && FEEDBACK_DETAILS[type]) {
+                detailSelect.innerHTML = '<option value="">请选择具体问题</option>' + 
+                    FEEDBACK_DETAILS[type].map(d => `<option value="${d}">${d}</option>`).join('');
+            } else {
+                detailSelect.innerHTML = '<option value="">请先选择问题类型</option>';
+            }
+        }
+        
+        // 收集完整调试信息
+        function collectDebugInfo() {
+            const info = {
+                // 1. 用户原始输入
+                raw_input: document.getElementById('bet-input')?.value || '',
+                
+                // 2. AI处理信息
+                ai_process: {
+                    sanitized_input: debugInfo.aiInput || '',
+                    ai_raw_response: debugInfo.aiOutput || '',
+                    ai_parsed: debugInfo.aiParsed || null,
+                    ai_error: debugInfo.lastError || ''
+                },
+                
+                // 3. 前端解析结果
+                frontend_parse: {
+                    total_bets: parsedBets?.length || 0,
+                    bets: parsedBets || []
+                },
+                
+                // 4. 开奖信息
+                lottery_info: {
+                    type: appState.currentLotteryType || 'xam',
+                    issue: appState.lotteryData[appState.currentLotteryType]?.issue || '',
+                    numbers: appState.lotteryNumbers || [],
+                    tema: appState.lotteryNumbers?.[6] || null
+                },
+                
+                // 5. 赔率设置
+                odds_settings: JSON.parse(localStorage.getItem('lhc_odds') || '{}'),
+                
+                // 6. 计算结果
+                calc_result: {
+                    total_bet: calcResults?.reduce((sum, r) => sum + r.amount, 0) || 0,
+                    win_count: calcResults?.filter(r => r.isWin).length || 0,
+                    total_win: calcResults?.filter(r => r.isWin).reduce((sum, r) => sum + r.winAmount, 0) || 0,
+                    results: calcResults || []
+                }
+            };
+            
+            return info;
+        }
+        
+        // 提交反馈到 Supabase
+        async function submitFeedback() {
+            const feedbackType = document.getElementById('feedback-type').value;
+            const feedbackDetail = document.getElementById('feedback-detail').value;
+            const feedbackComment = document.getElementById('feedback-comment').value;
+            
+            if (!feedbackType) {
+                alert('请选择问题类型');
+                return;
+            }
+            
+            // 收集调试信息
+            const debugData = collectDebugInfo();
+            
+            // 构建提交数据
+            const feedbackData = {
+                version: APP_VERSION,
+                feedback_type: feedbackType,
+                feedback_detail: feedbackDetail || null,
+                user_comment: feedbackComment || null,
+                debug_info: debugData
+            };
+            
+            try {
+                showAutoCloseToast('📤 正在提交反馈...', 3000);
+                
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/feedback`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Prefer': 'return=minimal'
+                    },
+                    body: JSON.stringify(feedbackData)
+                });
+                
+                if (response.ok) {
+                    showAutoCloseToast('✅ 反馈提交成功！感谢您的反馈', 3000);
+                    hideFeedbackModal();
+                } else {
+                    const errorText = await response.text();
+                    console.error('反馈提交失败:', errorText);
+                    showAutoCloseToast('❌ 提交失败，请稍后重试', 3000);
+                }
+            } catch (e) {
+                console.error('反馈提交错误:', e);
+                showAutoCloseToast('❌ 网络错误，请稍后重试', 3000);
+            }
+        }
         
         // 初始化
         init();
