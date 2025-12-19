@@ -4109,21 +4109,12 @@
     }
     
     // 获取格式设置
-    // 默认AI配置（DeepSeek）- 放在最前面确保全局可用
-    // 配置数据（已混淆保护）
-    const _0x = ['ZGVlcHNlZWs=','c2stMTIzMTQ0ODU1OTUwNDNmY2E2MjNmNjlhZTEyZGJkZDQ='];
-    const _d = (s) => {try{return atob(s)}catch(e){return ''}};
-    const DEFAULT_AI_CONFIG = {
-        provider: _d(_0x[0]),
-        apiKey: _d(_0x[1])
-    };
-    
+    // API Key 已移至阿里云函数环境变量，前端不再存储
     function getFormatSettings() {
         try {
             const saved = JSON.parse(localStorage.getItem('lhc_format_settings') || '{}');
-            // 始终使用内置API配置，默认启用AI
-            saved.aiApiKey = DEFAULT_AI_CONFIG.apiKey;
-            saved.aiProvider = DEFAULT_AI_CONFIG.provider;
+            // AI配置：Key在后端，前端只需要知道是否启用和使用哪个模型
+            saved.aiProvider = saved.aiProvider || 'deepseek';
             if (saved.aiEnabled === undefined) {
                 saved.aiEnabled = true; // 默认启用
             }
@@ -4131,7 +4122,6 @@
         } catch(e) {
             return {
                 aiEnabled: true,
-                aiApiKey: DEFAULT_AI_CONFIG.apiKey,
                 aiProvider: 'deepseek'
             };
         }
@@ -4697,10 +4687,9 @@
     
     function saveFormatSettings() {
         const settings = {
-            // AI设置（默认启用，API Key使用内置）
+            // AI设置（默认启用，API Key在后端环境变量）
             aiEnabled: document.getElementById('ai-parse-enabled')?.checked !== false,
             aiProvider: 'deepseek',
-            aiApiKey: DEFAULT_AI_CONFIG.apiKey,
             
             // 预设模板
             tplMultiNum: document.getElementById('tpl-multi-num')?.checked !== false,
@@ -4788,13 +4777,13 @@
     // AI服务商配置
     // region: 'cn' = 国内模型（走阿里云代理），'overseas' = 海外模型（走Cloudflare代理），'direct' = 直连（第三方中转API）
     const AI_PROVIDERS = {
+        // ⚠️ API Key 已移至阿里云函数环境变量，不再在前端存储
         deepseek: {
             name: 'DeepSeek',
             shortName: 'DS',
             url: 'https://api.deepseek.com/v1/chat/completions',
             model: 'deepseek-chat',  // DeepSeek 官方对话模型（稳定）
-            region: 'cn',
-            apiKey: 'sk-12314485595043fca623f69ae12dbdd4'
+            region: 'cn'
         },
         tuzi: {
             name: 'Gemini-Flash',
@@ -4802,7 +4791,6 @@
             url: 'https://api.tu-zi.com/v1/chat/completions',  // 会被多站点切换覆盖
             model: 'gemini-2.0-flash',  // 兔子API - Gemini 2.0 Flash（快速版）
             region: 'cn',  // 走阿里云代理，手机无需VPN
-            apiKey: 'sk-9oGH0BIdnzPrB5y4sg1Xg6YW7XF4YFj2GUqtoxcA3WFzKVgc',
             useTuziMultiSite: true  // 标记使用兔子API多站点
         },
         qwen: {
@@ -4810,8 +4798,7 @@
             shortName: '千问',
             url: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
             model: 'qwen-turbo',
-            region: 'cn',
-            apiKey: 'sk-19f295e0c1294471a112b48ec2814c2c'
+            region: 'cn'
         },
         claude: {
             name: 'Claude-Sonnet',
@@ -4819,7 +4806,6 @@
             url: 'https://api.tu-zi.com/v1/chat/completions',  // 会被多站点切换覆盖
             model: 'claude-sonnet-4-0',  // 兔子API - Claude Sonnet 4.0
             region: 'cn',  // 走阿里云代理
-            apiKey: 'sk-3wuWW1YSxTUgMEbmTk2511VqJyPNewrdD3q1kU5q1He2ywF9',
             useTuziMultiSite: true  // 标记使用兔子API多站点
         },
         gpt: {
@@ -4828,7 +4814,6 @@
             url: 'https://api.tu-zi.com/v1/chat/completions',  // 会被多站点切换覆盖
             model: 'gpt-4o-mini',  // 兔子API - GPT-4o Mini（性价比最高）
             region: 'cn',  // 走阿里云代理
-            apiKey: 'sk-9ShdAzwU4jHDCqsYccO0cmMfgbTkNkqcBEZmUeCxKO3ypYwZ',
             useTuziMultiSite: true  // 标记使用兔子API多站点
         }
     };
@@ -4901,9 +4886,8 @@
         const config = AI_PROVIDERS[provider];
         if (!config) return;
         
-        // 更新隐藏的 select
+        // 更新隐藏的 select（API Key 在后端，不需要设置）
         document.getElementById('ai-provider').value = provider;
-        document.getElementById('ai-api-key').value = config.apiKey || '';
         
         // 更新按钮状态
         document.querySelectorAll('.ai-model-btn').forEach(btn => {
@@ -4913,33 +4897,26 @@
             }
         });
         
-        // 更新状态显示
+        // 更新状态显示（API Key 已在后端配置）
         const statusEl = document.getElementById('ai-model-status');
         if (statusEl) {
-            if (!config.apiKey) {
-                // API Key 未配置
-                statusEl.innerHTML = '⚠️ ' + config.name + '：API Key 未配置';
-                statusEl.style.background = 'rgba(244,67,54,0.1)';
-                statusEl.style.color = '#ef5350';
+            let regionText, bgColor, textColor;
+            if (config.region === 'overseas') {
+                regionText = '海外Cloudflare代理';
+                bgColor = 'rgba(255,152,0,0.1)';
+                textColor = '#ffa726';
+            } else if (config.region === 'direct') {
+                regionText = '第三方中转直连';
+                bgColor = 'rgba(33,150,243,0.1)';
+                textColor = '#64b5f6';
             } else {
-                let regionText, bgColor, textColor;
-                if (config.region === 'overseas') {
-                    regionText = '海外Cloudflare代理';
-                    bgColor = 'rgba(255,152,0,0.1)';
-                    textColor = '#ffa726';
-                } else if (config.region === 'direct') {
-                    regionText = '第三方中转直连';
-                    bgColor = 'rgba(33,150,243,0.1)';
-                    textColor = '#64b5f6';
-                } else {
-                    regionText = '国内直连';
-                    bgColor = 'rgba(76,175,80,0.1)';
-                    textColor = '#81c784';
-                }
-                statusEl.innerHTML = '✅ 当前：' + config.name + '（' + regionText + '）';
-                statusEl.style.background = bgColor;
-                statusEl.style.color = textColor;
+                regionText = '阿里云代理（Key在后端）';
+                bgColor = 'rgba(76,175,80,0.1)';
+                textColor = '#81c784';
             }
+            statusEl.innerHTML = '✅ 当前：' + config.name + '（' + regionText + '）';
+            statusEl.style.background = bgColor;
+            statusEl.style.color = textColor;
         }
         
         // 保存选择
@@ -5516,7 +5493,8 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `模型测试报告_${new Date().toISOString().slice(0,10)}.csv`;
+        // 【临时-模型比拼】文件名格式：类型_版本_模型测试报告_日期.csv
+        a.download = `${EDGE_TEST_TYPE}_${EDGE_TEST_VERSION}_模型测试报告_${new Date().toISOString().slice(0, 10)}.csv`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -5695,13 +5673,13 @@ ${userInput}
         
         const promises = modelsToTest.map(async (modelKey) => {
             const config = AI_PROVIDERS[modelKey];
-            if (!config || !config.apiKey) {
+            if (!config) {
                 multiModelResults[modelKey] = {
                     status: 'error',
                     time: 0,
                     raw: '',
                     parsed: [],
-                    error: 'API Key 未配置'
+                    error: '模型未配置'
                 };
                 updateModelTabStatus(modelKey, 'error', '未配置');
                 return;
@@ -5709,7 +5687,8 @@ ${userInput}
             
             const startTime = Date.now();
             try {
-                const result = await callAIAPI(prompt, modelKey, config.apiKey);
+                // API Key 在后端，不需要传递
+                const result = await callAIAPI(prompt, modelKey);
                 const elapsed = Date.now() - startTime;
                 
                 if (result) {
@@ -6002,28 +5981,23 @@ ${userInput}
         console.log('AI模型已切换为:', provider, config);
     }
     
-    // 测试当前AI模型
+    // 测试当前AI模型（API Key 已在后端配置）
     async function testCurrentAI() {
         const provider = document.getElementById('ai-provider').value;
-        const apiKey = document.getElementById('ai-api-key').value;
         const config = AI_PROVIDERS[provider];
-        
-        if (!apiKey) {
-            alert('❌ 请先配置API Key\n\n当前模型: ' + config.name + '\n\n' + getAPIKeyGuide(provider));
-            return;
-        }
         
         showAutoCloseToast('🔄 正在测试 ' + config.name + '...', 10000);
         
         try {
             const startTime = Date.now();
-            const result = await callAIAPI('请回复"连接成功"四个字', provider, apiKey);
+            // API Key 在后端，不需要传递
+            const result = await callAIAPI('请回复"连接成功"四个字', provider);
             const elapsed = Date.now() - startTime;
             
             if (result) {
                 showAutoCloseToast('✅ ' + config.name + ' 连接成功！\n响应时间: ' + elapsed + 'ms');
             } else {
-                alert('❌ ' + config.name + ' 连接失败\n请检查API Key是否正确');
+                alert('❌ ' + config.name + ' 连接失败\n请检查阿里云函数是否正确配置了API Key');
             }
         } catch (e) {
             alert('❌ ' + config.name + ' 连接失败\n\n错误: ' + e.message + '\n\n' + getErrorGuide(provider, e.message));
@@ -6060,24 +6034,19 @@ ${userInput}
         return '请检查网络连接和API Key配置';
     }
     
-    // 测试AI连接（保留原函数兼容）
+    // 测试AI连接（API Key 已在后端配置）
     async function testAIConnection() {
         const provider = document.getElementById('ai-provider').value;
-        const apiKey = document.getElementById('ai-api-key').value;
-        
-        if (!apiKey) {
-            alert('请先输入API Key');
-            return;
-        }
         
         showAutoCloseToast('🔄 正在测试连接...', 5000);
         
         try {
-            const result = await callAIAPI('测试连接，请回复"连接成功"', provider, apiKey);
+            // API Key 在后端，不需要传递
+            const result = await callAIAPI('测试连接，请回复"连接成功"', provider);
             if (result) {
                 showAutoCloseToast('✅ AI连接成功！');
             } else {
-                alert('❌ 连接失败，请检查API Key');
+                alert('❌ 连接失败，请检查阿里云函数环境变量配置');
             }
         } catch (e) {
             alert('❌ 连接失败: ' + e.message);
@@ -6116,13 +6085,10 @@ ${userInput}
     }
     
     // 调用AI API（增强版：详细错误诊断 + 重试机制 + 多站点切换）
-    async function callAIAPI(prompt, provider, apiKey, retryCount = 0) {
+    // ⚠️ API Key 已移至阿里云函数环境变量，前端不再传递
+    async function callAIAPI(prompt, provider, apiKey = null, retryCount = 0) {
         const config = AI_PROVIDERS[provider];
         if (!config) throw new Error('未知的AI服务商');
-        
-        // 优先使用内置的 API Key
-        const useApiKey = apiKey || config.apiKey;
-        if (!useApiKey) throw new Error(config.name + ' 的 API Key 未配置');
         
         // 添加超时控制（60秒，某些模型响应较慢）
         const controller = new AbortController();
@@ -6165,15 +6131,15 @@ ${userInput}
             let response;
             const startTime = Date.now();
             
-            // 判断是否使用代理
+            // 判断是否使用代理（必须使用代理，API Key 在后端）
             if (useProxy) {
-                // 线上环境：通过阿里云函数代理（国内稳定）
-                console.log('使用阿里云代理模式调用AI API');
+                // 线上环境：通过阿里云函数代理（API Key 在后端环境变量）
+                console.log('使用阿里云代理模式调用AI API（Key在后端）');
                 const requestBody = {
                     provider: provider,
-                    apiKey: useApiKey,
                     prompt: prompt,
                     model: config.model
+                    // ⚠️ 不再传递 apiKey，由后端从环境变量读取
                 };
                 // 如果是兔子API多站点，传入当前站点URL
                 if (tuziUrl) {
@@ -6188,24 +6154,9 @@ ${userInput}
                     signal: controller.signal
                 });
             } else {
-                // 本地环境：直接调用 API（使用多站点URL）
-                console.log('使用直连模式调用AI API');
-                const directUrl = tuziUrl || config.url;
-                response = await fetch(directUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${useApiKey}`
-                    },
-                    body: JSON.stringify({
-                        model: config.model,
-                        messages: [{ role: 'user', content: prompt }],
-                        temperature: 0.1,
-                        max_tokens: 2000,
-                        stream: false  // 兔子API要求：Gemini模型不支持流式输出
-                    }),
-                    signal: controller.signal
-                });
+                // 本地调试：仍需通过代理（因为Key在后端）
+                console.log('⚠️ 直连模式已禁用，请使用代理模式');
+                throw new Error('请部署阿里云函数代理，API Key 已移至后端');
             }
             
             clearTimeout(timeoutId);
@@ -6392,7 +6343,7 @@ ${userInput}
     
     // AI解析下注信息（优化版：严格数据保护）
     async function parseWithAI(userInput) {
-        // 使用 getFormatSettings() 获取带默认值的设置（确保 aiEnabled 和 apiKey 有默认值）
+        // 使用 getFormatSettings() 获取带默认值的设置（API Key 已在后端）
         const settings = getFormatSettings();
         if (!settings.aiEnabled || !settings.aiApiKey) {
             return null;
