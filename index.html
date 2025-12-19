@@ -2198,9 +2198,9 @@
             </div>
         </div>
         
-        <!-- 反馈弹窗 -->
-        <div class="import-modal" id="feedback-modal">
-            <div class="import-modal-content" style="max-width:400px;">
+        <!-- 反馈弹窗（底部弹出，不遮挡计算结果） -->
+        <div class="import-modal" id="feedback-modal" style="align-items:flex-end;">
+            <div class="import-modal-content" style="max-width:100%;width:100%;margin:0;border-radius:20px 20px 0 0;max-height:70vh;overflow-y:auto;">
                 <div class="import-modal-title" style="display:flex;justify-content:space-between;align-items:center;">
                     <span>📝 提交反馈</span>
                     <button onclick="hideFeedbackModal()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;">×</button>
@@ -4663,28 +4663,49 @@
             // 汇总
             const totalBet = calcResults.reduce((sum, r) => sum + r.amount, 0);
             const totalWin = calcResults.filter(r => r.isWin).length;
+            const totalWinAmount = calcResults.filter(r => r.isWin).reduce((sum, r) => sum + r.winAmount, 0);
             const netResult = calcResults.reduce((sum, r) => sum + r.netResult, 0);
             
-            // 生成结果文本
+            // 获取开奖信息
+            const tema = appState.lotteryNumbers[6];
+            const lotteryStr = appState.lotteryNumbers.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') + ' + 特码' + String(tema).padStart(2,'0');
+            
+            // 生成结果文本（更清晰的格式）
             let resultText = `📊 计算结果\n`;
             resultText += `━━━━━━━━━━━━━━━━━━\n`;
-            resultText += `总下注：${totalBet}元 | 中奖：${totalWin}注\n`;
-            resultText += `结算：${netResult >= 0 ? '+' : ''}${netResult}元\n`;
-            resultText += `━━━━━━━━━━━━━━━━━━\n\n`;
-            
-            for (const r of calcResults) {
-                const status = r.isWin ? '🎯中' : '✗';
-                const resultStr = r.netResult >= 0 ? `+${r.netResult}` : `${r.netResult}`;
-                // 显示类型识别信息
-                let typeInfo = r.type;
-                if (r.fromAI) {
-                    typeInfo = `[AI]${r.type}`;
-                    if (r.localType) {
-                        typeInfo += `(程序识别:${r.localType})`;
-                    }
-                }
-                resultText += `${status} ${typeInfo}${r.number || r.value || ''} 下注${r.amount} → ${resultStr}\n`;
+            resultText += `🎰 开奖: ${lotteryStr}\n`;
+            resultText += `━━━━━━━━━━━━━━━━━━\n`;
+            resultText += `📋 识别 ${calcResults.length} 注 | 总投 ${totalBet}元\n`;
+            if (totalWin > 0) {
+                resultText += `🎯 中奖 ${totalWin} 注 | 赢 ${totalWinAmount}元\n`;
             }
+            resultText += `💰 结算: ${netResult >= 0 ? '+' : ''}${netResult}元\n`;
+            resultText += `━━━━━━━━━━━━━━━━━━\n`;
+            
+            // 按类型分组显示
+            const byType = {};
+            calcResults.forEach(r => {
+                const key = r.type;
+                if (!byType[key]) byType[key] = [];
+                byType[key].push(r);
+            });
+            
+            for (const [type, items] of Object.entries(byType)) {
+                const nums = items.map(r => r.number || r.value || '').join(',');
+                const amt = items[0]?.amount || 0;
+                const typeTotal = items.length * amt;
+                const winItems = items.filter(r => r.isWin);
+                
+                if (winItems.length > 0) {
+                    const winNums = winItems.map(r => r.number || r.value).join(',');
+                    resultText += `🎯 ${type}: ${nums} 各${amt}元=${typeTotal}元 【中:${winNums}】\n`;
+                } else {
+                    resultText += `✗ ${type}: ${nums} 各${amt}元=${typeTotal}元\n`;
+                }
+            }
+            
+            // 如果有问题提示
+            resultText += `\n💡 结果有误？点击下方"提交反馈"`;
             
             document.getElementById('result-content').textContent = resultText;
             document.getElementById('result-section').classList.add('show');
