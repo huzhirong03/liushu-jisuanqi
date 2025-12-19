@@ -6462,10 +6462,64 @@
                     // 🆕 新版 Function Calling 响应
                     console.log('📦 收到 Function Calling 响应:', data);
                     if (data.success) {
-                        // data.data 是数组格式: [["code", "original", numbers?, amount?], ...]
-                        // 转换为旧版格式以兼容现有解析逻辑
+                        // data.data 是数组格式: [{code, original, numbers, amount}, ...]
                         content = JSON.stringify(data.data);
                         console.log(`✅ Function Calling 成功: 模型=${data.model_used}, 耗时=${data.latency_ms}ms`);
+                        
+                        // 🔍 【调试信息】清晰展示 AI 是如何理解输入的（本地显示，可用中文）
+                        // 类型代号→中文名称映射（仅用于本地日志显示）
+                        const CODE_NAME_MAP = {
+                            'T01': '特码', 'TM': '特码', 'T': '特码',
+                            'SXTM': '生肖特码', 'SX': '生肖',
+                            'BS': '波色', 'BB': '半波',
+                            'PT1': '平特一肖', 'PT2': '平特二连肖', 'PT3': '平特三连肖',
+                            'PT4': '平特四连肖', 'PT5': '平特五连肖', 'PTW': '平特尾数',
+                            'LX': '六肖', 'HX': '合肖', 'ZX': '正肖',
+                            'DP': '单平', 'DXDS': '大小单双',
+                            'E2': '二中二', 'S3': '三中三',
+                            'BZ': '不中', 'LM': '连码', 'ZH': '总和',
+                            'WX': '五行', 'JY': '家野', 'UK': '未知'
+                        };
+                        const ZODIAC_NAME_MAP = {
+                            'Z1': '鼠', 'Z2': '牛', 'Z3': '虎', 'Z4': '兔',
+                            'Z5': '龙', 'Z6': '蛇', 'Z7': '马', 'Z8': '羊',
+                            'Z9': '猴', 'Z10': '鸡', 'Z11': '狗', 'Z12': '猪'
+                        };
+                        
+                        console.log('%c═══════════════════════════════════════════════════════', 'color: #00bcd4');
+                        console.log('%c📊 【AI理解结果分析】以下是AI如何拆分你的输入：', 'color: #00bcd4; font-weight: bold; font-size: 14px');
+                        console.log('%c═══════════════════════════════════════════════════════', 'color: #00bcd4');
+                        
+                        let aiTotalAmount = 0;  // AI理解的总金额
+                        
+                        if (Array.isArray(data.data)) {
+                            data.data.forEach((item, index) => {
+                                const typeName = CODE_NAME_MAP[item.code] || item.code;
+                                const numCount = item.numbers ? item.numbers.length : 0;
+                                const itemTotal = numCount * (item.amount || 0);
+                                aiTotalAmount += itemTotal;
+                                
+                                console.log(`%c第${index + 1}条记录:`, 'color: #ff9800; font-weight: bold');
+                                console.log(`   📝 原文: "${item.original}"`);
+                                console.log(`   🏷️ AI识别类型: ${typeName}`);
+                                console.log(`   🔢 AI提取的下注号码: ${item.numbers ? JSON.stringify(item.numbers) : '无'} (${numCount}个)`);
+                                console.log(`   💰 AI提取的每注金额: ${item.amount || '无'}元`);
+                                if (item.zodiac_code) {
+                                    const zodiacName = ZODIAC_NAME_MAP[item.zodiac_code] || item.zodiac_code;
+                                    console.log(`   🐾 AI识别的生肖: ${zodiacName}`);
+                                }
+                                console.log(`   📊 本条小计: ${numCount}注 × ${item.amount || 0}元 = ${itemTotal}元`);
+                                console.log('   ---');
+                            });
+                            
+                            console.log(`%c💰 AI理解的总下注金额: ${aiTotalAmount}元`, 'color: #ff5722; font-weight: bold; font-size: 13px');
+                            
+                            // 🔍 诊断提示
+                            console.log('%c💡 【如何判断问题】:', 'color: #4caf50; font-weight: bold');
+                            console.log('   - 如果上面"AI提取的号码/金额"就已经错了 → 问题在【后端提示词】');
+                            console.log('   - 如果上面正确，但最终计算结果错了 → 问题在【前端解析】');
+                        }
+                        console.log('%c═══════════════════════════════════════════════════════', 'color: #00bcd4');
                     } else {
                         debugInfo.networkError = `API返回错误: ${data.error || '未知错误'}`;
                         throw new Error(data.error || 'AI分析失败');
@@ -6803,6 +6857,11 @@
                     // 【核心】处理还原后的结果，提取具体数值
                     const bets = [];
                     
+                    // 🔍 【前端解析过程】日志
+                    console.log('%c═══════════════════════════════════════════════════════', 'color: #9c27b0');
+                    console.log('%c🔄 【前端解析过程】将AI返回的数据转换为下注记录：', 'color: #9c27b0; font-weight: bold; font-size: 14px');
+                    console.log('%c═══════════════════════════════════════════════════════', 'color: #9c27b0');
+                    
                     if (Array.isArray(restoredResult)) {
                         for (const item of restoredResult) {
                             if (Array.isArray(item) && item.length >= 2) {
@@ -6813,13 +6872,18 @@
                                 const zodiacCode = item[4]; // 🆕 生肖代号 (SXTM用)
                                 const type = CODE_TO_TYPE[code] || code;
                                 
-                                console.log('🤖 处理项:', code, '→', type, '原文:', raw);
+                                const itemIndex = restoredResult.indexOf(item) + 1;
+                                console.log(`%c第${itemIndex}条 → 前端处理:`, 'color: #9c27b0; font-weight: bold');
+                                console.log(`   📥 输入: 代号=${code}, 原文="${raw}"`);
+                                console.log(`   🔄 转换: ${code} → ${type}`);
                                 
                                 let extracted = [];
                                 
                                 // 🆕 如果 Function Calling 已经提取了 numbers 和 amount，直接使用
                                 if (numbers && Array.isArray(numbers) && numbers.length > 0 && amount) {
-                                    console.log('✨ 使用 Function Calling 提取的数据:', { numbers, amount });
+                                    console.log(`   ✅ 数据来源: AI已提取 (无需正则)`);
+                                    console.log(`   🔢 号码: ${JSON.stringify(numbers)}`);
+                                    console.log(`   💰 金额: ${amount}元/注`);
                                     // 根据类型生成下注数据
                                     if (type === '特码') {
                                         for (const num of numbers) {
@@ -6863,14 +6927,22 @@
                                 }
                                 // 回退：使用正则提取
                                 else {
-                                    console.log('📝 回退到正则提取');
+                                    console.log(`   ⚠️ 数据来源: 正则提取 (AI未提供numbers/amount)`);
                                     extracted = extractValuesByType(type, raw);
                                 }
                                 
-                                console.log('🤖 提取结果:', extracted);
+                                // 显示本条处理结果
                                 if (extracted && extracted.length > 0) {
+                                    const itemTotal = extracted.reduce((sum, b) => sum + (b.amount || 0), 0);
+                                    console.log(`   📤 输出: ${extracted.length}注, 小计${itemTotal}元`);
+                                    extracted.forEach((bet, i) => {
+                                        console.log(`      ${i+1}. ${bet.type} ${bet.value} ${bet.amount}元`);
+                                    });
                                     bets.push(...extracted);
+                                } else {
+                                    console.log(`   ❌ 输出: 0注 (解析失败)`);
                                 }
+                                console.log('   ---');
                             }
                         }
                     } else if (restoredResult.items && Array.isArray(restoredResult.items)) {
@@ -6882,6 +6954,30 @@
                             }
                         }
                     }
+                    
+                    // 🔍 【调试信息】前端处理结果汇总
+                    console.log('%c═══════════════════════════════════════════════════════', 'color: #e91e63');
+                    console.log('%c📋 【前端处理结果汇总】', 'color: #e91e63; font-weight: bold; font-size: 14px');
+                    console.log('%c═══════════════════════════════════════════════════════', 'color: #e91e63');
+                    console.log(`   共生成 ${bets.length} 注下注:`);
+                    
+                    // 按类型分组显示
+                    const betsByType = {};
+                    let totalAmount = 0;
+                    bets.forEach(bet => {
+                        const key = bet.type;
+                        if (!betsByType[key]) betsByType[key] = [];
+                        betsByType[key].push(bet);
+                        totalAmount += bet.amount || 0;
+                    });
+                    
+                    for (const [type, typeBets] of Object.entries(betsByType)) {
+                        const nums = typeBets.map(b => b.value).join(', ');
+                        const amt = typeBets[0]?.amount || 0;
+                        console.log(`   📌 ${type}: ${nums} (各${amt}元, 共${typeBets.length}注)`);
+                    }
+                    console.log(`   💰 总金额: ${totalAmount}元`);
+                    console.log('%c═══════════════════════════════════════════════════════', 'color: #e91e63');
                     
                     console.log('🤖 最终bets:', bets);
                     debugInfo.aiBets = bets;
