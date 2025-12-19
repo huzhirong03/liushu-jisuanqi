@@ -5069,13 +5069,26 @@
         
         /**
          * 还原AI返回的结果数组
-         * @param {Array} aiResult AI返回的 [["类型","原文"], ...] 数组
-         * @returns {Array} 还原后的数组
+         * @param {Array} aiResult AI返回的数组，支持两种格式：
+         *   - 旧版: [["类型","原文"], ...]
+         *   - 新版(Function Calling): [{code, original, numbers, amount}, ...]
+         * @returns {Array} 统一格式的数组 [[code, original, numbers?, amount?, zodiac_code?], ...]
          */
         function restoreAIResult(aiResult) {
             if (!Array.isArray(aiResult)) return aiResult;
             
             return aiResult.map(item => {
+                // 🆕 新版 Function Calling 格式（对象）
+                if (item && typeof item === 'object' && !Array.isArray(item)) {
+                    const code = item.code || 'UK';
+                    const original = restoreText(item.original || '');
+                    const numbers = item.numbers || null;
+                    const amount = item.amount || null;
+                    const zodiacCode = item.zodiac_code || null;
+                    // 返回扩展数组格式: [code, original, numbers, amount, zodiac_code]
+                    return [code, original, numbers, amount, zodiacCode];
+                }
+                // 旧版格式（数组）
                 if (Array.isArray(item) && item.length >= 2) {
                     return [item[0], restoreText(item[1])];
                 }
@@ -5115,12 +5128,14 @@
         
         /**
          * 校验AI返回结果的格式
-         * @param {Array} data 解析后的数据
+         * @param {Array} data 解析后的数据，支持两种格式：
+         *   - 旧版: [["类型","原文"], ...]
+         *   - 新版(Function Calling): [{code, original, numbers, amount}, ...]
          * @returns {{valid: boolean, error?: string}}
          */
         function validateAIResult(data) {
             const validTypes = [
-                'TM', 'T', 'SXTM', 'SX', 'BS', 'BB',
+                'T01', 'TM', 'T', 'SXTM', 'SX', 'BS', 'BB',
                 'PT', 'PT1', 'PT2', 'PT3', 'PT4', 'PT5', 'PTW',
                 'LX6', 'HX', 'ZX', 'DP', 'DXDS',
                 'E2', 'S3', 'BZ5', 'BZ6', 'BZ7', 'BZ8', 'BZ9', 'BZ10', 'BZ11', 'BZ12',
@@ -5130,7 +5145,7 @@
                 'WXJ', 'WXM', 'WXS', 'WXH', 'WXT',
                 'JYJ', 'JYY', 'XS', 'DS', 'ODD', 'EVEN',
                 // 兼容旧代号
-                'LX', 'BZ', 'LM', 'WX', 'JY'
+                'LX', 'BZ', 'LM', 'WX', 'JY', 'UK'
             ];
             
             if (!Array.isArray(data)) {
@@ -5139,11 +5154,24 @@
             
             for (let i = 0; i < data.length; i++) {
                 const item = data[i];
-                if (!Array.isArray(item) || item.length < 2) {
+                let typeCode;
+                
+                // 🆕 支持新版 Function Calling 格式（对象）
+                if (item && typeof item === 'object' && !Array.isArray(item)) {
+                    if (!item.code || !item.original) {
+                        return { valid: false, error: `第${i+1}项缺少code或original字段` };
+                    }
+                    typeCode = item.code;
+                }
+                // 旧版格式（数组）
+                else if (Array.isArray(item) && item.length >= 2) {
+                    typeCode = item[0];
+                }
+                else {
                     return { valid: false, error: `第${i+1}项格式错误` };
                 }
+                
                 // 类型可以是新代号或旧代号
-                const typeCode = item[0];
                 if (!validTypes.includes(typeCode)) {
                     // 不是严格错误，只是警告
                     console.warn(`⚠️ 未知类型代号: ${typeCode}，将尝试处理`);
@@ -6780,9 +6808,65 @@
                             if (Array.isArray(item) && item.length >= 2) {
                                 const code = item[0];
                                 const raw = item[1];  // 这里是还原后的原文
+                                const numbers = item[2];  // 🆕 Function Calling 提取的号码
+                                const amount = item[3];   // 🆕 Function Calling 提取的金额
+                                const zodiacCode = item[4]; // 🆕 生肖代号 (SXTM用)
                                 const type = CODE_TO_TYPE[code] || code;
+                                
                                 console.log('🤖 处理项:', code, '→', type, '原文:', raw);
-                                const extracted = extractValuesByType(type, raw);
+                                
+                                let extracted = [];
+                                
+                                // 🆕 如果 Function Calling 已经提取了 numbers 和 amount，直接使用
+                                if (numbers && Array.isArray(numbers) && numbers.length > 0 && amount) {
+                                    console.log('✨ 使用 Function Calling 提取的数据:', { numbers, amount });
+                                    // 根据类型生成下注数据
+                                    if (type === '特码') {
+                                        for (const num of numbers) {
+                                            extracted.push({
+                                                type: '特码',
+                                                value: String(num).padStart(2, '0'),
+                                                amount: amount
+                                            });
+                                        }
+                                    } else {
+                                        // 其他类型：每个号码一注
+                                        for (const num of numbers) {
+                                            extracted.push({
+                                                type: type,
+                                                value: String(num).padStart(2, '0'),
+                                                amount: amount
+                                            });
+                                        }
+                                    }
+                                }
+                                // 🆕 SXTM（生肖特码）：使用 zodiacCode 和 amount
+                                else if (code === 'SXTM' && zodiacCode && amount) {
+                                    console.log('✨ 使用 Function Calling 提取的生肖特码:', { zodiacCode, amount });
+                                    // 将 Z1-Z12 转换为生肖名称
+                                    const ZODIAC_MAP = {
+                                        'Z1': '鼠', 'Z2': '牛', 'Z3': '虎', 'Z4': '兔',
+                                        'Z5': '龙', 'Z6': '蛇', 'Z7': '马', 'Z8': '羊',
+                                        'Z9': '猴', 'Z10': '鸡', 'Z11': '狗', 'Z12': '猪'
+                                    };
+                                    const zodiacName = ZODIAC_MAP[zodiacCode] || zodiacCode;
+                                    // 获取该生肖对应的号码
+                                    const zodiacNumbers = getZodiacNumbers ? getZodiacNumbers(zodiacName) : [];
+                                    for (const num of zodiacNumbers) {
+                                        extracted.push({
+                                            type: '生肖特码',
+                                            value: String(num).padStart(2, '0'),
+                                            zodiac: zodiacName,
+                                            amount: amount
+                                        });
+                                    }
+                                }
+                                // 回退：使用正则提取
+                                else {
+                                    console.log('📝 回退到正则提取');
+                                    extracted = extractValuesByType(type, raw);
+                                }
+                                
                                 console.log('🤖 提取结果:', extracted);
                                 if (extracted && extracted.length > 0) {
                                     bets.push(...extracted);
