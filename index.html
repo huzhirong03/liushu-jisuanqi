@@ -4118,7 +4118,8 @@
         try {
             const saved = JSON.parse(localStorage.getItem('lhc_format_settings') || '{}');
             // AI配置：Key在后端，前端只需要知道是否启用和使用哪个模型
-            saved.aiProvider = saved.aiProvider || 'deepseek';
+            // 【修复】优先从 ai_provider 读取用户切换的模型选择
+            saved.aiProvider = localStorage.getItem('ai_provider') || saved.aiProvider || 'deepseek';
             if (saved.aiEnabled === undefined) {
                 saved.aiEnabled = true; // 默认启用
             }
@@ -4126,7 +4127,7 @@
         } catch(e) {
             return {
                 aiEnabled: true,
-                aiProvider: 'deepseek'
+                aiProvider: localStorage.getItem('ai_provider') || 'deepseek'
             };
         }
     }
@@ -4694,7 +4695,7 @@
         const settings = {
             // AI设置（默认启用，API Key在后端环境变量）
             aiEnabled: document.getElementById('ai-parse-enabled')?.checked !== false,
-            aiProvider: 'deepseek',
+            aiProvider: localStorage.getItem('ai_provider') || 'deepseek',
             
             // 预设模板
             tplMultiNum: document.getElementById('tpl-multi-num')?.checked !== false,
