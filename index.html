@@ -6778,33 +6778,43 @@ ${sanitizedInput}
         switch (type) {
             case '特码': {
                 // 提取特码：数字(1-49) + 金额
-                // 模式1: "特43 20" "特码05 100"
-                const teMatch = text.match(/特码?\s*(\d+)\s*[,，]?\s*(\d+)/);
-                if (teMatch) {
-                    const num = parseInt(teMatch[1]);
-                    if (num >= 1 && num <= 49) {
-                        bets.push({ type: '特码', number: num, amount: parseInt(teMatch[2]), raw: rawText });
-                    }
-                    break;
-                }
-                // 模式2: "31.34各20" 多号码
-                const multiMatch = text.match(/(\d+(?:[.,，\s]+\d+)+)各(\d+)/);
-                if (multiMatch) {
-                    const nums = multiMatch[1].split(/[.,，\s]+/).map(n => parseInt(n)).filter(n => n >= 1 && n <= 49);
-                    const amount = parseInt(multiMatch[2]);
+                // 【重要】先检查多号码格式，避免误匹配
+                
+                // 模式1: "10 12 20 22 23 25 33 40 43 44 30各20" 多号码+各+金额（最常见）
+                // 匹配：可选的"特码"前缀 + 多个数字（空格/点/逗号分隔） + "各" + 金额
+                const multiGeMatch = text.match(/(?:特码?\s*)?(\d+(?:[.,，\s]+\d+)+)\s*各\s*(\d+)/);
+                if (multiGeMatch) {
+                    const nums = multiGeMatch[1].split(/[.,，\s]+/).map(n => parseInt(n)).filter(n => n >= 1 && n <= 49);
+                    const amount = parseInt(multiGeMatch[2]);
+                    console.log('🔍 特码多号码各X匹配:', nums, '各', amount);
                     nums.forEach(n => bets.push({ type: '特码', number: n, amount, raw: rawText }));
                     break;
                 }
-                // 模式3: "46,45,X50" X表示金额
-                const xMatch = text.match(/(\d+(?:[,，\s]+\d+)*)[,，\s]*[Xx×](\d+)/);
+                
+                // 模式2: "46,45,X50" 或 "10 12 X20" X表示金额
+                const xMatch = text.match(/(?:特码?\s*)?(\d+(?:[,，\s]+\d+)*)[,，\s]*[Xx×](\d+)/);
                 if (xMatch) {
                     const nums = xMatch[1].split(/[,，\s]+/).map(n => parseInt(n)).filter(n => n >= 1 && n <= 49);
                     const amount = parseInt(xMatch[2]);
+                    console.log('🔍 特码X金额匹配:', nums, 'X', amount);
                     nums.forEach(n => bets.push({ type: '特码', number: n, amount, raw: rawText }));
                     break;
                 }
-                // 模式4: 简单 "43 20"
-                const simpleMatch = text.match(/(\d{1,2})\s+(\d+)/);
+                
+                // 模式3: "特43 20元" "特码05 100" 单号码+金额（带"特"前缀）
+                const teMatch = text.match(/特码?\s*(\d{1,2})\s+(\d+)/);
+                if (teMatch) {
+                    const num = parseInt(teMatch[1]);
+                    const amount = parseInt(teMatch[2]);
+                    if (num >= 1 && num <= 49) {
+                        console.log('🔍 特码单号码匹配:', num, '金额', amount);
+                        bets.push({ type: '特码', number: num, amount, raw: rawText });
+                    }
+                    break;
+                }
+                
+                // 模式4: 简单 "43 20"（纯数字，无特码前缀）
+                const simpleMatch = text.match(/^(\d{1,2})\s+(\d+)$/);
                 if (simpleMatch) {
                     const num = parseInt(simpleMatch[1]);
                     if (num >= 1 && num <= 49) {
