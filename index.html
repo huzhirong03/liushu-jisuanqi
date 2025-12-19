@@ -1670,17 +1670,20 @@
                         <button type="button" class="ai-model-btn active" data-provider="deepseek" onclick="switchAIModel('deepseek')">
                             🚀 DS
                         </button>
-                        <button type="button" class="ai-model-btn" data-provider="tuzi" onclick="switchAIModel('tuzi')">
-                            🌐 谷歌
+                        <button type="button" class="ai-model-btn" data-provider="zhipu" onclick="switchAIModel('zhipu')">
+                            🧠 智谱
                         </button>
                         <button type="button" class="ai-model-btn" data-provider="qwen" onclick="switchAIModel('qwen')">
                             ☁️ 千问
+                        </button>
+                        <button type="button" class="ai-model-btn" data-provider="tuzi" onclick="switchAIModel('tuzi')">
+                            🌐 谷歌
                         </button>
                         <button type="button" class="ai-model-btn" data-provider="claude" onclick="switchAIModel('claude')">
                             🤖 Claude
                         </button>
                         <button type="button" class="ai-model-btn" data-provider="gpt" onclick="switchAIModel('gpt')">
-                            💡 GPT5
+                            💡 GPT
                         </button>
                     </div>
                     <div id="ai-model-status" style="margin-top:8px;padding:8px;background:rgba(76,175,80,0.1);border-radius:6px;font-size:11px;color:#81c784;">
@@ -1692,6 +1695,7 @@
                 <div style="display:none;">
                     <select id="ai-provider">
                         <option value="deepseek" selected>DeepSeek</option>
+                        <option value="zhipu">智谱GLM</option>
                         <option value="qwen">通义千问</option>
                         <option value="claude">Claude Opus</option>
                         <option value="gpt">GPT 5.1</option>
@@ -4803,10 +4807,10 @@
         },
         // 智谱GLM - 支持Function Calling
         zhipu: {
-            name: '智谱GLM',
+            name: '智谱GLM-4',
             shortName: '智谱',
             url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
-            model: 'glm-4-flash',  // 智谱GLM-4 Flash（免费额度）
+            model: 'glm-4-plus',  // 智谱GLM-4 Plus（更强模型）
             region: 'cn'
         },
         // 豆包 - 字节跳动，支持Function Calling
