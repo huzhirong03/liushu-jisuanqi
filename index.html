@@ -776,13 +776,101 @@
                 background: rgba(0, 0, 0, 0.3);
                 border-radius: 8px;
                 padding: 12px;
-                font-family: 'Courier New', monospace;
                 font-size: 13px;
-                white-space: pre-wrap;
-                word-break: break-all;
-                max-height: 300px;
+                max-height: 400px;
                 overflow-y: auto;
             }
+            
+            /* 🆕 v2.4.9 Dashboard风格结算面板 */
+            .result-dashboard {
+                display: flex;
+                justify-content: space-around;
+                background: linear-gradient(135deg, rgba(30,30,50,0.9) 0%, rgba(20,20,40,0.9) 100%);
+                border-radius: 10px;
+                padding: 12px 8px;
+                margin-bottom: 12px;
+                border: 1px solid rgba(255,255,255,0.1);
+            }
+            .result-dashboard-item {
+                text-align: center;
+                flex: 1;
+                padding: 4px 8px;
+                border-right: 1px solid rgba(255,255,255,0.08);
+            }
+            .result-dashboard-item:last-child {
+                border-right: none;
+            }
+            .result-dashboard-label {
+                font-size: 11px;
+                color: #888;
+                margin-bottom: 4px;
+            }
+            .result-dashboard-value {
+                font-size: 16px;
+                font-weight: bold;
+            }
+            .result-dashboard-value.invest { color: #aaa; }
+            .result-dashboard-value.payout { color: #fbbf24; }
+            .result-dashboard-value.profit-win { color: #4caf50; }
+            .result-dashboard-value.profit-lose { color: #f44336; }
+            
+            /* 🆕 v2.4.9 Flex列表布局 */
+            .result-list-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                padding: 8px 0;
+                border-bottom: 1px dashed rgba(255,255,255,0.08);
+            }
+            .result-list-item:last-child {
+                border-bottom: none;
+            }
+            .result-item-left {
+                flex: 1;
+                min-width: 0;
+                padding-right: 12px;
+            }
+            .result-item-right {
+                flex-shrink: 0;
+                text-align: right;
+                font-weight: bold;
+                color: #fff;
+                font-size: 13px;
+            }
+            .result-item-type {
+                color: #64b5f6;
+                font-size: 12px;
+            }
+            .result-item-content {
+                color: #fbbf24;
+                font-weight: bold;
+                margin-top: 2px;
+                word-wrap: break-word;
+                line-height: 1.6;
+            }
+            /* 🆕 中奖号码高亮 */
+            .num-highlight {
+                display: inline-block;
+                background: rgba(255,77,79,0.25);
+                color: #ff4d4f;
+                font-weight: bold;
+                font-size: 14px;
+                padding: 1px 4px;
+                border-radius: 4px;
+                border: 1px solid rgba(255,77,79,0.5);
+                margin: 0 1px;
+            }
+            .result-item-nums {
+                color: #888;
+                font-size: 11px;
+                margin-top: 2px;
+            }
+            .result-status-icon {
+                font-size: 14px;
+                margin-right: 4px;
+            }
+            .result-status-icon.win { color: #4caf50; }
+            .result-status-icon.lose { color: #f44336; }
             
             .result-buttons {
                 display: flex;
@@ -5197,20 +5285,38 @@
             const tema = appState.lotteryNumbers[6];
             const lotteryStr = appState.lotteryNumbers.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') + ' + 特码' + String(tema).padStart(2,'0');
             
-            // 生成结果文本（更清晰的格式）
-            let resultText = `📊 计算结果\n`;
-            resultText += `━━━━━━━━━━━━━━━━━━\n`;
-            resultText += `🎰 开奖: ${lotteryStr}\n`;
-            resultText += `━━━━━━━━━━━━━━━━━━\n`;
-            // 🆕 v2.4.8 统计信息：识别注数 | 总投 | 中奖注数 | 派彩
-            resultText += `📋 识别 ${calcResults.length} 注 | 总投 ${totalBet}元\n`;
-            resultText += `中${totalWin}注 | 派彩 ${totalWinAmount}元\n`;
-            // 🆕 结算：从庄家角度，不中奖=收入(+)，中奖=支出(-)
-            const settleAmount = totalBet - totalWinAmount;  // 庄家盈亏 = 收入 - 派彩
-            resultText += `💰 结算: ${settleAmount >= 0 ? '+' : ''}${settleAmount}元\n`;
-            resultText += `━━━━━━━━━━━━━━━━━━\n`;
+            // 🆕 v2.4.9 结算：从庄家角度
+            const settleAmount = totalBet - totalWinAmount;
             
-            // 🆕 v2.4.6 按原文分组显示（和反馈页面格式一致）
+            // 🆕 v2.4.9 生成HTML结构（Dashboard风格）
+            let resultHTML = `
+                <!-- 开奖信息 -->
+                <div style="text-align:center;padding:8px;margin-bottom:10px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                    <span style="color:#888;font-size:12px;">🎰 开奖:</span>
+                    <span style="color:#fff;font-size:13px;margin-left:6px;">${lotteryStr}</span>
+                </div>
+                
+                <!-- Dashboard结算面板 -->
+                <div class="result-dashboard">
+                    <div class="result-dashboard-item">
+                        <div class="result-dashboard-label">总投入</div>
+                        <div class="result-dashboard-value invest">${totalBet}元</div>
+                    </div>
+                    <div class="result-dashboard-item">
+                        <div class="result-dashboard-label">中${totalWin}注 / 派彩</div>
+                        <div class="result-dashboard-value payout">${totalWinAmount > 0 ? '+' : ''}${totalWinAmount}元</div>
+                    </div>
+                    <div class="result-dashboard-item">
+                        <div class="result-dashboard-label">最终盈亏</div>
+                        <div class="result-dashboard-value ${settleAmount >= 0 ? 'profit-win' : 'profit-lose'}">${settleAmount >= 0 ? '+' : ''}${settleAmount}元</div>
+                    </div>
+                </div>
+                
+                <!-- 明细列表 -->
+                <div style="font-size:11px;color:#888;margin-bottom:6px;">📋 识别 ${calcResults.length} 注</div>
+            `;
+            
+            // 🆕 v2.4.6 按原文分组显示
             const byOriginal = {};
             calcResults.forEach(r => {
                 const key = r.raw || r.originalLine || r.type;
@@ -5219,26 +5325,40 @@
                         type: r.type,
                         originalLine: key,
                         items: [],
-                        odds: r.odds || 1  // 🆕 保存赔率
+                        odds: r.odds || 1
                     };
                 }
                 byOriginal[key].items.push(r);
             });
             
-            // 🆕 v2.4.8 获取赔率设置，用于显示
+            // 获取赔率设置
             const savedOdds = JSON.parse(localStorage.getItem('lhc_odds') || '{}');
+            
+            // 🆕 v2.4.9 高亮中奖号码的函数
+            function highlightWinNumbers(text, winNum) {
+                if (!winNum) return text;
+                // 尝试按多种分隔符分割号码
+                const parts = String(text).split(/[\s,，.。、\/\-]+/);
+                return parts.map(part => {
+                    const num = parseInt(part);
+                    if (!isNaN(num) && num === winNum) {
+                        return `<span class="num-highlight">${String(num).padStart(2,'0')}</span>`;
+                    }
+                    return part;
+                }).join(' ');
+            }
             
             for (const group of Object.values(byOriginal)) {
                 const items = group.items;
                 const type = group.type;
                 const originalLine = group.originalLine;
-                const nums = items.map(r => r.number || r.value || '').filter(n => n).join(',');
+                const nums = items.map(r => r.number || r.value || '').filter(n => n);
                 const amt = items[0]?.amount || 0;
                 const betCount = items.length;
                 const typeTotal = items.reduce((s, it) => s + it.amount, 0);
                 const hasWin = items.some(r => r.isWin);
                 
-                // 🆕 v2.4.8 获取对应类型的赔率
+                // 获取赔率
                 let typeOdds = items[0]?.odds || 1;
                 if (type === '特码' || type === '生肖特码') {
                     typeOdds = parseFloat(savedOdds['odds-tema']) || 43;
@@ -5248,19 +5368,50 @@
                     typeOdds = parseFloat(savedOdds['odds-shengxiao']) || 12;
                 }
                 
-                // 🆕 中奖状态：红X / 绿✓
+                // 状态图标
+                const statusClass = hasWin ? 'win' : 'lose';
                 const statusIcon = hasWin ? '✓' : '✗';
-                // 🆕 v2.4.7 只有生肖特码才显示号码列表
-                const numbersStr = (type === '生肖特码' && nums) ? ` （${nums}）` : ' ';
                 
-                // 🆕 v2.4.8 格式：✗ 类型(赔率倍): 原文 注数×金额元=总额元
-                resultText += `${statusIcon} ${type}(${typeOdds}倍): ${originalLine}${numbersStr}${betCount}×${amt}元=${typeTotal}元\n`;
+                // 🆕 v2.4.9 处理原文中的号码高亮（如果是特码类型且包含中奖号码）
+                let displayContent = originalLine;
+                if ((type === '特码' || type === '生肖特码') && tema) {
+                    displayContent = highlightWinNumbers(originalLine, tema);
+                }
+                
+                // 号码列表（生肖特码显示）
+                let numsDisplay = '';
+                if (type === '生肖特码' && nums.length > 0) {
+                    const numsWithHighlight = nums.map(n => {
+                        const num = parseInt(n);
+                        if (num === tema) {
+                            return `<span class="num-highlight">${String(num).padStart(2,'0')}</span>`;
+                        }
+                        return String(num).padStart(2,'0');
+                    }).join(',');
+                    numsDisplay = `<div class="result-item-nums">（${numsWithHighlight}）</div>`;
+                }
+                
+                resultHTML += `
+                    <div class="result-list-item">
+                        <div class="result-item-left">
+                            <div class="result-item-type">
+                                <span class="result-status-icon ${statusClass}">${statusIcon}</span>
+                                ${type}(${typeOdds}倍)
+                            </div>
+                            <div class="result-item-content">${displayContent}</div>
+                            ${numsDisplay}
+                        </div>
+                        <div class="result-item-right">
+                            ${betCount}×${amt}=<span style="color:${hasWin ? '#4caf50' : '#fff'}">${typeTotal}元</span>
+                        </div>
+                    </div>
+                `;
             }
             
-            // 如果有问题提示
-            resultText += `\n💡 结果有误？点击下方"提交反馈"`;
+            // 提示信息
+            resultHTML += `<div style="text-align:center;color:#666;font-size:11px;margin-top:10px;">💡 结果有误？点击下方"提交反馈"</div>`;
             
-            document.getElementById('result-content').textContent = resultText;
+            document.getElementById('result-content').innerHTML = resultHTML;
             document.getElementById('result-section').classList.add('show');
         }
         
@@ -7952,7 +8103,9 @@
         }
         
         function copyResult() {
-            const result = document.getElementById('result-content').textContent;
+            // 🆕 v2.4.9 从HTML中提取纯文本用于复制
+            const el = document.getElementById('result-content');
+            const result = el.innerText || el.textContent;
             copyToClipboard(result);
         }
         
