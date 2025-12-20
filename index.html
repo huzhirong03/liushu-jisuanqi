@@ -7088,9 +7088,10 @@
             const config = AI_PROVIDERS[provider];
             if (!config) throw new Error('未知的AI服务商');
             
-            // 添加超时控制（60秒，某些模型响应较慢）
+            // 添加超时控制（增加超时时间，Gemini等模型响应较慢）
             const controller = new AbortController();
-            const timeoutMs = config.region === 'direct' ? 60000 : 30000;  // 中转API给更长超时
+            // 直连API：60秒，阿里云代理：45秒（Gemini等需要更长时间）
+            const timeoutMs = config.region === 'direct' ? 60000 : 45000;
             const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
             
             // 记录请求模式（用于诊断）
@@ -8341,16 +8342,18 @@
             
             // ═══════════════════════════════════════════════════════════════════════
             // 【步骤1】初始化反馈数据
+            // 🆕 v2.4.5 修复：使用 AI 返回的原文 (raw) 作为分组依据，避免行匹配错误
             // ═══════════════════════════════════════════════════════════════════════
             feedbackData.items = calcResults.map((r, index) => ({
                 index: index,
                 groupId: r.groupId || 1,
                 lineId: r.lineId || `1-0`,
-                originalLine: r.originalLine || r.raw || '',
+                // 🆕 优先使用 raw（AI返回的original），其次使用 originalLine（行匹配结果）
+                originalLine: r.raw || r.originalLine || '',
                 type: r.type || '未识别',
                 value: r.value || '',
-                number: r.number || r.value || '',  // 🆕 单独保存号码
-                numbers: r.number || r.value || r.numbers?.join(',') || '',
+                number: r.number || r.value || '',  // 单独保存号码
+                numbers: r.number || r.value || '',  // 🆕 改为只保存单个号码，聚合时再合并
                 amount: r.amount || 0,
                 isWin: r.isWin || false,
                 winAmount: r.winAmount || 0,
@@ -8371,21 +8374,24 @@
             console.log('═══════════════════════════════════════════════════════');
             
             // ═══════════════════════════════════════════════════════════════════════
-            // 【步骤2】按行聚合数据（同一行的多注合并显示）
+            // 【步骤2】按原文聚合数据（同一原文的多注合并显示）
+            // 🆕 v2.4.5 修复：使用 originalLine（AI返回的原文）作为聚合 key，而不是 lineId
+            // 这样可以确保 "10 12 20...各20" 的 11 个号码都被正确聚合到一起
             // ═══════════════════════════════════════════════════════════════════════
-            const lineMap = {};  // lineId → { originalLine, items: [], groupId }
+            const lineMap = {};  // originalLine → { originalLine, items: [], groupId }
             
             feedbackData.items.forEach(item => {
-                const lid = item.lineId || `${item.groupId}-0`;
-                if (!lineMap[lid]) {
-                    lineMap[lid] = {
-                        lineId: lid,
+                // 🆕 使用原文作为聚合 key（确保同一条 AI 返回的记录被合并）
+                const key = item.originalLine || item.lineId || `${item.groupId}-0`;
+                if (!lineMap[key]) {
+                    lineMap[key] = {
+                        lineId: item.lineId,
                         groupId: item.groupId,
                         originalLine: item.originalLine,
                         items: []
                     };
                 }
-                lineMap[lid].items.push(item);
+                lineMap[key].items.push(item);
             });
             
             // 🆕 调试日志：显示聚合结果
