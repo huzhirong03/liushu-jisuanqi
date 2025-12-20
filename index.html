@@ -3,8 +3,8 @@
     ╔═══════════════════════════════════════════════════════════════════════════╗
     ║                      六叔火箭计算器 - 版本信息                              ║
     ╠═══════════════════════════════════════════════════════════════════════════╣
-    ║  版本号: v1.9.2                                                            ║
-    ║  更新日期: 2025-12-17                                                      ║
+    ║  版本号: v2.4.9                                                            ║
+    ║  更新日期: 2025-12-21                                                      ║
     ║  提示词版本: v2.1                                                          ║
     ║  测试用例版本: v1.1 (35个用例)                                             ║
     ╠═══════════════════════════════════════════════════════════════════════════╣
@@ -7248,11 +7248,12 @@
                             text = prompt.split('【输入】').pop().trim();
                         }
                         
+                        // 🆕 v3.0 使用中性字段名（避免敏感词）
                         const requestBody = {
-                            provider: provider,
-                            text: text,
-                            model: config.model,
-                            extract_values: true  // 启用数值提取模式
+                            p: provider,    // 服务商
+                            t: text,        // 输入文本
+                            m: config.model,// 模型
+                            e: true         // 是否提取数值
                         };
                         
                         response = await fetch(`${proxyUrl}/api/analyze`, {
@@ -7265,11 +7266,12 @@
                         });
                     } else {
                         // Cloudflare/其他代理：使用旧版接口
+                        // 🆕 v3.0 使用中性字段名
                         console.log('使用代理模式调用AI API（Key在后端）');
                         const requestBody = {
-                            provider: provider,
-                            prompt: prompt,
-                            model: config.model
+                            p: provider,    // 服务商
+                            prompt: prompt, // 旧版接口仍需 prompt（兼容）
+                            m: config.model // 模型
                         };
                         if (tuziUrl) {
                             requestBody.tuziUrl = tuziUrl;
