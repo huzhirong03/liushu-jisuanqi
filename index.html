@@ -4841,9 +4841,17 @@
             } else if (bet.type === '生肖特码') {
                 // 🆕 v2.4.8 新增：生肖特码中奖判断
                 odds = parseFloat(savedOdds['odds-tema']) || 43;
-                const sxNums = LHC_DATA.shengxiao[bet.value] || [];
-                isWin = sxNums.includes(parseInt(tema));
-                detail = `生肖特码 ${bet.value} (${sxNums.join(',')}) vs 特码 ${tema}`;
+                // 🆕 v2.4.8 修复：使用 bet.zodiac（生肖名称）查找，或者直接比较 bet.number/bet.value 和特码
+                const zodiacName = bet.zodiac || bet.value;
+                const sxNums = LHC_DATA.shengxiao[zodiacName] || [];
+                // 如果找到生肖号码列表，检查特码是否在其中；否则直接比较号码
+                if (sxNums.length > 0) {
+                    isWin = sxNums.includes(parseInt(tema));
+                } else {
+                    // 如果 value 是号码，直接比较
+                    isWin = parseInt(bet.number || bet.value) === parseInt(tema);
+                }
+                detail = `生肖特码 ${zodiacName} (${sxNums.join(',') || bet.value}) vs 特码 ${tema}`;
             } else if (bet.type === '生肖' || bet.type === '多肖') {
                 odds = parseFloat(savedOdds['odds-shengxiao']) || 12;
                 const sxNums = LHC_DATA.shengxiao[bet.value] || [];
@@ -8581,14 +8589,34 @@
                         ? '<span style="color:#4caf50;font-weight:bold;font-size:14px;">✓</span>' 
                         : '<span style="color:#f44336;font-weight:bold;font-size:14px;">✗</span>';
                     
+                    // 🆕 v2.4.8 高亮中奖号码的函数
+                    const fbTema = appState.lotteryNumbers?.[6];
+                    function fbHighlightWinNum(text, winNum) {
+                        if (!winNum) return text;
+                        return String(text).replace(/(\d{1,2})/g, (match) => {
+                            if (parseInt(match) === parseInt(winNum)) {
+                                return `<span style="color:#ff4d4f;font-weight:bold;">${match}</span>`;
+                            }
+                            return match;
+                        });
+                    }
+                    
                     // 🆕 v2.4.7 提取号码列表（只有生肖特码才显示）
                     const allNumbers = items.map(it => {
                         const num = it.numbers || it.number || it.value || '';
                         return String(num).padStart(2, '0');
                     }).filter(n => n && n !== '00');
                     const uniqueNumbers = [...new Set(allNumbers)];
-                    // 🆕 只有生肖特码才显示号码列表
-                    const numbersStr = (typeName === '生肖特码' && uniqueNumbers.length > 0) ? `（${uniqueNumbers.join(',')}）` : '';
+                    
+                    // 🆕 v2.4.8 高亮显示原文和号码列表中的中奖号码
+                    let displayOriginalLine = line.originalLine;
+                    let numbersStr = '';
+                    if (typeName === '特码' || typeName === '生肖特码') {
+                        displayOriginalLine = fbHighlightWinNum(line.originalLine, fbTema);
+                        if (typeName === '生肖特码' && uniqueNumbers.length > 0) {
+                            numbersStr = `（${fbHighlightWinNum(uniqueNumbers.join(','), fbTema)}）`;
+                        }
+                    }
                     
                     // 格式：✓/✗ 类型(赔率倍): 原文（号码）注数×金额元= 总额元  盈亏  ❌
                     html += `
@@ -8604,7 +8632,7 @@
                         <div style="flex:1;font-size:12px;line-height:1.5;">
                             ${statusIcon}
                             <span style="color:#64b5f6;margin-left:4px;">${typeName}(${typeOdds}倍):</span>
-                            <span style="color:#fbbf24;font-weight:bold;margin-left:4px;">${line.originalLine}</span>
+                            <span style="color:#fbbf24;font-weight:bold;margin-left:4px;">${displayOriginalLine}</span>
                             ${numbersStr ? `<span style="color:#888;font-size:11px;">${numbersStr}</span>` : ''}
                             <span style="color:#aaa;margin-left:6px;">${betCount}×${unitAmount}元=</span>
                             <span style="color:#fff;">${totalAmount}元</span>
