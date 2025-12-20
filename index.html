@@ -4841,17 +4841,12 @@
             } else if (bet.type === '生肖特码') {
                 // 🆕 v2.4.8 新增：生肖特码中奖判断
                 odds = parseFloat(savedOdds['odds-tema']) || 43;
-                // 🆕 v2.4.8 修复：使用 bet.zodiac（生肖名称）查找，或者直接比较 bet.number/bet.value 和特码
-                const zodiacName = bet.zodiac || bet.value;
-                const sxNums = LHC_DATA.shengxiao[zodiacName] || [];
-                // 如果找到生肖号码列表，检查特码是否在其中；否则直接比较号码
-                if (sxNums.length > 0) {
-                    isWin = sxNums.includes(parseInt(tema));
-                } else {
-                    // 如果 value 是号码，直接比较
-                    isWin = parseInt(bet.number || bet.value) === parseInt(tema);
-                }
-                detail = `生肖特码 ${zodiacName} (${sxNums.join(',') || bet.value}) vs 特码 ${tema}`;
+                // 🆕 v2.4.8 修复：每个号码是独立的注，只有当这个具体号码等于特码时才算中奖
+                // bet.value 或 bet.number 是具体的号码（如 "06", "18", "30", "42"）
+                const betNum = parseInt(bet.number || bet.value);
+                isWin = betNum === parseInt(tema);
+                const zodiacName = bet.zodiac || '';
+                detail = `生肖特码 ${zodiacName} 号码${betNum} vs 特码 ${tema}`;
             } else if (bet.type === '生肖' || bet.type === '多肖') {
                 odds = parseFloat(savedOdds['odds-shengxiao']) || 12;
                 const sxNums = LHC_DATA.shengxiao[bet.value] || [];
