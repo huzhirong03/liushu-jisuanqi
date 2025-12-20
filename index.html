@@ -2207,15 +2207,15 @@
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                     <button class="btn-back" onclick="showPage('page-main')" style="padding:5px 10px;background:rgba(255,255,255,0.1);border:none;border-radius:5px;color:#fff;font-size:14px;cursor:pointer;">← 返回</button>
                     <span id="fb-issue" style="font-size:13px;color:#a78bfa;font-weight:bold;">第--期</span>
-                </div>
+            </div>
                 <div style="display:flex;justify-content:space-between;font-size:12px;color:#aaa;">
                     <span>特码: <span id="fb-tema" style="color:#e94560;font-weight:bold;">--</span></span>
                     <span>赔率: <span id="fb-odds" style="color:#fbbf24;">43</span>倍</span>
-                </div>
+            </div>
                 <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;">
                     <span style="color:#888;">总投: <span id="fb-total-bet" style="color:#fff;">0</span>元</span>
                     <span>盈亏: <span id="fb-total-result" style="font-weight:bold;">+0</span></span>
-                </div>
+            </div>
             </div>
             
             <!-- 列表容器 -->
@@ -2225,7 +2225,7 @@
             <div style="position:sticky;bottom:0;padding:10px 12px;background:linear-gradient(0deg, #1a1a2e 80%, transparent);border-top:1px solid rgba(255,255,255,0.05);">
                 <button id="fb-submit-btn" onclick="submitFeedbackNew()" style="width:100%;padding:14px;background:linear-gradient(90deg,#e94560,#c23a51);color:white;border:none;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer;">
                     📤 提交错误报告 (已选 <span id="fb-error-count">0</span> 项)
-                </button>
+                    </button>
                 <div style="text-align:center;color:#555;font-size:10px;margin-top:6px;">
                     仅提交标记为错误的条目
                 </div>
@@ -4169,19 +4169,178 @@
         // 存储解析后的下注数据
         let parsedBets = [];
         let calcResults = [];
+        let parsedGroups = [];  // 🆕 存储分组信息
         
-        // 解析下注信息（入口函数）
-        function parseBetInput(input) {
+        // ════════════════════════════════════════════════════════════════════
+        // 🆕 【分组解析系统 v2.0】支持双换行分组 + 孤儿行检测
+        // ════════════════════════════════════════════════════════════════════
+        
+        /**
+         * 解析下注信息（入口函数）- 支持分组
+         * @param {string} input - 用户输入的原始文本
+         * @param {boolean} returnGroups - 是否返回分组信息
+         * @returns {Array} - 解析后的下注列表（带 groupId）
+         */
+        function parseBetInput(input, returnGroups = false) {
             const bets = [];
-            const lines = input.split('\n').filter(line => line.trim());
+            parsedGroups = [];  // 重置分组
+            
+            // 【核心】使用双换行 \n\n 分割注单组
+            const groups = input.split(/\n\s*\n/).filter(g => g.trim());
+            
+            groups.forEach((groupText, groupIndex) => {
+                const groupId = groupIndex + 1;
+                const lines = groupText.split('\n').filter(line => line.trim());
+                const groupBets = [];
             
             for (const line of lines) {
                 const parsed = parseBetLine(line.trim());
                 if (parsed) {
+                        // 为每个 bet 添加分组信息
+                        parsed.forEach(bet => {
+                            bet.groupId = groupId;
+                            bet.groupIndex = groupIndex;
+                        });
+                        groupBets.push(...parsed);
                     bets.push(...parsed);
                 }
+                }
+                
+                // 保存分组信息
+                parsedGroups.push({
+                    id: groupId,
+                    rawText: groupText,
+                    lines: lines,
+                    bets: groupBets,
+                    betCount: groupBets.length
+                });
+            });
+            
+            if (returnGroups) {
+                return { bets, groups: parsedGroups };
             }
             return bets;
+        }
+        
+        /**
+         * 🆕 孤儿行检测 - 识别可能是手误换行的行
+         * 规则：全是数字/分隔符，且没有金额关键词（各/元/x/X）
+         * @param {string} input - 用户输入
+         * @returns {Array} - 检测到的孤儿行信息
+         */
+        function detectOrphanLines(input) {
+            const orphans = [];
+            const lines = input.split('\n');
+            
+            // 金额关键词正则
+            const amountKeywords = /[各元xX×块钱]/;
+            // 纯数字/分隔符行正则（允许空格、逗号、点、斜杠）
+            const pureNumberLine = /^[\d\s,，.。\/\-]+$/;
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                
+                // 检查是否是纯数字行（没有金额关键词）
+                if (pureNumberLine.test(line) && !amountKeywords.test(line)) {
+                    // 检查下一行是否存在且有金额
+                    const nextLine = lines[i + 1]?.trim() || '';
+                    
+                    // 只有当下一行有内容时才标记为孤儿行
+                    if (nextLine && amountKeywords.test(nextLine)) {
+                        orphans.push({
+                            lineIndex: i,
+                            lineNumber: i + 1,  // 人类可读的行号
+                            content: line,
+                            nextLineContent: nextLine,
+                            suggestMerge: true
+                        });
+                    }
+                }
+            }
+            
+            return orphans;
+        }
+        
+        /**
+         * 🆕 显示孤儿行确认弹窗
+         * @param {Array} orphans - 检测到的孤儿行
+         * @param {string} input - 原始输入
+         * @returns {Promise<string>} - 处理后的输入
+         */
+        function showOrphanConfirmDialog(orphans, input) {
+            return new Promise((resolve) => {
+                if (orphans.length === 0) {
+                    resolve(input);
+                    return;
+                }
+                
+                const orphan = orphans[0];  // 一次处理一个
+                
+                const dialogHtml = `
+                    <div style="text-align:left;">
+                        <div style="background:rgba(255,193,7,0.2);padding:12px;border-radius:8px;margin-bottom:12px;border-left:3px solid #ffc107;">
+                            <div style="color:#ffc107;font-weight:bold;margin-bottom:8px;">⚠️ 检测到可能的断行</div>
+                            <div style="font-size:12px;color:#aaa;margin-bottom:4px;">第 ${orphan.lineNumber} 行似乎只有号码，没有金额：</div>
+                        </div>
+                        
+                        <div style="background:rgba(0,0,0,0.3);padding:10px;border-radius:6px;margin-bottom:10px;font-family:monospace;">
+                            <div style="color:#888;font-size:10px;margin-bottom:2px;">第${orphan.lineNumber}行:</div>
+                            <div style="color:#fbbf24;font-size:14px;font-weight:bold;">${orphan.content}</div>
+                            <div style="color:#444;margin:4px 0;">↓ (换行)</div>
+                            <div style="color:#888;font-size:10px;margin-bottom:2px;">第${orphan.lineNumber + 1}行:</div>
+                            <div style="color:#fff;font-size:14px;">${orphan.nextLineContent}</div>
+                        </div>
+                        
+                        <div style="font-size:12px;color:#888;margin-bottom:12px;">
+                            💡 <strong>建议</strong>：如果是手误换行，可以合并这两行
+                        </div>
+                        
+                        <div style="display:flex;gap:10px;">
+                            <button onclick="window._orphanResolve('merge')" style="flex:1;padding:10px;background:linear-gradient(135deg,#4caf50,#45a049);color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">
+                                ✅ 合并这两行
+                            </button>
+                            <button onclick="window._orphanResolve('keep')" style="flex:1;padding:10px;background:rgba(255,255,255,0.1);color:#aaa;border:1px solid #444;border-radius:6px;cursor:pointer;">
+                                保持原样
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                showCustomModal('🔍 断行检测', dialogHtml);
+                
+                window._orphanResolve = (action) => {
+                    closeCustomModal();
+                    
+                    if (action === 'merge') {
+                        // 合并：删除该行的换行符
+                        const lines = input.split('\n');
+                        lines[orphan.lineIndex] = lines[orphan.lineIndex] + ' ' + lines[orphan.lineIndex + 1];
+                        lines.splice(orphan.lineIndex + 1, 1);
+                        const newInput = lines.join('\n');
+                        
+                        // 更新输入框
+                        document.getElementById('bet-input').value = newInput;
+                        showAutoCloseToast('✅ 已合并第' + orphan.lineNumber + '行', 2000);
+                        
+                        // 递归检测剩余孤儿行
+                        const remainingOrphans = detectOrphanLines(newInput);
+                        if (remainingOrphans.length > 0) {
+                            showOrphanConfirmDialog(remainingOrphans, newInput).then(resolve);
+                        } else {
+                            resolve(newInput);
+                        }
+                    } else {
+                        // 保持原样，继续检测下一个
+                        const remainingOrphans = orphans.slice(1);
+                        if (remainingOrphans.length > 0) {
+                            showOrphanConfirmDialog(remainingOrphans, input).then(resolve);
+                        } else {
+                            resolve(input);
+                        }
+                    }
+                };
+            });
         }
         
         // 获取格式设置
@@ -4593,7 +4752,7 @@
         }
         
         async function calculateBets() {
-            const input = document.getElementById('bet-input').value.trim();
+            let input = document.getElementById('bet-input').value.trim();
             if (!input) {
                 alert('请先粘贴下注信息');
                 return;
@@ -4604,11 +4763,23 @@
                 return;
             }
             
+            // ════════════════════════════════════════════════════════════════
+            // 🆕 【孤儿行检测】在正式解析前检测可能的断行
+            // ════════════════════════════════════════════════════════════════
+            const orphans = detectOrphanLines(input);
+            if (orphans.length > 0) {
+                console.log('🔍 检测到孤儿行:', orphans);
+                // 显示确认弹窗，等待用户处理
+                input = await showOrphanConfirmDialog(orphans, input);
+                // 更新输入框内容（可能已被修改）
+            }
+            
             const settings = getFormatSettings();
             const lines = input.split('\n').filter(line => line.trim());
             
             // 初始化
             parsedBets = [];
+            parsedGroups = [];  // 🆕 重置分组
             
             // 重置调试信息
             debugInfo.aiInput = input;
@@ -6027,8 +6198,8 @@
                                 aiItems = aiResult.items;  // 保存原始items
                                 for (const item of aiResult.items) {
                                     // 【已优化】直接使用后端返回的数据，不再调用本地正则
-                                    const reasonCode = item.r || item.reason || '';
-                                    const reasonText = getReasonText(reasonCode);
+                                        const reasonCode = item.r || item.reason || '';
+                                        const reasonText = getReasonText(reasonCode);
                                     parsed.push({
                                         type: item.type || '未知',
                                         target: item.raw,
@@ -7449,7 +7620,7 @@
         }
         
         // ==================== 版本更新检测 ====================
-        const APP_VERSION = 'v2.0.0';  // 当前版本号，与 sw.js 保持一致（缓存优先策略）
+        const APP_VERSION = 'v2.1.0';  // 当前版本号，与 sw.js 保持一致（缓存优先策略）
         
         // 注册 Service Worker 并检测更新
         if ('serviceWorker' in navigator) {
@@ -7595,7 +7766,10 @@
             showPage('page-feedback');
         }
         
-        // 渲染反馈卡片列表
+        // ════════════════════════════════════════════════════════════════════
+        // 🆕 【分组渲染系统】按注单组分组显示反馈卡片
+        // ════════════════════════════════════════════════════════════════════
+        
         function renderFeedbackCards() {
             const listEl = document.getElementById('feedback-list');
             
@@ -7604,9 +7778,10 @@
                 return;
             }
             
-            // 初始化反馈数据
+            // 初始化反馈数据（带分组信息）
             feedbackData.items = calcResults.map((r, index) => ({
                 index: index,
+                groupId: r.groupId || 1,  // 🆕 分组ID
                 original: r.raw || '',
                 type: r.type || '',
                 numbers: r.number || r.value || r.numbers?.join(',') || '',
@@ -7615,80 +7790,115 @@
                 winAmount: r.winAmount || 0,
                 odds: r.odds || 43,
                 hasError: false,
-                errorType: '',     // 'type' | 'calc' | 'num'
-                correction: '',    // 用户填写的修正内容
-                errorBlame: ''     // 'AI' | 'Python' | 'Regex'
+                errorType: '',
+                correction: '',
+                errorBlame: ''
             }));
             
-            // 渲染卡片HTML
-            listEl.innerHTML = feedbackData.items.map((item, i) => {
-                // 计算公式
-                const formulaParts = item.isWin 
-                    ? `(${item.amount}×${item.odds})-${item.amount}`
-                    : `-${item.amount}`;
-                const resultValue = item.isWin 
-                    ? item.winAmount - item.amount 
-                    : -item.amount;
-                const resultClass = resultValue >= 0 ? 'win' : 'lose';
+            // 🆕 按 groupId 分组
+            const groupedItems = {};
+            feedbackData.items.forEach(item => {
+                const gid = item.groupId || 1;
+                if (!groupedItems[gid]) {
+                    groupedItems[gid] = [];
+                }
+                groupedItems[gid].push(item);
+            });
+            
+            const groupIds = Object.keys(groupedItems).map(Number).sort((a, b) => a - b);
+            const hasMultipleGroups = groupIds.length > 1;
+            
+            // 渲染分组卡片
+            let html = '';
+            
+            groupIds.forEach((gid, groupIndex) => {
+                const groupItems = groupedItems[gid];
+                const groupProfit = groupItems.reduce((sum, item) => {
+                    return sum + (item.isWin ? item.winAmount - item.amount : -item.amount);
+                }, 0);
+                const groupWinCount = groupItems.filter(it => it.isWin).length;
                 
-                return `
-                <div class="fb-card" data-index="${i}" style="background:rgba(255,255,255,0.05);border-radius:10px;margin-bottom:8px;overflow:hidden;border-left:3px solid #666;">
-                    <!-- 卡片主体 -->
-                    <div style="display:flex;align-items:stretch;">
-                        <div style="flex:1;padding:10px 12px;">
-                            <!-- 第一行：原文 -->
-                            <div style="font-size:13px;color:#fff;font-weight:bold;margin-bottom:6px;word-break:break-all;">${item.original || '(无原文)'}</div>
-                            <!-- 第二行：类型+号码+金额 -->
-                            <div style="font-size:11px;color:#aaa;margin-bottom:4px;">
-                                <span style="background:${item.isWin ? 'rgba(76,175,80,0.3)' : 'rgba(102,126,234,0.3)'};padding:2px 6px;border-radius:3px;color:${item.isWin ? '#4caf50' : '#a78bfa'};margin-right:6px;">${item.type}</span>
-                                号码:<span style="color:#fbbf24;">${item.numbers || '-'}</span> 
-                                金额:<span style="color:#fff;">${item.amount}元</span>
-                            </div>
-                            <!-- 第三行：计算公式 -->
-                            <div style="font-size:10px;color:#666;">
-                                公式: ${formulaParts} = <span class="${resultClass}" style="color:${resultValue >= 0 ? '#4caf50' : '#f44336'};font-weight:bold;">${resultValue >= 0 ? '+' : ''}${resultValue}</span>
+                // 🆕 分组容器
+                if (hasMultipleGroups) {
+                    html += `
+                    <div class="fb-group" style="margin-bottom:16px;background:rgba(102,126,234,0.05);border-radius:12px;overflow:hidden;border:1px solid rgba(102,126,234,0.2);">
+                        <!-- 分组标题栏 -->
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(102,126,234,0.15);border-bottom:1px solid rgba(102,126,234,0.2);">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:bold;">组 ${gid}</span>
+                                <span style="font-size:11px;color:#888;">${groupItems.length} 条记录</span>
+                    </div>
+                            <div style="font-size:12px;font-weight:bold;color:${groupProfit >= 0 ? '#4caf50' : '#f44336'};">
+                                ${groupWinCount > 0 ? '🎯' : ''} ${groupProfit >= 0 ? '+' : ''}${groupProfit}
                             </div>
                         </div>
-                        <!-- 报错按钮 -->
-                        <div onclick="toggleErrorPanel(${i})" style="width:50px;display:flex;align-items:center;justify-content:center;background:rgba(244,67,54,0.1);cursor:pointer;border-left:1px solid rgba(255,255,255,0.05);">
-                            <span id="fb-err-btn-${i}" style="font-size:18px;opacity:0.6;">❌</span>
+                        <!-- 分组内的卡片 -->
+                        <div style="padding:8px;">
+                    `;
+                }
+                
+                // 渲染组内的每个卡片
+                groupItems.forEach((item, itemIndex) => {
+                    const i = item.index;  // 全局索引
+                    const formulaParts = item.isWin 
+                        ? `(${item.amount}×${item.odds})-${item.amount}`
+                        : `-${item.amount}`;
+                    const resultValue = item.isWin 
+                        ? item.winAmount - item.amount 
+                        : -item.amount;
+                    
+                    html += `
+                    <div class="fb-card" data-index="${i}" style="background:rgba(255,255,255,0.05);border-radius:8px;margin-bottom:${itemIndex < groupItems.length - 1 ? '6' : '0'}px;overflow:hidden;border-left:3px solid ${item.isWin ? '#4caf50' : '#666'};">
+                        <div style="display:flex;align-items:stretch;">
+                            <div style="flex:1;padding:8px 10px;">
+                                <div style="font-size:12px;color:#fff;font-weight:bold;margin-bottom:4px;word-break:break-all;">${item.original || '(无原文)'}</div>
+                                <div style="font-size:10px;color:#aaa;margin-bottom:2px;">
+                                    <span style="background:${item.isWin ? 'rgba(76,175,80,0.3)' : 'rgba(102,126,234,0.3)'};padding:1px 5px;border-radius:3px;color:${item.isWin ? '#4caf50' : '#a78bfa'};margin-right:4px;font-size:9px;">${item.type}</span>
+                                    <span style="color:#fbbf24;">${item.numbers || '-'}</span> 
+                                    <span style="color:#888;">×${item.amount}</span>
+                                </div>
+                                <div style="font-size:9px;color:#555;">
+                                    ${formulaParts} = <span style="color:${resultValue >= 0 ? '#4caf50' : '#f44336'};font-weight:bold;">${resultValue >= 0 ? '+' : ''}${resultValue}</span>
+                                </div>
+                            </div>
+                            <div onclick="toggleErrorPanel(${i})" style="width:40px;display:flex;align-items:center;justify-content:center;background:rgba(244,67,54,0.08);cursor:pointer;border-left:1px solid rgba(255,255,255,0.03);">
+                                <span id="fb-err-btn-${i}" style="font-size:14px;opacity:0.5;">❌</span>
                         </div>
                     </div>
                     
-                    <!-- 隐藏的诊断面板 -->
-                    <div id="fb-err-panel-${i}" style="display:none;background:rgba(244,67,54,0.08);padding:10px 12px;border-top:1px solid rgba(244,67,54,0.2);">
-                        <div style="font-size:11px;color:#f44336;margin-bottom:8px;font-weight:bold;">⚠️ 哪里错了？</div>
-                        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
-                            <span class="fb-err-tag" data-idx="${i}" data-err="type" onclick="selectErrorType(${i},'type')" style="padding:5px 10px;border-radius:5px;font-size:11px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.2);">
-                                🤖 识别类型错
-                            </span>
-                            <span class="fb-err-tag" data-idx="${i}" data-err="calc" onclick="selectErrorType(${i},'calc')" style="padding:5px 10px;border-radius:5px;font-size:11px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.2);">
-                                🔢 金额算错
-                            </span>
-                            <span class="fb-err-tag" data-idx="${i}" data-err="num" onclick="selectErrorType(${i},'num')" style="padding:5px 10px;border-radius:5px;font-size:11px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.2);">
-                                📝 号码不对
-                            </span>
+                        <!-- 诊断面板 -->
+                        <div id="fb-err-panel-${i}" style="display:none;background:rgba(244,67,54,0.08);padding:8px 10px;border-top:1px solid rgba(244,67,54,0.15);">
+                            <div style="font-size:10px;color:#f44336;margin-bottom:6px;font-weight:bold;">⚠️ 错误类型</div>
+                            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
+                                <span class="fb-err-tag" data-idx="${i}" data-err="type" onclick="selectErrorType(${i},'type')" style="padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);">🤖类型</span>
+                                <span class="fb-err-tag" data-idx="${i}" data-err="calc" onclick="selectErrorType(${i},'calc')" style="padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);">🔢计算</span>
+                                <span class="fb-err-tag" data-idx="${i}" data-err="num" onclick="selectErrorType(${i},'num')" style="padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);">📝号码</span>
+                            </div>
+                            <div id="fb-type-select-${i}" style="display:none;margin-bottom:6px;">
+                                <select onchange="setCorrectType(${i}, this.value)" style="width:100%;padding:6px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;font-size:11px;">
+                                    <option value="">正确类型是？</option>
+                            ${PLAY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
+                        </select>
+                    </div>
+                            <div id="fb-amount-input-${i}" style="display:none;margin-bottom:6px;">
+                                <input type="number" placeholder="正确金额？" oninput="setCorrection(${i}, this.value)" style="width:100%;padding:6px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;font-size:11px;box-sizing:border-box;">
+                            </div>
+                            <input type="text" id="fb-note-${i}" placeholder="备注（选填）" oninput="setItemNote(${i}, this.value)" style="width:100%;padding:6px;background:rgba(0,0,0,0.2);color:#fff;border:1px solid rgba(255,255,255,0.08);border-radius:4px;font-size:10px;box-sizing:border-box;">
                         </div>
-                        
-                        <!-- 类型选择下拉（识别错时显示） -->
-                        <div id="fb-type-select-${i}" style="display:none;margin-bottom:8px;">
-                            <select onchange="setCorrectType(${i}, this.value)" style="width:100%;padding:8px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:6px;font-size:12px;">
-                                <option value="">正确类型是？</option>
-                                ${PLAY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
-                            </select>
-                        </div>
-                        
-                        <!-- 金额输入（算错时显示） -->
-                        <div id="fb-amount-input-${i}" style="display:none;margin-bottom:8px;">
-                            <input type="number" placeholder="正确金额是？" oninput="setCorrection(${i}, this.value)" style="width:100%;padding:8px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:6px;font-size:12px;box-sizing:border-box;">
-                        </div>
-                        
-                        <!-- 备注输入 -->
-                        <input type="text" id="fb-note-${i}" placeholder="备注说明（选填）" oninput="setItemNote(${i}, this.value)" style="width:100%;padding:8px;background:rgba(0,0,0,0.3);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;font-size:11px;box-sizing:border-box;">
+                    </div>
+                    `;
+                });
+                
+                // 关闭分组容器
+                if (hasMultipleGroups) {
+                    html += `
                     </div>
                 </div>
-                `;
-            }).join('');
+                    `;
+                }
+            });
+            
+            listEl.innerHTML = html;
         }
         
         // 切换错误诊断面板
@@ -7782,7 +7992,7 @@
             if (count > 0) {
                 btn.style.opacity = '1';
                 btn.style.cursor = 'pointer';
-            } else {
+                } else {
                 btn.style.opacity = '0.5';
                 btn.style.cursor = 'default';
             }
@@ -8011,12 +8221,12 @@ ${winDetailText}║    ───────────────────
                     // AI解析结果
                     ai_result: {
                         type: item.type,
-                        numbers: item.numbers,
+                    numbers: item.numbers,
                         amount: item.amount
                     },
                     
                     // 计算结果
-                    calc_result: {
+                calc_result: {
                         is_win: item.isWin,
                         win_amount: item.winAmount,
                         odds: item.odds
