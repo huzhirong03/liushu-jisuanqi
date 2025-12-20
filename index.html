@@ -2300,13 +2300,31 @@
             trialDaysLeft: 7
         };
         
-        // ==================== 调试信息存储 ====================
+        // ==================== 调试信息存储（完整数据链条） ====================
         let debugInfo = {
-            aiInput: '',           // AI输入
+            // 📌 第1-2步：输入阶段
+            originalInput: '',     // 用户原始输入
+            sanitizedInput: '',    // 脱敏后的输入（暗号）
+            normalizeInfo: '',     // 规范化信息
+            
+            // 📌 第3步：AI阶段
+            aiInput: '',           // 发送给AI的内容
             aiOutput: '',          // AI原始输出
             aiParsed: null,        // AI解析后的JSON
+            modelUsed: '',         // 使用的模型: regex / deepseek / zhipu...
+            latencyMs: 0,          // AI响应耗时(毫秒)
+            
+            // 📌 第4步：网络诊断
+            requestMode: '',       // 请求模式
+            targetUrl: '',         // 目标地址
+            networkError: '',      // 网络错误
+            rawResponse: '',       // 原始响应
+            
+            // 📌 第5步：解析结果
             aiBets: [],            // AI识别的下注列表
-            localBets: [],         // 程序识别的下注列表
+            localBets: [],         // 本地解析的下注列表
+            
+            // 📌 错误信息
             lastError: ''          // 最后一次错误
         };
         
@@ -6534,6 +6552,10 @@
                         content = JSON.stringify(data.data);
                         console.log(`✅ Function Calling 成功: 模型=${data.model_used}, 耗时=${data.latency_ms}ms`);
                         
+                        // 📌 保存调试信息（用于反馈）
+                        debugInfo.modelUsed = data.model_used || 'unknown';
+                        debugInfo.latencyMs = data.latency_ms || 0;
+                        
                         // 🔍 【调试信息】清晰展示 AI 是如何理解输入的（本地显示，可用中文）
                         // 类型代号→中文名称映射（仅用于本地日志显示）
                         const CODE_NAME_MAP = {
@@ -7427,7 +7449,7 @@
         }
         
         // ==================== 版本更新检测 ====================
-        const APP_VERSION = 'v1.0.2';  // 当前版本号，与 sw.js 保持一致（缓存优先策略）
+        const APP_VERSION = 'v2.0.0';  // 当前版本号，与 sw.js 保持一致（缓存优先策略）
         
         // 注册 Service Worker 并检测更新
         if ('serviceWorker' in navigator) {
@@ -8023,21 +8045,77 @@ ${winDetailText}║    ───────────────────
             try {
                 showAutoCloseToast('📤 正在提交错误报告...', 3000);
                 
+                // 获取格式设置中的AI信息
+                const settings = getFormatSettings();
+                
+                // ═══════════════════════════════════════════════════════════
+                // 构建【完整调试链条】数据 - 便于精准定位问题环节
+                // ═══════════════════════════════════════════════════════════
+                const dbData = {
+                    version: APP_VERSION,
+                    
+                    // 📌 第1步：用户原始输入
+                    raw_input: document.getElementById('bet-input')?.value || '',
+                    
+                    // 📌 第2步：前端脱敏转换（暗号）
+                    sanitized_input: debugInfo.sanitizedInput || debugInfo.aiInput || '',
+                    
+                    // 📌 第3步：AI模型识别
+                    ai_provider: settings.aiProvider || 'unknown',
+                    ai_model: debugInfo.modelUsed || '',
+                    ai_raw_response: (debugInfo.aiOutput || '').substring(0, 3000),
+                    ai_parsed_result: JSON.stringify(debugInfo.aiParsed || null),
+                    ai_latency_ms: debugInfo.latencyMs || 0,
+                    
+                    // 📌 第4步：后端处理方式
+                    backend_method: debugInfo.modelUsed === 'regex' ? 'regex' : 'ai_fc',
+                    backend_extracted: JSON.stringify(debugInfo.aiParsed || []),
+                    
+                    // 📌 第5步：前端还原+计算
+                    restored_result: JSON.stringify((parsedBets || []).slice(0, 50)),
+                    calc_bets: JSON.stringify((parsedBets || []).map(b => ({
+                        type: b.type,
+                        number: b.number || b.value,
+                        amount: b.amount
+                    })).slice(0, 50)),
+                    calc_results: JSON.stringify((calcResults || []).map(r => ({
+                        type: r.type,
+                        number: r.number || r.value,
+                        amount: r.amount,
+                        isWin: r.isWin,
+                        winAmount: r.winAmount,
+                        odds: r.odds
+                    })).slice(0, 50)),
+                    
+                    // 📌 第6步：开奖信息
+                    lottery_type: submitData.lottery.type,
+                    lottery_issue: submitData.lottery.issue,
+                    lottery_numbers: JSON.stringify(submitData.lottery.numbers),
+                    lottery_tema: submitData.lottery.tema,
+                    
+                    // 📌 第7步：最终结果汇总
+                    total_bets: submitData.summary.total_items,
+                    total_amount: submitData.summary.total_bet,
+                    win_count: (calcResults || []).filter(r => r.isWin).length,
+                    win_amount: (calcResults || []).filter(r => r.isWin).reduce((s, r) => s + r.winAmount, 0),
+                    profit: submitData.summary.profit,
+                    
+                    // 🚨 第8步：用户反馈的错误
+                    error_items: JSON.stringify(submitData.error_reports),
+                    error_summary: errorItems.map(e => `[${e.errorType}:${e.errorBlame}]${e.original}`).join(' | ')
+                };
+                
+                console.log('📤 完整调试链条数据:', dbData);
+                
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/feedback`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'application/json; charset=utf-8',
                         'apikey': SUPABASE_KEY,
                         'Authorization': `Bearer ${SUPABASE_KEY}`,
                         'Prefer': 'return=minimal'
                     },
-                    body: JSON.stringify({
-                        version: APP_VERSION,
-                        feedback_type: 'precise_error_report',
-                        feedback_detail: `报告${errorItems.length}个错误`,
-                        user_comment: errorItems.map(e => `[${e.errorType}]${e.original}`).join('; '),
-                        debug_info: submitData
-                    })
+                    body: JSON.stringify(dbData)
                 });
                 
                 if (response.ok) {
