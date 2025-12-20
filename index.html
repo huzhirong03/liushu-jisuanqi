@@ -4169,55 +4169,138 @@
         // 存储解析后的下注数据
         let parsedBets = [];
         let calcResults = [];
-        let parsedGroups = [];  // 🆕 存储分组信息
+        let parsedGroups = [];  // 存储分组信息
+        let parsedLines = [];   // 🆕 存储行级数据（用于小票式渲染）
         
-        // ════════════════════════════════════════════════════════════════════
-        // 🆕 【分组解析系统 v2.0】支持双换行分组 + 孤儿行检测
-        // ════════════════════════════════════════════════════════════════════
+        // ════════════════════════════════════════════════════════════════════════════
+        // 【分组解析系统 v3.0】严格空行分组 + 行级追踪 + 原文绑定
+        // ════════════════════════════════════════════════════════════════════════════
         
         /**
-         * 解析下注信息（入口函数）- 支持分组
+         * 解析下注信息（入口函数）- 严格分组 + 行级追踪
          * @param {string} input - 用户输入的原始文本
          * @param {boolean} returnGroups - 是否返回分组信息
-         * @returns {Array} - 解析后的下注列表（带 groupId）
+         * @returns {Array} - 解析后的下注列表（带 groupId, lineId, originalLine）
          */
         function parseBetInput(input, returnGroups = false) {
             const bets = [];
-            parsedGroups = [];  // 重置分组
+            parsedGroups = [];
+            parsedLines = [];
             
-            // 【核心】使用双换行 \n\n 分割注单组
-            const groups = input.split(/\n\s*\n/).filter(g => g.trim());
+            // ═══════════════════════════════════════════════════════════════
+            // 【预处理】统一换行符格式，解决微信/跨平台复制粘贴问题
+            // ═══════════════════════════════════════════════════════════════
+            let normalizedInput = input
+                .replace(/\r\n/g, '\n')     // Windows换行 → Unix
+                .replace(/\r/g, '\n')       // 老Mac换行 → Unix
+                .trim();                     // 移除首尾空白
             
-            groups.forEach((groupText, groupIndex) => {
+            // ═══════════════════════════════════════════════════════════════
+            // 【第一层切割】严格按空行分组（连续2个或更多换行符）
+            // 正则：\n\s*\n+ 匹配"换行+可选空白+一个或多个换行"
+            // ═══════════════════════════════════════════════════════════════
+            const groupTexts = normalizedInput.split(/\n\s*\n+/).filter(g => g.trim());
+            
+            console.log(`📦 分组切割: 共 ${groupTexts.length} 个组`);
+            
+            let globalLineIndex = 0;  // 全局行号（用于反馈页定位）
+            
+            groupTexts.forEach((groupText, groupIndex) => {
                 const groupId = groupIndex + 1;
-                const lines = groupText.split('\n').filter(line => line.trim());
+                
+                // ═══════════════════════════════════════════════════════════
+                // 【第二层切割】组内按单换行分行
+                // ═══════════════════════════════════════════════════════════
+                const lines = groupText.split('\n').map(l => l.trim()).filter(l => l);
                 const groupBets = [];
-            
-            for (const line of lines) {
-                const parsed = parseBetLine(line.trim());
-                if (parsed) {
-                        // 为每个 bet 添加分组信息
-                        parsed.forEach(bet => {
+                const groupLineData = [];
+                
+                console.log(`  📋 组${groupId}: ${lines.length}行`);
+                
+                lines.forEach((originalLine, lineIndexInGroup) => {
+                    const lineId = `${groupId}-${lineIndexInGroup}`;  // 唯一行标识
+                    
+                    // 尝试解析该行
+                    let parsed = null;
+                    let isError = false;
+                    
+                    try {
+                        parsed = parseBetLine(originalLine);
+                    } catch (e) {
+                        console.warn(`    ⚠️ 行${lineId}解析异常:`, e.message);
+                        isError = true;
+                    }
+                    
+                    // 构建行级数据
+                    const lineData = {
+                        lineId: lineId,
+                        groupId: groupId,
+                        lineIndexInGroup: lineIndexInGroup,
+                        globalLineIndex: globalLineIndex,
+                        originalLine: originalLine,  // 🔑 关键：保留完整原文
+                        bets: [],
+                        betCount: 0,
+                        isError: isError,
+                        parseError: isError ? '解析失败' : null
+                    };
+                    
+                    if (parsed && parsed.length > 0) {
+                        // 解析成功：为每个bet绑定行级信息
+                        parsed.forEach((bet, betIndex) => {
                             bet.groupId = groupId;
-                            bet.groupIndex = groupIndex;
+                            bet.lineId = lineId;
+                            bet.originalLine = originalLine;  // 🔑 每个bet都绑定原文
+                            bet.globalLineIndex = globalLineIndex;
+                            bet.betIndexInLine = betIndex;
+                            
+                            lineData.bets.push(bet);
+                            groupBets.push(bet);
+                            bets.push(bet);
                         });
-                        groupBets.push(...parsed);
-                    bets.push(...parsed);
-                }
-                }
+                        lineData.betCount = parsed.length;
+                        console.log(`    ✅ 行${lineId}: "${originalLine.substring(0,20)}..." → ${parsed.length}注`);
+                    } else {
+                        // 解析失败或无结果：生成占位对象
+                        const placeholderBet = {
+                            type: '未识别',
+                            value: '',
+                            amount: 0,
+                            groupId: groupId,
+                            lineId: lineId,
+                            originalLine: originalLine,  // 🔑 保留原文！
+                            globalLineIndex: globalLineIndex,
+                            betIndexInLine: 0,
+                            isError: true,
+                            parseError: '未能解析出有效下注'
+                        };
+                        lineData.bets.push(placeholderBet);
+                        lineData.betCount = 0;
+                        lineData.isError = true;
+                        groupBets.push(placeholderBet);
+                        bets.push(placeholderBet);
+                        console.log(`    ❌ 行${lineId}: "${originalLine.substring(0,20)}..." → 未识别`);
+                    }
+                    
+                    parsedLines.push(lineData);
+                    groupLineData.push(lineData);
+                    globalLineIndex++;
+                });
                 
                 // 保存分组信息
                 parsedGroups.push({
                     id: groupId,
                     rawText: groupText,
-                    lines: lines,
+                    lines: groupLineData,
                     bets: groupBets,
-                    betCount: groupBets.length
+                    betCount: groupBets.filter(b => !b.isError).length,
+                    lineCount: lines.length
                 });
             });
             
+            console.log(`📊 解析完成: ${parsedGroups.length}组, ${parsedLines.length}行, ${bets.length}注`);
+            
             if (returnGroups) {
-                return { bets, groups: parsedGroups };
+                return { bets, groups: parsedGroups, lines: parsedLines };
             }
             return bets;
         }
@@ -7650,7 +7733,7 @@
         }
         
         // ==================== 版本更新检测 ====================
-        const APP_VERSION = 'v2.1.1';  // 当前版本号，与 sw.js 保持一致（缓存优先策略）
+        const APP_VERSION = 'v2.2.0';  // 当前版本号，与 sw.js 保持一致（缓存优先策略）
         
         // 注册 Service Worker 并检测更新
         if ('serviceWorker' in navigator) {
@@ -7796,9 +7879,9 @@
             showPage('page-feedback');
         }
         
-        // ════════════════════════════════════════════════════════════════════
-        // 🆕 【分组渲染系统】按注单组分组显示反馈卡片
-        // ════════════════════════════════════════════════════════════════════
+        // ════════════════════════════════════════════════════════════════════════════
+        // 【小票风格反馈渲染系统 v3.0】按组→按行→按注 三层结构
+        // ════════════════════════════════════════════════════════════════════════════
         
         function renderFeedbackCards() {
             const listEl = document.getElementById('feedback-list');
@@ -7808,124 +7891,326 @@
                 return;
             }
             
-            // 初始化反馈数据（带分组信息）
+            // ═══════════════════════════════════════════════════════════════════════
+            // 【步骤1】初始化反馈数据，绑定原文和行信息
+            // ═══════════════════════════════════════════════════════════════════════
             feedbackData.items = calcResults.map((r, index) => ({
                 index: index,
-                groupId: r.groupId || 1,  // 🆕 分组ID
-                original: r.raw || '',
-                type: r.type || '',
+                groupId: r.groupId || 1,
+                lineId: r.lineId || `1-0`,
+                originalLine: r.originalLine || r.raw || '',  // 🔑 优先使用 originalLine
+                type: r.type || '未识别',
+                value: r.value || '',
                 numbers: r.number || r.value || r.numbers?.join(',') || '',
                 amount: r.amount || 0,
                 isWin: r.isWin || false,
                 winAmount: r.winAmount || 0,
                 odds: r.odds || 43,
-                hasError: false,
+                isError: r.isError || false,
+                hasError: false,       // 用户标记的错误
                 errorType: '',
                 correction: '',
                 errorBlame: ''
             }));
             
-            // 🆕 按 groupId 分组
-            const groupedItems = {};
+            // ═══════════════════════════════════════════════════════════════════════
+            // 【步骤2】构建三层数据结构：组 → 行 → 注
+            // ═══════════════════════════════════════════════════════════════════════
+            const groupMap = {};  // groupId → { lines: { lineId → [items] } }
+            
             feedbackData.items.forEach(item => {
                 const gid = item.groupId || 1;
-                if (!groupedItems[gid]) {
-                    groupedItems[gid] = [];
+                const lid = item.lineId || `${gid}-0`;
+                
+                if (!groupMap[gid]) {
+                    groupMap[gid] = { lines: {}, lineOrder: [] };
                 }
-                groupedItems[gid].push(item);
+                if (!groupMap[gid].lines[lid]) {
+                    groupMap[gid].lines[lid] = [];
+                    groupMap[gid].lineOrder.push(lid);
+                }
+                groupMap[gid].lines[lid].push(item);
             });
             
-            const groupIds = Object.keys(groupedItems).map(Number).sort((a, b) => a - b);
+            const groupIds = Object.keys(groupMap).map(Number).sort((a, b) => a - b);
             const hasMultipleGroups = groupIds.length > 1;
             
-            // 渲染分组卡片
+            // ═══════════════════════════════════════════════════════════════════════
+            // 【步骤3】渲染小票风格 HTML
+            // ═══════════════════════════════════════════════════════════════════════
             let html = '';
             
             groupIds.forEach((gid, groupIndex) => {
-                const groupItems = groupedItems[gid];
-                const groupProfit = groupItems.reduce((sum, item) => {
-                    return sum + (item.isWin ? item.winAmount - item.amount : -item.amount);
+                const groupData = groupMap[gid];
+                const lineIds = groupData.lineOrder;
+                
+                // 计算组统计
+                const allItemsInGroup = Object.values(groupData.lines).flat();
+                const groupProfit = allItemsInGroup.reduce((sum, it) => {
+                    if (it.isError) return sum;
+                    return sum + (it.isWin ? it.winAmount - it.amount : -it.amount);
                 }, 0);
-                const groupWinCount = groupItems.filter(it => it.isWin).length;
+                const groupWinCount = allItemsInGroup.filter(it => it.isWin && !it.isError).length;
+                const groupBetCount = allItemsInGroup.filter(it => !it.isError).length;
                 
-                // 🆕 分组容器
-                if (hasMultipleGroups) {
-                    html += `
-                    <div class="fb-group" style="margin-bottom:16px;background:rgba(102,126,234,0.05);border-radius:12px;overflow:hidden;border:1px solid rgba(102,126,234,0.2);">
-                        <!-- 分组标题栏 -->
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(102,126,234,0.15);border-bottom:1px solid rgba(102,126,234,0.2);">
-                            <div style="display:flex;align-items:center;gap:8px;">
-                                <span style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:bold;">组 ${gid}</span>
-                                <span style="font-size:11px;color:#888;">${groupItems.length} 条记录</span>
-                    </div>
-                            <div style="font-size:12px;font-weight:bold;color:${groupProfit >= 0 ? '#4caf50' : '#f44336'};">
-                                ${groupWinCount > 0 ? '🎯' : ''} ${groupProfit >= 0 ? '+' : ''}${groupProfit}
-                            </div>
+                // ─────────────────────────────────────────────────────────────────
+                // 【组容器】小票风格，虚线边框
+                // ─────────────────────────────────────────────────────────────────
+                html += `
+                <div class="fb-group-ticket" style="
+                    margin-bottom:15px;
+                    background:rgba(20,20,30,0.8);
+                    border:2px dashed rgba(102,126,234,0.4);
+                    border-radius:8px;
+                    overflow:hidden;
+                    font-family:'Courier New',monospace;
+                ">
+                    <!-- 组标题栏 -->
+                    <div style="
+                        display:flex;
+                        justify-content:space-between;
+                        align-items:center;
+                        padding:8px 12px;
+                        background:rgba(102,126,234,0.15);
+                        border-bottom:1px dashed rgba(102,126,234,0.3);
+                    ">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="
+                                background:linear-gradient(135deg,#667eea,#764ba2);
+                                color:white;
+                                padding:2px 10px;
+                                border-radius:10px;
+                                font-size:11px;
+                                font-weight:bold;
+                            ">组 ${gid}</span>
+                            <span style="font-size:10px;color:#888;">${lineIds.length}行 / ${groupBetCount}注</span>
                         </div>
-                        <!-- 分组内的卡片 -->
-                        <div style="padding:8px;">
+                        <div style="font-size:12px;font-weight:bold;color:${groupProfit >= 0 ? '#4caf50' : '#f44336'};">
+                            ${groupWinCount > 0 ? '🎯' : ''}${groupProfit >= 0 ? '+' : ''}${groupProfit}
+                        </div>
+                    </div>
+                    
+                    <!-- 组内容：按行渲染 -->
+                    <div style="padding:8px;">
+                `;
+                
+                // ─────────────────────────────────────────────────────────────────
+                // 【行级渲染】每行原文 + 该行的下注项
+                // ─────────────────────────────────────────────────────────────────
+                lineIds.forEach((lid, lineIndex) => {
+                    const lineItems = groupData.lines[lid];
+                    const originalLine = lineItems[0]?.originalLine || '(无原文)';
+                    const lineProfit = lineItems.reduce((sum, it) => {
+                        if (it.isError) return sum;
+                        return sum + (it.isWin ? it.winAmount - it.amount : -it.amount);
+                    }, 0);
+                    const hasWin = lineItems.some(it => it.isWin && !it.isError);
+                    const isLastLine = lineIndex === lineIds.length - 1;
+                    
+                    html += `
+                    <div class="fb-line-block" data-line-id="${lid}" style="
+                        background:rgba(255,255,255,0.03);
+                        border-radius:6px;
+                        margin-bottom:${isLastLine ? '0' : '8'}px;
+                        overflow:hidden;
+                        border-left:3px solid ${hasWin ? '#4caf50' : '#444'};
+                    ">
+                        <!-- 原文行（高亮显示） -->
+                        <div style="
+                            padding:6px 10px;
+                            background:rgba(251,191,36,0.08);
+                            border-bottom:1px solid rgba(255,255,255,0.05);
+                            display:flex;
+                            justify-content:space-between;
+                            align-items:center;
+                        ">
+                            <div style="
+                                font-size:12px;
+                                color:#fbbf24;
+                                font-weight:bold;
+                                word-break:break-all;
+                                flex:1;
+                            ">📝 ${originalLine}</div>
+                            <div style="
+                                font-size:11px;
+                                font-weight:bold;
+                                color:${lineProfit >= 0 ? '#4caf50' : '#f44336'};
+                                margin-left:8px;
+                                white-space:nowrap;
+                            ">${lineProfit >= 0 ? '+' : ''}${lineProfit}</div>
+                        </div>
+                        
+                        <!-- 该行解析出的下注项 -->
+                        <div style="padding:4px 8px;">
                     `;
-                }
-                
-                // 渲染组内的每个卡片
-                groupItems.forEach((item, itemIndex) => {
-                    const i = item.index;  // 全局索引
-                    const formulaParts = item.isWin 
-                        ? `(${item.amount}×${item.odds})-${item.amount}`
-                        : `-${item.amount}`;
-                    const resultValue = item.isWin 
-                        ? item.winAmount - item.amount 
-                        : -item.amount;
                     
-                    html += `
-                    <div class="fb-card" data-index="${i}" style="background:rgba(255,255,255,0.05);border-radius:8px;margin-bottom:${itemIndex < groupItems.length - 1 ? '6' : '0'}px;overflow:hidden;border-left:3px solid ${item.isWin ? '#4caf50' : '#666'};">
-                        <div style="display:flex;align-items:stretch;">
-                            <div style="flex:1;padding:8px 10px;">
-                                <div style="font-size:12px;color:#fff;font-weight:bold;margin-bottom:4px;word-break:break-all;">${item.original || '(无原文)'}</div>
-                                <div style="font-size:10px;color:#aaa;margin-bottom:2px;">
-                                    <span style="background:${item.isWin ? 'rgba(76,175,80,0.3)' : 'rgba(102,126,234,0.3)'};padding:1px 5px;border-radius:3px;color:${item.isWin ? '#4caf50' : '#a78bfa'};margin-right:4px;font-size:9px;">${item.type}</span>
-                                    <span style="color:#fbbf24;">${item.numbers || '-'}</span> 
-                                    <span style="color:#888;">×${item.amount}</span>
+                    // ─────────────────────────────────────────────────────────────
+                    // 【注级渲染】每个下注项
+                    // ─────────────────────────────────────────────────────────────
+                    lineItems.forEach((item, itemIdx) => {
+                        const i = item.index;  // 全局索引
+                        const isLastItem = itemIdx === lineItems.length - 1;
+                        
+                        if (item.isError) {
+                            // 解析失败的占位显示
+                            html += `
+                            <div class="fb-bet-item" data-index="${i}" style="
+                                display:flex;
+                                align-items:center;
+                                padding:4px 6px;
+                                margin-bottom:${isLastItem ? '0' : '4'}px;
+                                background:rgba(244,67,54,0.1);
+                                border-radius:4px;
+                                border:1px dashed rgba(244,67,54,0.3);
+                            ">
+                                <div style="flex:1;font-size:11px;color:#f44336;">
+                                    ⚠️ 未能识别此行
                                 </div>
-                                <div style="font-size:9px;color:#555;">
-                                    ${formulaParts} = <span style="color:${resultValue >= 0 ? '#4caf50' : '#f44336'};font-weight:bold;">${resultValue >= 0 ? '+' : ''}${resultValue}</span>
+                                <div onclick="toggleErrorPanel(${i})" style="
+                                    padding:2px 8px;
+                                    cursor:pointer;
+                                    font-size:12px;
+                                    opacity:0.6;
+                                ">❌</div>
+                            </div>
+                            `;
+                        } else {
+                            // 正常下注项
+                            const resultValue = item.isWin ? item.winAmount - item.amount : -item.amount;
+                            
+                            html += `
+                            <div class="fb-bet-item" data-index="${i}" style="
+                                display:flex;
+                                align-items:center;
+                                padding:4px 6px;
+                                margin-bottom:${isLastItem ? '0' : '3'}px;
+                                background:rgba(255,255,255,0.02);
+                                border-radius:4px;
+                            ">
+                                <!-- 左侧：类型+号码+金额 -->
+                                <div style="flex:1;display:flex;align-items:center;gap:6px;font-size:11px;">
+                                    <span style="
+                                        background:${item.isWin ? 'rgba(76,175,80,0.25)' : 'rgba(102,126,234,0.2)'};
+                                        color:${item.isWin ? '#4caf50' : '#a78bfa'};
+                                        padding:1px 6px;
+                                        border-radius:3px;
+                                        font-size:9px;
+                                        font-weight:bold;
+                                    ">${item.type}</span>
+                                    <span style="color:#fbbf24;">${item.numbers || item.value || '-'}</span>
+                                    <span style="color:#666;">×</span>
+                                    <span style="color:#fff;">${item.amount}</span>
+                                </div>
+                                
+                                <!-- 右侧：盈亏结果 + 报错按钮 -->
+                                <div style="display:flex;align-items:center;gap:6px;">
+                                    <span style="
+                                        font-size:11px;
+                                        font-weight:bold;
+                                        color:${resultValue >= 0 ? '#4caf50' : '#f44336'};
+                                    ">${resultValue >= 0 ? '+' : ''}${resultValue}</span>
+                                    <span id="fb-err-btn-${i}" onclick="toggleErrorPanel(${i})" style="
+                                        cursor:pointer;
+                                        font-size:12px;
+                                        opacity:0.4;
+                                        padding:2px;
+                                    ">❌</span>
                                 </div>
                             </div>
-                            <div onclick="toggleErrorPanel(${i})" style="width:40px;display:flex;align-items:center;justify-content:center;background:rgba(244,67,54,0.08);cursor:pointer;border-left:1px solid rgba(255,255,255,0.03);">
-                                <span id="fb-err-btn-${i}" style="font-size:14px;opacity:0.5;">❌</span>
-                        </div>
-                    </div>
-                    
-                        <!-- 诊断面板 -->
-                        <div id="fb-err-panel-${i}" style="display:none;background:rgba(244,67,54,0.08);padding:8px 10px;border-top:1px solid rgba(244,67,54,0.15);">
-                            <div style="font-size:10px;color:#f44336;margin-bottom:6px;font-weight:bold;">⚠️ 错误类型</div>
+                            `;
+                        }
+                        
+                        // 诊断面板（隐藏）
+                        html += `
+                        <div id="fb-err-panel-${i}" style="
+                            display:none;
+                            background:rgba(244,67,54,0.1);
+                            padding:8px;
+                            margin-bottom:4px;
+                            border-radius:4px;
+                            border:1px solid rgba(244,67,54,0.2);
+                        ">
+                            <div style="font-size:10px;color:#f44336;margin-bottom:6px;font-weight:bold;">⚠️ 标记错误类型</div>
                             <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
-                                <span class="fb-err-tag" data-idx="${i}" data-err="type" onclick="selectErrorType(${i},'type')" style="padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);">🤖类型</span>
-                                <span class="fb-err-tag" data-idx="${i}" data-err="calc" onclick="selectErrorType(${i},'calc')" style="padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);">🔢计算</span>
-                                <span class="fb-err-tag" data-idx="${i}" data-err="num" onclick="selectErrorType(${i},'num')" style="padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);">📝号码</span>
+                                <span class="fb-err-tag" data-idx="${i}" data-err="type" onclick="selectErrorType(${i},'type')" style="
+                                    padding:4px 8px;
+                                    border-radius:4px;
+                                    font-size:10px;
+                                    cursor:pointer;
+                                    background:rgba(255,255,255,0.1);
+                                    color:#ccc;
+                                    border:1px solid rgba(255,255,255,0.15);
+                                ">🤖 类型错</span>
+                                <span class="fb-err-tag" data-idx="${i}" data-err="calc" onclick="selectErrorType(${i},'calc')" style="
+                                    padding:4px 8px;
+                                    border-radius:4px;
+                                    font-size:10px;
+                                    cursor:pointer;
+                                    background:rgba(255,255,255,0.1);
+                                    color:#ccc;
+                                    border:1px solid rgba(255,255,255,0.15);
+                                ">🔢 算错</span>
+                                <span class="fb-err-tag" data-idx="${i}" data-err="num" onclick="selectErrorType(${i},'num')" style="
+                                    padding:4px 8px;
+                                    border-radius:4px;
+                                    font-size:10px;
+                                    cursor:pointer;
+                                    background:rgba(255,255,255,0.1);
+                                    color:#ccc;
+                                    border:1px solid rgba(255,255,255,0.15);
+                                ">📝 号码错</span>
                             </div>
                             <div id="fb-type-select-${i}" style="display:none;margin-bottom:6px;">
-                                <select onchange="setCorrectType(${i}, this.value)" style="width:100%;padding:6px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;font-size:11px;">
+                                <select onchange="setCorrectType(${i}, this.value)" style="
+                                    width:100%;
+                                    padding:6px;
+                                    background:#2a2a3e;
+                                    color:#fff;
+                                    border:1px solid rgba(255,255,255,0.15);
+                                    border-radius:4px;
+                                    font-size:11px;
+                                ">
                                     <option value="">正确类型是？</option>
-                            ${PLAY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
-                        </select>
-                    </div>
-                            <div id="fb-amount-input-${i}" style="display:none;margin-bottom:6px;">
-                                <input type="number" placeholder="正确金额？" oninput="setCorrection(${i}, this.value)" style="width:100%;padding:6px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;font-size:11px;box-sizing:border-box;">
+                                    ${PLAY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
+                                </select>
                             </div>
-                            <input type="text" id="fb-note-${i}" placeholder="备注（选填）" oninput="setItemNote(${i}, this.value)" style="width:100%;padding:6px;background:rgba(0,0,0,0.2);color:#fff;border:1px solid rgba(255,255,255,0.08);border-radius:4px;font-size:10px;box-sizing:border-box;">
+                            <div id="fb-amount-input-${i}" style="display:none;margin-bottom:6px;">
+                                <input type="number" placeholder="正确金额？" oninput="setCorrection(${i}, this.value)" style="
+                                    width:100%;
+                                    padding:6px;
+                                    background:#2a2a3e;
+                                    color:#fff;
+                                    border:1px solid rgba(255,255,255,0.15);
+                                    border-radius:4px;
+                                    font-size:11px;
+                                    box-sizing:border-box;
+                                ">
+                            </div>
+                            <input type="text" id="fb-note-${i}" placeholder="备注说明（选填）" oninput="setItemNote(${i}, this.value)" style="
+                                width:100%;
+                                padding:6px;
+                                background:rgba(0,0,0,0.2);
+                                color:#fff;
+                                border:1px solid rgba(255,255,255,0.08);
+                                border-radius:4px;
+                                font-size:10px;
+                                box-sizing:border-box;
+                            ">
+                        </div>
+                        `;
+                    });
+                    
+                    html += `
                         </div>
                     </div>
                     `;
                 });
                 
-                // 关闭分组容器
-                if (hasMultipleGroups) {
-                    html += `
+                // 关闭组容器
+                html += `
                     </div>
                 </div>
-                    `;
-                }
+                `;
             });
             
             listEl.innerHTML = html;
