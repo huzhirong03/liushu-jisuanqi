@@ -6052,25 +6052,18 @@
                             if (aiResult.items && Array.isArray(aiResult.items)) {
                                 aiItems = aiResult.items;  // 保存原始items
                                 for (const item of aiResult.items) {
-                                    if (typeof extractValuesByType === 'function') {
-                                        // 获取理由代码的可读文字
-                                        const reasonCode = item.r || item.reason || '';
-                                        const reasonText = getReasonText(reasonCode);
-                                        
-                                        const extracted = extractValuesByType(item.type, item.raw);
-                                        if (extracted && extracted.length > 0) {
-                                            // 给每个提取的结果添加理由
-                                            extracted.forEach(e => e.reason = reasonText);
-                                            parsed.push(...extracted);
-                                        } else {
-                                            // 即使提取失败也显示原始信息
-                                            parsed.push({ type: item.type, target: item.raw, amount: 0, raw: item.raw, reason: reasonText, reasonCode: reasonCode });
-                                        }
-                                    } else {
-                                        const reasonCode = item.r || item.reason || '';
-                                        const reasonText = getReasonText(reasonCode);
-                                        parsed.push({ type: item.type, target: item.raw, amount: 0, raw: item.raw, reason: reasonText, reasonCode: reasonCode });
-                                    }
+                                    // 【已优化】直接使用后端返回的数据，不再调用本地正则
+                                    const reasonCode = item.r || item.reason || '';
+                                    const reasonText = getReasonText(reasonCode);
+                                    parsed.push({
+                                        type: item.type || '未知',
+                                        target: item.raw,
+                                        amount: item.amount || 0,
+                                        numbers: item.numbers || [],
+                                        raw: item.raw,
+                                        reason: reasonText,
+                                        reasonCode: reasonCode
+                                    });
                                 }
                             }
                         } catch (e) {
@@ -7044,10 +7037,16 @@
                                         });
                                     }
                                 }
-                                // 回退：使用正则提取
+                                // 【已优化】后端未返回数据时，记录警告
                                 else {
-                                    console.log(`   ⚠️ 数据来源: 正则提取 (AI未提供numbers/amount)`);
-                                    extracted = extractValuesByType(type, raw);
+                                    console.log(`   ⚠️ 后端未返回numbers/amount，原文: "${raw}"`);
+                                    // 不再使用本地正则提取，等待后端完善
+                                    extracted = [{
+                                        type: type,
+                                        value: raw,
+                                        amount: 0,
+                                        parseError: '后端未提取数值'
+                                    }];
                                 }
                                 
                                 // 显示本条处理结果
@@ -7065,12 +7064,15 @@
                             }
                         }
                     } else if (restoredResult.items && Array.isArray(restoredResult.items)) {
-                        // 兼容旧格式
+                        // 【已优化】兼容旧格式 - 直接使用后端返回的数据
+                        console.log('⚠️ 收到旧格式数据，直接使用后端返回内容');
                         for (const item of restoredResult.items) {
-                            const extracted = extractValuesByType(item.type, item.raw);
-                            if (extracted && extracted.length > 0) {
-                                bets.push(...extracted);
-                            }
+                            bets.push({
+                                type: item.type || '未知',
+                                value: item.raw || '',
+                                amount: item.amount || 0,
+                                numbers: item.numbers || []
+                            });
                         }
                     }
                     
@@ -7184,368 +7186,9 @@
         }
         
         // ╔════════════════════════════════════════════════════════════════╗
-        // ║    【程序提取模块】根据AI识别的类型，用正则提取具体数值          ║
-        // ║    AI只负责分类，数值提取由程序完成，100%准确                   ║
+        // ║    【已移除】本地正则提取模块 - 已迁移到后端                    ║
+        // ║    后端使用 Function Calling 完成数值提取，前端直接使用结果    ║
         // ╚════════════════════════════════════════════════════════════════╝
-        function extractValuesByType(type, rawText) {
-            const bets = [];
-            // 预处理：+号替换为10（用户习惯用+表示十）
-            let text = rawText.replace(/\+/g, '10');
-            text = convertChineseNumber(text); // 转换中文数字
-            const shengxiaoList = ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'];
-            
-            switch (type) {
-                case '特码': {
-                    // 提取特码：数字(1-49) + 金额
-                    // 【重要】先检查多号码格式，避免误匹配
-                    // 【同义词】各/都/每个/统一/统 都表示"每个"的意思
-                    
-                    // 模式1: "10 12 20...各20" "10 12 20...都20" 多号码+金额指示词+金额
-                    // 匹配：可选的"特码"前缀 + 多个数字 + (各|都|每个|统一|统) + 金额
-                    const multiGeMatch = text.match(/(?:特码?\s*)?(\d+(?:[.,，\s]+\d+)+)\s*(?:各|都|每个|统一|统)\s*(\d+)/);
-                    if (multiGeMatch) {
-                        const nums = multiGeMatch[1].split(/[.,，\s]+/).map(n => parseInt(n)).filter(n => n >= 1 && n <= 49);
-                        const amount = parseInt(multiGeMatch[2]);
-                        console.log('🔍 特码多号码匹配:', nums, '金额', amount);
-                        nums.forEach(n => bets.push({ type: '特码', number: n, amount, raw: rawText }));
-                        break;
-                    }
-                    
-                    // 模式2: "46,45,X50" 或 "10 12 X20" X/×表示金额
-                    const xMatch = text.match(/(?:特码?\s*)?(\d+(?:[,，\s]+\d+)*)[,，\s]*[Xx×](\d+)/);
-                    if (xMatch) {
-                        const nums = xMatch[1].split(/[,，\s]+/).map(n => parseInt(n)).filter(n => n >= 1 && n <= 49);
-                        const amount = parseInt(xMatch[2]);
-                        console.log('🔍 特码X金额匹配:', nums, 'X', amount);
-                        nums.forEach(n => bets.push({ type: '特码', number: n, amount, raw: rawText }));
-                        break;
-                    }
-                    
-                    // 模式3: "特43 20元" "特码05 100" 单号码+金额（必须带"特"前缀，且后面只有一个数字+金额）
-                    const teMatch = text.match(/^特码?\s*(\d{1,2})\s+(\d+)(?:元)?$/);
-                    if (teMatch) {
-                        const num = parseInt(teMatch[1]);
-                        const amount = parseInt(teMatch[2]);
-                        if (num >= 1 && num <= 49) {
-                            console.log('🔍 特码单号码匹配:', num, '金额', amount);
-                            bets.push({ type: '特码', number: num, amount, raw: rawText });
-                        }
-                        break;
-                    }
-                    
-                    // 模式4: 简单 "43 20"（纯数字，无特码前缀，严格匹配）
-                    const simpleMatch = text.match(/^(\d{1,2})\s+(\d+)$/);
-                    if (simpleMatch) {
-                        const num = parseInt(simpleMatch[1]);
-                        if (num >= 1 && num <= 49) {
-                            bets.push({ type: '特码', number: num, amount: parseInt(simpleMatch[2]), raw: rawText });
-                        }
-                    }
-                    break;
-                }
-                
-                case '生肖特码': {
-                    // 【重要】"买猪各10" "买猪每个10" "买猪都10" = 买猪的号码(7,19,31,43)各10元做特码
-                    // 【同义词】各/每个/都/统一/统 都表示"每个"的意思
-                    const buyMatch = text.match(/买([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)\s*(?:各|每个|都|统一|统)?\s*(\d+)/);
-                    if (buyMatch) {
-                        const animals = buyMatch[1].split('').filter(a => shengxiaoList.includes(a));
-                        const amount = parseInt(buyMatch[2]);
-                        console.log('🔍 生肖特码匹配:', animals, '金额', amount);
-                        // 把每个生肖转换为对应的号码，每个号码都是一注特码
-                        for (const sx of animals) {
-                            const sxNums = LHC_DATA.shengxiao[sx] || [];
-                            sxNums.forEach(num => {
-                                bets.push({ type: '特码', number: num, amount, raw: rawText, fromShengxiao: sx });
-                            });
-                        }
-                    }
-                    break;
-                }
-                
-                case '生肖': {
-                    // 生肖玩法：买某生肖中奖，赔率12
-                    // 模式1: "鸡鼠猴X10" "龙x10"
-                    const xSxMatch = text.match(/([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)[Xx×](\d+)/);
-                    if (xSxMatch) {
-                        const animals = xSxMatch[1].split('').filter(a => shengxiaoList.includes(a));
-                        const amount = parseInt(xSxMatch[2]);
-                        animals.forEach(sx => bets.push({ type: '生肖', value: sx, amount, raw: rawText }));
-                        break;
-                    }
-                    // 模式2: 单个生肖 "猪 100" "猪100"
-                    for (const sx of shengxiaoList) {
-                        const sxMatch = text.match(new RegExp(`${sx}\\s*(\\d+)`));
-                        if (sxMatch) {
-                            bets.push({ type: '生肖', value: sx, amount: parseInt(sxMatch[1]), raw: rawText });
-                        }
-                    }
-                    break;
-                }
-                
-                case '波色': {
-                    // "红波50" "蓝波 100"
-                    const boseMatch = text.match(/(红|蓝|绿)波?\s*(\d+)/);
-                    if (boseMatch) {
-                        bets.push({ type: '波色', value: boseMatch[1] + '波', amount: parseInt(boseMatch[2]), raw: rawText });
-                    }
-                    break;
-                }
-                
-                case '半波': {
-                    // "红单50" "蓝双100" "绿大200"
-                    const banboMatch = text.match(/(红|蓝|绿)(大|小|单|双)\s*(\d+)/);
-                    if (banboMatch) {
-                        bets.push({ type: '半波', value: banboMatch[1] + banboMatch[2], amount: parseInt(banboMatch[3]), raw: rawText });
-                    }
-                    break;
-                }
-                
-                case '平特一肖': {
-                    // "平特猴鸡各200" "一友猪10"
-                    const pingteMatch = text.match(/(?:平特|一友)([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)各?(\d+)/);
-                    if (pingteMatch) {
-                        const animals = pingteMatch[1].split('').filter(a => shengxiaoList.includes(a));
-                        const amount = parseInt(pingteMatch[2]);
-                        animals.forEach(sx => bets.push({ type: '平特一肖', value: sx, amount, raw: rawText }));
-                    }
-                    break;
-                }
-                
-                case '平特二连肖': {
-                    // "二连肖猴鸡200" "二友猴鸡200"
-                    const pt2Match = text.match(/(?:二连肖|二友|平特二连)([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)\s*(\d+)/);
-                    if (pt2Match) {
-                        const animals = pt2Match[1].split('').filter(a => shengxiaoList.includes(a));
-                        const amount = parseInt(pt2Match[2]);
-                        bets.push({ type: '平特二连肖', value: animals.join(''), amount, raw: rawText });
-                    }
-                    break;
-                }
-                
-                case '平特三连肖': {
-                    // "三连肖猴鸡狗200" "三友猴鸡狗200"
-                    const pt3Match = text.match(/(?:三连肖|三友|平特三连)([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)\s*(\d+)/);
-                    if (pt3Match) {
-                        const animals = pt3Match[1].split('').filter(a => shengxiaoList.includes(a));
-                        const amount = parseInt(pt3Match[2]);
-                        bets.push({ type: '平特三连肖', value: animals.join(''), amount, raw: rawText });
-                    }
-                    break;
-                }
-                
-                case '平特四连肖': {
-                    // "四连肖猴鸡狗猪200"
-                    const pt4Match = text.match(/(?:四连肖|平特四连)([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)\s*(\d+)/);
-                    if (pt4Match) {
-                        const animals = pt4Match[1].split('').filter(a => shengxiaoList.includes(a));
-                        const amount = parseInt(pt4Match[2]);
-                        bets.push({ type: '平特四连肖', value: animals.join(''), amount, raw: rawText });
-                    }
-                    break;
-                }
-                
-                case '平特五连肖': {
-                    // "五连肖猴鸡狗猪鼠200"
-                    const pt5Match = text.match(/(?:五连肖|平特五连)([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)\s*(\d+)/);
-                    if (pt5Match) {
-                        const animals = pt5Match[1].split('').filter(a => shengxiaoList.includes(a));
-                        const amount = parseInt(pt5Match[2]);
-                        bets.push({ type: '平特五连肖', value: animals.join(''), amount, raw: rawText });
-                    }
-                    break;
-                }
-                
-                case '平特尾数': {
-                    // "平特尾5 100" "平尾5 100"
-                    const ptwMatch = text.match(/(?:平特尾|平尾)(\d)\s*(\d+)/);
-                    if (ptwMatch) {
-                        bets.push({ type: '平特尾数', value: ptwMatch[1], amount: parseInt(ptwMatch[2]), raw: rawText });
-                    }
-                    break;
-                }
-                
-                case '六肖': {
-                    // "六肖鼠牛虎兔龙蛇200"
-                    const liuxiaoMatch = text.match(/六肖([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)\s*(\d+)/);
-                    if (liuxiaoMatch) {
-                        const animals = liuxiaoMatch[1].split('').filter(a => shengxiaoList.includes(a));
-                        const amount = parseInt(liuxiaoMatch[2]);
-                        bets.push({ type: '六肖', value: animals.join(''), amount, raw: rawText });
-                    }
-                    break;
-                }
-                
-                case '单平': {
-                    // "单平05 100" "平码05 100"
-                    const danpingMatch = text.match(/(?:单平|平码)\s*(\d+)\s*(\d+)/);
-                    if (danpingMatch) {
-                        const num = parseInt(danpingMatch[1]);
-                        if (num >= 1 && num <= 49) {
-                            bets.push({ type: '单平', number: num, amount: parseInt(danpingMatch[2]), raw: rawText });
-                        }
-                        break;
-                    }
-                    // 多号码: "单平05.08.12各100"
-                    const multiDPMatch = text.match(/(?:单平|平码)\s*(\d+(?:[.,，\s]+\d+)+)各?(\d+)/);
-                    if (multiDPMatch) {
-                        const nums = multiDPMatch[1].split(/[.,，\s]+/).map(n => parseInt(n)).filter(n => n >= 1 && n <= 49);
-                        const amount = parseInt(multiDPMatch[2]);
-                        nums.forEach(n => bets.push({ type: '单平', number: n, amount, raw: rawText }));
-                    }
-                    break;
-                }
-                
-                case '大小单双': {
-                    // "大100" "小 50" "单双各20"
-                    const dxdsMatch = text.match(/(大|小|单|双)\s*(\d+)/g);
-                    if (dxdsMatch) {
-                        dxdsMatch.forEach(m => {
-                            const parts = m.match(/(大|小|单|双)\s*(\d+)/);
-                            if (parts) {
-                                bets.push({ type: '大小单双', value: parts[1], amount: parseInt(parts[2]), raw: rawText });
-                            }
-                        });
-                    }
-                    break;
-                }
-                
-                case '二中二': {
-                    // "二中二 01,02,03 各100"
-                    const ez2Match = text.match(/二中二\s*(\d+(?:[.,，\s]+\d+)+)各?(\d+)/);
-                    if (ez2Match) {
-                        const nums = ez2Match[1].split(/[.,，\s]+/).map(n => parseInt(n)).filter(n => n >= 1 && n <= 49);
-                        const amount = parseInt(ez2Match[2]);
-                        bets.push({ type: '二中二', numbers: nums, amount, raw: rawText });
-                    }
-                    break;
-                }
-                
-                case '三中三': {
-                    // "三中三 01,02,03,04 各100"
-                    const sz3Match = text.match(/三中三\s*(\d+(?:[.,，\s]+\d+)+)各?(\d+)/);
-                    if (sz3Match) {
-                        const nums = sz3Match[1].split(/[.,，\s]+/).map(n => parseInt(n)).filter(n => n >= 1 && n <= 49);
-                        const amount = parseInt(sz3Match[2]);
-                        bets.push({ type: '三中三', numbers: nums, amount, raw: rawText });
-                    }
-                    break;
-                }
-                
-                case '不中': {
-                    // "五不中01,02,03,04,05各100" "十二不中01-12各100"
-                    const bzMatch = text.match(/(五|六|七|八|九|十|十一|十二)不中\s*(\d+(?:[.,，\s]+\d+)+)各?(\d+)/);
-                    if (bzMatch) {
-                        const countMap = {'五':5,'六':6,'七':7,'八':8,'九':9,'十':10,'十一':11,'十二':12};
-                        const count = countMap[bzMatch[1]] || 5;
-                        const nums = bzMatch[2].split(/[.,，\s]+/).map(n => parseInt(n)).filter(n => n >= 1 && n <= 49);
-                        const amount = parseInt(bzMatch[3]);
-                        bets.push({ type: '不中', subType: bzMatch[1] + '不中', numbers: nums, count, amount, raw: rawText });
-                    }
-                    break;
-                }
-                
-                case '合肖': {
-                    // "合肖鼠牛200" "三肖鼠牛虎200"（非六肖）
-                    const hxMatch = text.match(/(?:合肖|[二三四五]肖)([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)\s*(\d+)/);
-                    if (hxMatch) {
-                        const animals = hxMatch[1].split('').filter(a => shengxiaoList.includes(a));
-                        const amount = parseInt(hxMatch[2]);
-                        bets.push({ type: '合肖', value: animals.join(''), count: animals.length, amount, raw: rawText });
-                    }
-                    break;
-                }
-                
-                case '连码': {
-                    // "二全中01,02各100" "三全中01,02,03各100" "二中特01,02各100" "特串01,02各100"
-                    const lianmaTypes = ['二全中', '三全中', '二中特', '三中特', '特串'];
-                    for (const lt of lianmaTypes) {
-                        const lmMatch = text.match(new RegExp(`${lt}\\s*(\\d+(?:[.,，\\s]+\\d+)+)各?(\\d+)`));
-                        if (lmMatch) {
-                            const nums = lmMatch[1].split(/[.,，\s]+/).map(n => parseInt(n)).filter(n => n >= 1 && n <= 49);
-                            const amount = parseInt(lmMatch[2]);
-                            bets.push({ type: '连码', subType: lt, numbers: nums, amount, raw: rawText });
-                            break;
-                        }
-                    }
-                    break;
-                }
-                
-                case '正肖': {
-                    // "正肖猪100" "正肖鼠牛各100"
-                    const zxMatch = text.match(/正肖([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)各?(\d+)/);
-                    if (zxMatch) {
-                        const animals = zxMatch[1].split('').filter(a => shengxiaoList.includes(a));
-                        const amount = parseInt(zxMatch[2]);
-                        animals.forEach(sx => bets.push({ type: '正肖', value: sx, amount, raw: rawText }));
-                    }
-                    break;
-                }
-                
-                case '总和': {
-                    // "总和大100" "总和单100"
-                    const zhMatch = text.match(/总和(大|小|单|双)\s*(\d+)/);
-                    if (zhMatch) {
-                        bets.push({ type: '总和', value: '总和' + zhMatch[1], amount: parseInt(zhMatch[2]), raw: rawText });
-                    }
-                    break;
-                }
-                
-                case '五行': {
-                    // "金100" "木100"
-                    const wxMatch = text.match(/(金|木|水|火|土)\s*(\d+)/);
-                    if (wxMatch) {
-                        bets.push({ type: '五行', value: wxMatch[1], amount: parseInt(wxMatch[2]), raw: rawText });
-                    }
-                    break;
-                }
-                
-                case '家野': {
-                    // "家禽100" "野兽100"
-                    const jyMatch = text.match(/(家禽|野兽)\s*(\d+)/);
-                    if (jyMatch) {
-                        bets.push({ type: '家野', value: jyMatch[1], amount: parseInt(jyMatch[2]), raw: rawText });
-                    }
-                    break;
-                }
-                
-                case '小数': {
-                    // "小数各20" - 1-24所有号码各20元
-                    const xsMatch = text.match(/小数各?(\d+)/);
-                    if (xsMatch) {
-                        const amount = parseInt(xsMatch[1]);
-                        // 小数 = 1-24
-                        for (let n = 1; n <= 24; n++) {
-                            bets.push({ type: '特码', number: n, amount, raw: rawText, fromXiaoshu: true });
-                        }
-                    }
-                    break;
-                }
-                
-                case '大数': {
-                    // "大数各20" - 25-49所有号码各20元
-                    const dsMatch = text.match(/大数各?(\d+)/);
-                    if (dsMatch) {
-                        const amount = parseInt(dsMatch[1]);
-                        // 大数 = 25-49
-                        for (let n = 25; n <= 49; n++) {
-                            bets.push({ type: '特码', number: n, amount, raw: rawText, fromDashu: true });
-                        }
-                    }
-                    break;
-                }
-                
-                default: {
-                    // 未知类型，尝试通用提取
-                    const numMatch = text.match(/(\d+)\s*[元块]?$/);
-                    if (numMatch) {
-                        bets.push({ type: '未知', value: text, amount: parseInt(numMatch[1]), raw: rawText });
-                    }
-                }
-            }
-            
-            return bets;
-        }
         
         // ==================== 参数设置 ====================
         function saveParamSettings() {
