@@ -5148,7 +5148,8 @@
                             const winPayout = items.filter(r => r.isWin).reduce((s, r) => s + r.winAmount, 0);
                             
                             const icon = hasWin ? '✓' : '✗';
-                            resultText += `${icon} ${type} (${typeOdds}倍): ${originalLine} ${betCount}×${items[0]?.amount || 0}元=${winPayout}元\n`;
+                            // 🆕 v3.0.1 修复：显示总投注金额(typeTotal)，不是中奖派彩(winPayout)
+                            resultText += `${icon} ${type} (${typeOdds}倍): ${originalLine} ${betCount}×${items[0]?.amount || 0}元=${typeTotal}元\n`;
                         }
                         
                         resultText += `━━━━━━━━━━━━━━━━━━\n`;
@@ -5228,6 +5229,7 @@
                 const type = group.type;
                 const originalLine = group.originalLine;
                 const betCount = items.length;
+                const typeTotal = items.reduce((s, it) => s + it.amount, 0);
                 const hasWin = items.some(r => r.isWin);
                 let typeOdds = items[0]?.odds || 1;
                 if (type === '特码' || type === '生肖特码') {
@@ -5235,10 +5237,10 @@
                 } else if (type === '平特生肖' || type === '平特一肖') {
                     typeOdds = parseFloat(savedOdds['odds-pingte1']) || 11;
                 }
-                const winPayout = items.filter(r => r.isWin).reduce((s, r) => s + r.winAmount, 0);
                 
                 const icon = hasWin ? '✓' : '✗';
-                resultText += `${icon} ${type} (${typeOdds}倍): ${originalLine} ${betCount}×${items[0]?.amount || 0}元=${winPayout}元\n`;
+                // 🆕 v3.0.1 修复：显示总投注金额(typeTotal)，不是中奖派彩
+                resultText += `${icon} ${type} (${typeOdds}倍): ${originalLine} ${betCount}×${items[0]?.amount || 0}元=${typeTotal}元\n`;
             }
             
             resultText += `━━━━━━━━━━━━━━━━━━\n`;
