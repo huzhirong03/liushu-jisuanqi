@@ -2247,9 +2247,10 @@
                     <!-- 动态渲染 -->
                 </div>
                 
-                <div style="display:flex;justify-content:space-between;font-size:12px;color:#aaa;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:#aaa;flex-wrap:wrap;gap:4px;">
                     <span>总投: <span id="fb-total-bet" style="color:#fff;">0</span>元</span>
-                    <span>赔率: <span id="fb-odds" style="color:#fbbf24;">43</span>倍</span>
+                    <span>中<span id="fb-win-count" style="color:#4caf50;">0</span>注</span>
+                    <span>派彩: <span id="fb-win-amount" style="color:#fbbf24;">0</span>元</span>
                     <span>盈亏: <span id="fb-total-result" style="font-weight:bold;">+0</span></span>
                 </div>
             </div>
@@ -5201,11 +5202,12 @@
             resultText += `━━━━━━━━━━━━━━━━━━\n`;
             resultText += `🎰 开奖: ${lotteryStr}\n`;
             resultText += `━━━━━━━━━━━━━━━━━━\n`;
+            // 🆕 v2.4.8 统计信息：识别注数 | 总投 | 中奖注数 | 派彩
             resultText += `📋 识别 ${calcResults.length} 注 | 总投 ${totalBet}元\n`;
-            if (totalWin > 0) {
-                resultText += `🎯 中奖 ${totalWin} 注 | 赢 ${totalWinAmount}元\n`;
-            }
-            resultText += `💰 结算: ${netResult >= 0 ? '+' : ''}${netResult}元\n`;
+            resultText += `中${totalWin}注 | 派彩 ${totalWinAmount}元\n`;
+            // 🆕 结算：从庄家角度，不中奖=收入(+)，中奖=支出(-)
+            const settleAmount = totalBet - totalWinAmount;  // 庄家盈亏 = 收入 - 派彩
+            resultText += `💰 结算: ${settleAmount >= 0 ? '+' : ''}${settleAmount}元\n`;
             resultText += `━━━━━━━━━━━━━━━━━━\n`;
             
             // 🆕 v2.4.6 按原文分组显示（和反馈页面格式一致）
@@ -5216,11 +5218,15 @@
                     byOriginal[key] = {
                         type: r.type,
                         originalLine: key,
-                        items: []
+                        items: [],
+                        odds: r.odds || 1  // 🆕 保存赔率
                     };
                 }
                 byOriginal[key].items.push(r);
             });
+            
+            // 🆕 v2.4.8 获取赔率设置，用于显示
+            const savedOdds = JSON.parse(localStorage.getItem('lhc_odds') || '{}');
             
             for (const group of Object.values(byOriginal)) {
                 const items = group.items;
@@ -5232,12 +5238,23 @@
                 const typeTotal = items.reduce((s, it) => s + it.amount, 0);
                 const hasWin = items.some(r => r.isWin);
                 
+                // 🆕 v2.4.8 获取对应类型的赔率
+                let typeOdds = items[0]?.odds || 1;
+                if (type === '特码' || type === '生肖特码') {
+                    typeOdds = parseFloat(savedOdds['odds-tema']) || 43;
+                } else if (type === '平特生肖' || type === '平特一肖') {
+                    typeOdds = parseFloat(savedOdds['odds-pingte1']) || 11;
+                } else if (type === '生肖' || type === '多肖') {
+                    typeOdds = parseFloat(savedOdds['odds-shengxiao']) || 12;
+                }
+                
                 // 🆕 中奖状态：红X / 绿✓
                 const statusIcon = hasWin ? '✓' : '✗';
                 // 🆕 v2.4.7 只有生肖特码才显示号码列表
                 const numbersStr = (type === '生肖特码' && nums) ? ` （${nums}）` : ' ';
                 
-                resultText += `${statusIcon} ${type}: ${originalLine}${numbersStr}${betCount}×${amt}元=${typeTotal}元\n`;
+                // 🆕 v2.4.8 格式：✗ 类型(赔率倍): 原文 注数×金额元=总额元
+                resultText += `${statusIcon} ${type}(${typeOdds}倍): ${originalLine}${numbersStr}${betCount}×${amt}元=${typeTotal}元\n`;
             }
             
             // 如果有问题提示
@@ -8311,13 +8328,16 @@
             
             // 计算汇总
             const totalBet = calcResults?.reduce((sum, r) => sum + r.amount, 0) || 0;
+            const winCount = calcResults?.filter(r => r.isWin).length || 0;
             const winAmount = calcResults?.filter(r => r.isWin).reduce((sum, r) => sum + r.winAmount, 0) || 0;
-            const profit = winAmount - totalBet;
+            // 🆕 v2.4.8 从庄家角度：盈亏 = 收入(总投) - 支出(派彩)
+            const profit = totalBet - winAmount;
             
             // 更新顶部固定栏
             document.getElementById('fb-issue').textContent = `${typeNames[currentType]} 第${issue}期`;
-            document.getElementById('fb-odds').textContent = temaOdds;
             document.getElementById('fb-total-bet').textContent = totalBet;
+            document.getElementById('fb-win-count').textContent = winCount;
+            document.getElementById('fb-win-amount').textContent = winAmount;
             document.getElementById('fb-total-result').textContent = (profit >= 0 ? '+' : '') + profit;
             document.getElementById('fb-total-result').style.color = profit >= 0 ? '#4caf50' : '#f44336';
             
@@ -8513,6 +8533,17 @@
                     // 🆕 获取类型名称
                     const typeName = items[0]?.type || '未知';
                     
+                    // 🆕 v2.4.8 获取对应类型的赔率
+                    const savedOdds = JSON.parse(localStorage.getItem('lhc_odds') || '{}');
+                    let typeOdds = items[0]?.odds || 1;
+                    if (typeName === '特码' || typeName === '生肖特码') {
+                        typeOdds = parseFloat(savedOdds['odds-tema']) || 43;
+                    } else if (typeName === '平特生肖' || typeName === '平特一肖') {
+                        typeOdds = parseFloat(savedOdds['odds-pingte1']) || 11;
+                    } else if (typeName === '生肖' || typeName === '多肖') {
+                        typeOdds = parseFloat(savedOdds['odds-shengxiao']) || 12;
+                    }
+                    
                     // 🆕 中奖状态标记
                     const statusIcon = hasWin 
                         ? '<span style="color:#4caf50;font-weight:bold;font-size:14px;">✓</span>' 
@@ -8527,7 +8558,7 @@
                     // 🆕 只有生肖特码才显示号码列表
                     const numbersStr = (typeName === '生肖特码' && uniqueNumbers.length > 0) ? `（${uniqueNumbers.join(',')}）` : '';
                     
-                    // 格式：✓/✗ 类型: 原文（号码）注数×金额元= 总额元  盈亏  ❌
+                    // 格式：✓/✗ 类型(赔率倍): 原文（号码）注数×金额元= 总额元  盈亏  ❌
                     html += `
                     <div class="fb-line" data-index="${firstIndex}" style="
                         display:flex;
@@ -8540,7 +8571,7 @@
                     ">
                         <div style="flex:1;font-size:12px;line-height:1.5;">
                             ${statusIcon}
-                            <span style="color:#64b5f6;margin-left:4px;">${typeName}:</span>
+                            <span style="color:#64b5f6;margin-left:4px;">${typeName}(${typeOdds}倍):</span>
                             <span style="color:#fbbf24;font-weight:bold;margin-left:4px;">${line.originalLine}</span>
                             ${numbersStr ? `<span style="color:#888;font-size:11px;">${numbersStr}</span>` : ''}
                             <span style="color:#aaa;margin-left:6px;">${betCount}×${unitAmount}元=</span>
