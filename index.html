@@ -1184,16 +1184,22 @@
                             <button onclick="calculateBets()" style="padding:6px 12px;background:linear-gradient(90deg,#e94560,#c23a51);color:white;border:none;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;">📊 开始计算</button>
                         </div>
                     </div>
-                    <textarea class="input-textarea" id="bet-input" style="flex:1;min-height:200px;" placeholder="在此粘贴用户发送的下注信息...
+                    <textarea class="input-textarea" id="bet-input" style="flex:1;min-height:200px;" placeholder="粘贴下注信息，支持智能分组计算盈亏
 
-    示例：
-    31.34各二十
-    小数各20
-    买猪各10
-    特43 20元
-    10 12 20 22 23 25 33 40 43 44 30各20
-    龙x10
-    狗x80，猴鸡x50"></textarea>
+📌 分组规则：空一行 = 分隔不同组
+━━━━━━━━━━━━━━━━━━━━
+买猪各10
+特43 20元
+                    ← 空行分隔
+39x200
+31.34各二十
+━━━━━━━━━━━━━━━━━━━━
+💡 也可点击「📦分组」按钮手动编辑分组
+
+📝 支持格式：
+• 生肖：买猪各10、龙x10、猴鸡x50
+• 特码：特43 20元、31.34各二十
+• 多号：10 12 20 22各20"></textarea>
                 </div>
                 
                 <!-- 结果显示 -->
@@ -4912,47 +4918,99 @@
                     
                     if (aiResult && aiResult.bets && aiResult.bets.length > 0) {
                         // parseWithAI 已经完成了类型识别和数值提取，直接使用结果
-                        // 🆕 v2.4 为 AI 结果添加完整的分组和行级信息
-                        const groups = input.split(/\n\s*\n/).filter(g => g.trim());
+                        // 🆕 v2.4.1 为 AI 结果添加完整的分组和行级信息
+                        
+                        // 统一换行符处理
+                        const normalizedInput = input.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                        
+                        // 按空行分组（连续空白行视为一个分隔）
+                        const groups = normalizedInput.split(/\n\s*\n+/).filter(g => g.trim());
+                        
+                        console.log('═══════════════════════════════════════════════════════');
+                        console.log('📦 分组切割结果:', groups.length, '组');
+                        groups.forEach((g, i) => {
+                            const lines = g.split('\n').filter(l => l.trim());
+                            console.log(`  组${i+1}: ${lines.length}行`);
+                            lines.forEach((l, j) => console.log(`    ${j+1}. ${l.substring(0, 30)}...`));
+                        });
+                        console.log('═══════════════════════════════════════════════════════');
                         
                         // 构建行索引映射：每一行的原文 → { groupId, lineIndexInGroup, globalLineIndex }
+                        // 🆕 同时构建有序数组，用于按比例分配
                         const lineIndexMap = {};
+                        const lineArray = [];  // 有序的行信息数组
                         let globalIdx = 0;
+                        
                         groups.forEach((groupText, gIdx) => {
                             const lines = groupText.split('\n').map(l => l.trim()).filter(l => l);
                             lines.forEach((line, lIdx) => {
-                                lineIndexMap[line] = {
+                                const lineInfo = {
                                     groupId: gIdx + 1,
                                     lineIndexInGroup: lIdx,
                                     lineId: `${gIdx + 1}-${lIdx}`,
                                     globalLineIndex: globalIdx,
                                     originalLine: line
                                 };
+                                lineIndexMap[line] = lineInfo;
+                                lineArray.push(lineInfo);
                                 globalIdx++;
                             });
                         });
                         
-                        console.log('📋 行索引映射:', lineIndexMap);
+                        console.log('📋 行索引映射:', Object.keys(lineIndexMap).length, '行');
                         
+                        // 🆕 v2.4.1 改进的行匹配算法
                         // 为每个 bet 找到对应的行信息
                         parsedBets = aiResult.bets.map((bet, betIdx) => {
-                            const rawText = bet.raw || '';
+                            const rawText = (bet.raw || '').trim();
                             
-                            // 尝试精确匹配
+                            // 【策略1】精确匹配
                             let lineInfo = lineIndexMap[rawText];
                             
-                            // 如果精确匹配失败，尝试模糊匹配（处理前后空格差异）
-                            if (!lineInfo) {
-                                const rawTrimmed = rawText.trim();
+                            // 【策略2】原文是行的子串（行包含原文）
+                            if (!lineInfo && rawText.length >= 3) {
+                                let bestMatch = null;
+                                let bestMatchLen = 0;
+                                
                                 for (const [key, info] of Object.entries(lineIndexMap)) {
-                                    if (key.includes(rawTrimmed) || rawTrimmed.includes(key.substring(0, Math.min(10, key.length)))) {
+                                    // 检查：行包含raw，且raw占行长度的比例
+                                    if (key.includes(rawText)) {
+                                        // 选择包含raw且长度最短的行（最精确匹配）
+                                        if (!bestMatch || key.length < bestMatch.length) {
+                                            bestMatch = key;
+                                            lineInfo = info;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // 【策略3】raw是行的开头部分（至少匹配前8个字符）
+                            if (!lineInfo && rawText.length >= 5) {
+                                const rawPrefix = rawText.substring(0, Math.min(8, rawText.length));
+                                for (const [key, info] of Object.entries(lineIndexMap)) {
+                                    if (key.startsWith(rawPrefix)) {
                                         lineInfo = info;
                                         break;
                                     }
                                 }
                             }
                             
-                            // 如果还是没找到，使用默认值（单独一行）
+                            // 【策略4】都匹配不到，根据 betIdx 按比例分配到各组
+                            if (!lineInfo) {
+                                // 使用有序的 lineArray 按比例分配
+                                const totalLines = lineArray.length;
+                                if (totalLines > 0) {
+                                    // 按比例估算当前 bet 应该属于哪一行
+                                    const estimatedLineIdx = Math.min(
+                                        Math.floor(betIdx * totalLines / aiResult.bets.length),
+                                        totalLines - 1
+                                    );
+                                    lineInfo = lineArray[estimatedLineIdx];
+                                    console.log(`    📍 策略4分配: bet[${betIdx}] "${rawText.substring(0,15)}..." → 行${estimatedLineIdx} 组${lineInfo.groupId}`);
+                                }
+                            }
+                            
+                            // 最终兜底
                             if (!lineInfo) {
                                 lineInfo = {
                                     groupId: 1,
@@ -4970,7 +5028,7 @@
                                 lineId: lineInfo.lineId,
                                 originalLine: lineInfo.originalLine,
                                 globalLineIndex: lineInfo.globalLineIndex,
-                                betIndexInLine: 0  // AI 解析时一行一条，默认为0
+                                betIndexInLine: 0
                             };
                         });
                         
@@ -5151,34 +5209,48 @@
          * 打开分组编辑器
          */
         function showGroupEditor() {
-            const input = document.getElementById('bet-input').value.trim();
-            if (!input) {
+            const input = document.getElementById('bet-input').value;
+            if (!input.trim()) {
                 alert('请先粘贴下注信息');
                 return;
             }
             
-            // 解析现有内容，识别已有的分组分隔符
-            const rawLines = input.split('\n');
+            // 🆕 v2.4.1 改进的空行检测：统一换行符，连续空行视为一个分组分隔
+            const normalizedInput = input
+                .replace(/\r\n/g, '\n')
+                .replace(/\r/g, '\n');
+            
+            const rawLines = normalizedInput.split('\n');
             groupEditorLines = [];
             
-            let currentGroupText = [];
+            let lastWasEmpty = false;  // 跟踪上一行是否为空
+            
             for (let i = 0; i < rawLines.length; i++) {
                 const line = rawLines[i].trim();
                 
-                // 空行表示分组分隔
+                // 空行（包括只有空格的行）
                 if (!line) {
-                    // 标记上一行后面有分组线
-                    if (groupEditorLines.length > 0) {
+                    // 连续空行只标记一次
+                    if (!lastWasEmpty && groupEditorLines.length > 0) {
                         groupEditorLines[groupEditorLines.length - 1].hasGroupBreakAfter = true;
                     }
+                    lastWasEmpty = true;
                     continue;
                 }
                 
+                lastWasEmpty = false;
                 groupEditorLines.push({
                     text: line,
                     hasGroupBreakAfter: false
                 });
             }
+            
+            // 调试：显示识别到的分组数
+            const groupCount = groupEditorLines.filter(l => l.hasGroupBreakAfter).length + 1;
+            console.log(`📦 分组编辑器识别: ${groupEditorLines.length} 行, ${groupCount} 组`);
+            groupEditorLines.forEach((l, i) => {
+                console.log(`  ${i+1}. "${l.text.substring(0,20)}..." ${l.hasGroupBreakAfter ? '【分组线】' : ''}`);
+            });
             
             // 渲染编辑器
             renderGroupEditor();
@@ -8260,9 +8332,7 @@
                         return;
                     }
                     
-                    // 聚合同一行的号码
-                    const allNumbers = items.map(it => it.numbers || it.value).filter(n => n);
-                    const uniqueNumbers = [...new Set(allNumbers.join(',').split(',').filter(n => n))];
+                    // 🆕 v2.4.1 简化显示格式：原文  注数×金额= 总额  盈亏
                     const betCount = items.length;
                     const unitAmount = items[0]?.amount || 0;
                     const totalAmount = items.reduce((s, it) => s + it.amount, 0);
@@ -8272,7 +8342,7 @@
                     const hasWin = items.some(it => it.isWin);
                     const firstIndex = items[0]?.index || 0;
                     
-                    // 格式：原文（号码）注数×金额=总额  盈亏  ❌
+                    // 简洁格式：原文  注数×金额= 总额  盈亏  ❌
                     html += `
                     <div class="fb-line" data-index="${firstIndex}" style="
                         display:flex;
@@ -8285,8 +8355,7 @@
                     ">
                         <div style="flex:1;font-size:12px;line-height:1.5;">
                             <span style="color:#fbbf24;font-weight:bold;">${line.originalLine}</span>
-                            <span style="color:#888;">（${uniqueNumbers.join(',')}）</span>
-                            <span style="color:#aaa;">${betCount}×${unitAmount}=</span>
+                            <span style="color:#aaa;margin-left:8px;">${betCount}×${unitAmount}=</span>
                             <span style="color:#fff;">${totalAmount}元</span>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
