@@ -4817,9 +4817,59 @@
         // ║                    【模块2】计算逻辑模块                        ║
         // ║  文件分离时提取到: js/calculator.js                             ║
         // ║  功能: 根据开奖号码和下注信息计算中奖结果                        ║
+        // ║  🆕 v3.0 计算逻辑已迁移到后端，前端只做展示                      ║
         // ╚════════════════════════════════════════════════════════════════╝
         
-        // 计算单注结果
+        /**
+         * 🆕 v3.0 获取赔率配置（转换为后端格式）
+         * @returns {Object} 赔率配置 {r1, r2, r3}
+         */
+        function getOddsConfig() {
+            const savedOdds = JSON.parse(localStorage.getItem('lhc_odds') || '{}');
+            return {
+                r1: parseFloat(savedOdds['odds-tema']) || 43,      // 特码倍率
+                r2: parseFloat(savedOdds['odds-shengxiao']) || 12, // 生肖倍率
+                r3: parseFloat(savedOdds['odds-pingte1']) || 11    // 平特一肖倍率
+            };
+        }
+        
+        /**
+         * 🆕 v3.0 调用后端计算接口（一站式：识别+计算）
+         * @param {string} sanitizedInput 脱敏后的输入文本
+         * @param {Array} dataArr 数据数组（7个数字）
+         * @param {Object} config 配置参数 {r1, r2, r3}
+         * @param {string} provider 服务商
+         * @param {string} model 模型
+         * @returns {Object} 计算结果 {success, items, s1, s2, s3, s4, error}
+         */
+        async function callBackendCalc(sanitizedInput, dataArr, config, provider = 'deepseek', model = null) {
+            const requestBody = {
+                t: sanitizedInput,   // 脱敏后的文本
+                d: dataArr,          // 数据数组（7个数字）
+                c: config,           // 配置参数
+                p: provider,         // 服务商
+                m: model             // 模型
+            };
+            
+            console.log('📤 调用后端计算接口:', requestBody);
+            
+            const response = await fetch(`${ALIYUN_PROXY_URL}/api/calc`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            });
+            
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`后端计算失败: ${response.status} - ${errText}`);
+            }
+            
+            const result = await response.json();
+            console.log('📥 后端计算结果:', result);
+            return result;
+        }
+        
+        // 计算单注结果（🆕 v3.0 仅作为本地解析的备用，主要逻辑在后端）
         function calculateSingleBet(bet, lotteryNumbers) {
             const tema = lotteryNumbers[6]; // 特码
             const pingma = lotteryNumbers.slice(0, 6); // 平码
@@ -4992,194 +5042,132 @@
             debugInfo.aiBets = [];
             debugInfo.lastError = '';
             
-            // 【新架构】AI优先识别所有行的类型，程序负责数值提取
+            // 🆕 v3.0 【新架构】计算逻辑在后端，前端只做展示
             // API Key 已移至后端，只需检查 aiEnabled
             if (settings.aiEnabled) {
                 // 【AI调试显示】开始
-                showAutoCloseToast('🤖 AI正在识别玩法类型...', 8000);
+                showAutoCloseToast('🤖 后端正在识别并计算...', 8000);
                 // 【AI调试显示】结束
                 
                 try {
-                    // AI识别所有行的类型
-                    const aiResult = await parseWithAI(input);
-                    console.log('AI返回结果:', aiResult); // 调试
+                    // 🆕 v3.0 对输入进行脱敏
+                    const sanitizedInput = sanitizeText(input);
+                    debugInfo.sanitizedInput = sanitizedInput;
+                    console.log('🔒 脱敏后输入:', sanitizedInput);
                     
-                    if (aiResult && aiResult.bets && aiResult.bets.length > 0) {
-                        // parseWithAI 已经完成了类型识别和数值提取，直接使用结果
-                        // 🆕 v2.4.1 为 AI 结果添加完整的分组和行级信息
+                    // 🆕 v3.0 调用后端一站式计算接口
+                    const config = getOddsConfig();
+                    const backendResult = await callBackendCalc(
+                        sanitizedInput,
+                        appState.lotteryNumbers,
+                        config,
+                        settings.aiProvider || 'deepseek',
+                        null
+                    );
+                    
+                    if (backendResult.success && backendResult.items && backendResult.items.length > 0) {
+                        // 🆕 v3.0 转换后端结果为前端格式
+                        const TYPE_NAME_MAP = {
+                            'T01': '特码', 'SXTM': '生肖特码', 'SX': '生肖',
+                            'BS': '波色', 'BB': '半波', 'PT1': '平特一肖',
+                            'PT2': '平特二连肖', 'PT3': '平特三连肖',
+                            'XS': '小数', 'DS': '大数', 'ODD': '单数', 'EVEN': '双数',
+                            'UK': '未知'
+                        };
                         
-                        // 统一换行符处理
-                        const normalizedInput = input.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                        parsedBets = backendResult.items.map((item, idx) => ({
+                            type: TYPE_NAME_MAP[item.code] || item.code,
+                            number: item.n && item.n.length === 1 ? item.n[0] : null,
+                            numbers: item.n || [],
+                            amount: item.a || 0,
+                            raw: restoreText(item.raw || ''),
+                            originalLine: restoreText(item.raw || ''),
+                            zodiac: item.z || null,
+                            fromAI: true,
+                            groupId: 1,
+                            lineId: `1-${idx}`,
+                            globalLineIndex: idx,
+                            betIndexInLine: item.idx || 0,
+                            // 🆕 v3.0 后端计算的结果
+                            isWin: item.w || false,
+                            winAmount: item.v || 0,
+                            odds: item.r || 1,
+                            detail: `${TYPE_NAME_MAP[item.code] || item.code} ${item.n ? item.n.join(',') : ''} vs 特码${appState.lotteryNumbers[6]}`,
+                            netResult: item.w ? -(item.v - item.a) : item.a
+                        }));
                         
-                        // 🆕 v2.4.6 改进分组逻辑：逐行检测空行，避免行首空格干扰
-                        const allLines = normalizedInput.split('\n');
-                        const groups = [];
-                        let currentGroup = [];
+                        // 🆕 v3.0 直接使用后端计算的结果
+                        calcResults = parsedBets;
                         
-                        for (const line of allLines) {
-                            const trimmedLine = line.trim();
-                            if (trimmedLine === '') {
-                                if (currentGroup.length > 0) {
-                                    groups.push(currentGroup.join('\n'));
-                                    currentGroup = [];
-                                }
-                            } else {
-                                currentGroup.push(trimmedLine);
+                        // 🆕 v3.0 使用后端返回的统计数据
+                        const totalBet = backendResult.s1 || 0;      // 总投注
+                        const totalWin = backendResult.s2 || 0;      // 中奖注数
+                        const totalWinAmount = backendResult.s3 || 0; // 派彩金额
+                        const settleAmount = backendResult.s4 || 0;   // 结算
+                        
+                        // 记录调试信息
+                        debugInfo.modelUsed = backendResult.model_used || 'unknown';
+                        debugInfo.latencyMs = backendResult.latency_ms || 0;
+                        
+                        console.log(`✅ 后端计算完成: 识别${calcResults.length}注, 总投${totalBet}, 中${totalWin}注, 派彩${totalWinAmount}, 结算${settleAmount}`);
+                        showAutoCloseToast(`✅ 计算完成 ${calcResults.length} 注`, 2000);
+                        
+                        // 🆕 v3.0 直接跳转到显示结果部分
+                        // 获取开奖信息
+                        const tema = appState.lotteryNumbers[6];
+                        const lotteryStr = appState.lotteryNumbers.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') + ' + 特码' + String(tema).padStart(2,'0');
+                        
+                        // 生成结果文本
+                        let resultText = `📊 计算结果\n`;
+                        resultText += `━━━━━━━━━━━━━━━━━━\n`;
+                        resultText += `🎰 开奖: ${lotteryStr}\n`;
+                        resultText += `━━━━━━━━━━━━━━━━━━\n`;
+                        resultText += `📋 识别 ${calcResults.length} 注 | 总投 ${totalBet}元\n`;
+                        resultText += `中${totalWin}注 | 派彩 ${totalWinAmount}元\n`;
+                        resultText += `💰 结算: ${settleAmount >= 0 ? '+' : ''}${settleAmount}元\n`;
+                        resultText += `━━━━━━━━━━━━━━━━━━\n`;
+                        
+                        // 按原文分组显示
+                        const byOriginal = {};
+                        calcResults.forEach(r => {
+                            const key = r.raw || r.originalLine || r.type;
+                            if (!byOriginal[key]) {
+                                byOriginal[key] = { type: r.type, originalLine: key, items: [], odds: r.odds || 1 };
                             }
+                            byOriginal[key].items.push(r);
+                        });
+                        
+                        for (const group of Object.values(byOriginal)) {
+                            const items = group.items;
+                            const type = group.type;
+                            const originalLine = group.originalLine;
+                            const betCount = items.length;
+                            const typeTotal = items.reduce((s, it) => s + it.amount, 0);
+                            const hasWin = items.some(r => r.isWin);
+                            const typeOdds = items[0]?.odds || 1;
+                            const winPayout = items.filter(r => r.isWin).reduce((s, r) => s + r.winAmount, 0);
+                            
+                            const icon = hasWin ? '✓' : '✗';
+                            resultText += `${icon} ${type} (${typeOdds}倍): ${originalLine} ${betCount}×${items[0]?.amount || 0}元=${winPayout}元\n`;
                         }
-                        if (currentGroup.length > 0) {
-                            groups.push(currentGroup.join('\n'));
-                        }
                         
-                        console.log('═══════════════════════════════════════════════════════');
-                        console.log('📦 分组切割结果:', groups.length, '组');
-                        groups.forEach((g, i) => {
-                            const lines = g.split('\n').filter(l => l.trim());
-                            console.log(`  组${i+1}: ${lines.length}行`);
-                            lines.forEach((l, j) => console.log(`    ${j+1}. ${l.substring(0, 30)}...`));
-                        });
-                        console.log('═══════════════════════════════════════════════════════');
+                        resultText += `━━━━━━━━━━━━━━━━━━\n`;
+                        resultText += `💡 结果有误？点击下方"提交反馈"\n`;
                         
-                        // 构建行索引映射：每一行的原文 → { groupId, lineIndexInGroup, globalLineIndex }
-                        // 🆕 同时构建有序数组，用于按比例分配
-                        const lineIndexMap = {};
-                        const lineArray = [];  // 有序的行信息数组
-                        let globalIdx = 0;
-                        
-                        groups.forEach((groupText, gIdx) => {
-                            const lines = groupText.split('\n').map(l => l.trim()).filter(l => l);
-                            lines.forEach((line, lIdx) => {
-                                const lineInfo = {
-                                    groupId: gIdx + 1,
-                                    lineIndexInGroup: lIdx,
-                                    lineId: `${gIdx + 1}-${lIdx}`,
-                                    globalLineIndex: globalIdx,
-                                    originalLine: line
-                                };
-                                lineIndexMap[line] = lineInfo;
-                                lineArray.push(lineInfo);
-                                globalIdx++;
-                            });
-                        });
-                        
-                        console.log('📋 行索引映射:', Object.keys(lineIndexMap).length, '行');
-                        
-                        // 🆕 v2.4.1 改进的行匹配算法
-                        // 为每个 bet 找到对应的行信息
-                        parsedBets = aiResult.bets.map((bet, betIdx) => {
-                            const rawText = (bet.raw || '').trim();
-                            
-                            // 【策略1】精确匹配
-                            let lineInfo = lineIndexMap[rawText];
-                            
-                            // 【策略2】原文是行的子串（行包含原文）
-                            if (!lineInfo && rawText.length >= 3) {
-                                let bestMatch = null;
-                                let bestMatchLen = 0;
-                                
-                                for (const [key, info] of Object.entries(lineIndexMap)) {
-                                    // 检查：行包含raw，且raw占行长度的比例
-                                    if (key.includes(rawText)) {
-                                        // 选择包含raw且长度最短的行（最精确匹配）
-                                        if (!bestMatch || key.length < bestMatch.length) {
-                                            bestMatch = key;
-                                            lineInfo = info;
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // 【策略3】raw是行的开头部分（至少匹配前8个字符）
-                            if (!lineInfo && rawText.length >= 5) {
-                                const rawPrefix = rawText.substring(0, Math.min(8, rawText.length));
-                                for (const [key, info] of Object.entries(lineIndexMap)) {
-                                    if (key.startsWith(rawPrefix)) {
-                                        lineInfo = info;
-                                        break;
-                                    }
-                                }
-                            }
-                            
-                            // 【策略4】都匹配不到，根据 betIdx 按比例分配到各组
-                            if (!lineInfo) {
-                                // 使用有序的 lineArray 按比例分配
-                                const totalLines = lineArray.length;
-                                if (totalLines > 0) {
-                                    // 按比例估算当前 bet 应该属于哪一行
-                                    const estimatedLineIdx = Math.min(
-                                        Math.floor(betIdx * totalLines / aiResult.bets.length),
-                                        totalLines - 1
-                                    );
-                                    lineInfo = lineArray[estimatedLineIdx];
-                                    console.log(`    📍 策略4分配: bet[${betIdx}] "${rawText.substring(0,15)}..." → 行${estimatedLineIdx} 组${lineInfo.groupId}`);
-                                }
-                            }
-                            
-                            // 最终兜底
-                            if (!lineInfo) {
-                                lineInfo = {
-                                    groupId: 1,
-                                    lineIndexInGroup: betIdx,
-                                    lineId: `1-${betIdx}`,
-                                    globalLineIndex: betIdx,
-                                    originalLine: rawText
-                                };
-                            }
-                            
-                            return {
-                                ...bet,
-                                fromAI: true,
-                                groupId: lineInfo.groupId,
-                                lineId: lineInfo.lineId,
-                                originalLine: lineInfo.originalLine,
-                                globalLineIndex: lineInfo.globalLineIndex,
-                                betIndexInLine: 0
-                            };
-                        });
-                        
-                        // 处理同一行多注的情况（比如 "买猪各10" 会生成多个号码的下注）
-                        // 按 originalLine 分组，重新分配 betIndexInLine
-                        const lineGrouped = {};
-                        parsedBets.forEach(bet => {
-                            const key = bet.originalLine || bet.raw || '';
-                            if (!lineGrouped[key]) lineGrouped[key] = [];
-                            lineGrouped[key].push(bet);
-                        });
-                        Object.values(lineGrouped).forEach(betsInLine => {
-                            betsInLine.forEach((bet, idx) => {
-                                bet.betIndexInLine = idx;
-                            });
-                        });
-                        
-                        // 🆕 保存分组信息（包含行级数据）
-                        parsedGroups = groups.map((g, i) => {
-                            const lines = g.split('\n').map(l => l.trim()).filter(l => l);
-                            return {
-                                id: i + 1,
-                                rawText: g,
-                                lines: lines,
-                                bets: parsedBets.filter(b => b.groupId === i + 1),
-                                betCount: parsedBets.filter(b => b.groupId === i + 1).length,
-                                lineCount: lines.length
-                            };
-                        });
-                        
-                        console.log('AI解析成功，下注数:', parsedBets.length, '分组数:', parsedGroups.length);
-                        console.log('📊 分组详情:', parsedGroups.map(g => `组${g.id}: ${g.lineCount}行 ${g.betCount}注`));
-                        showAutoCloseToast(`✅ AI识别 ${parsedBets.length} 条`, 2000);
+                        // 显示结果
+                        document.getElementById('result-output').innerText = resultText;
+                        return; // 🆕 v3.0 后端计算完成，直接返回
                     } else {
-                        // AI返回空结果，回退本地解析
-                        console.log('AI返回空结果，回退本地解析');
-                        debugInfo.lastError = 'AI返回空结果或解析失败';
-                        showAutoCloseToast('⚠️ AI无结果，使用本地解析', 2000);
+                        // 后端返回空结果或失败，回退本地解析
+                        console.warn('⚠️ 后端计算失败或返回空结果:', backendResult.error);
+                        debugInfo.lastError = backendResult.error || '后端返回空结果';
+                        showAutoCloseToast('⚠️ 后端计算失败，使用本地解析', 2000);
                         parsedBets = parseBetInput(input);
                     }
                 } catch (e) {
-                    console.error('AI解析失败:', e);
+                    console.error('❌ 后端计算异常:', e);
                     debugInfo.lastError = e.message || String(e);
-                    // 【AI调试显示】开始
-                    showAutoCloseToast('❌ AI失败: ' + e.message, 3000);
-                    // 【AI调试显示】结束
+                    showAutoCloseToast('❌ 后端计算异常: ' + e.message, 3000);
                     // 回退到本地解析
                     parsedBets = parseBetInput(input);
                 }
@@ -5188,14 +5176,15 @@
                 parsedBets = parseBetInput(input);
             }
             
-            console.log('最终解析结果:', parsedBets); // 调试
-            
+            // ═══════════════════════════════════════════════════════════
+            // 以下是本地解析的回退逻辑（当后端计算失败时使用）
+            // ═══════════════════════════════════════════════════════════
             if (parsedBets.length === 0) {
                 alert('❌ 未识别到有效的下注信息\n\n建议：\n1. 检查输入格式\n2. 在"自定义格式"中添加规则\n3. 启用AI智能解析');
                 return;
             }
             
-            // 计算每注结果
+            // 本地计算（回退模式）
             calcResults = parsedBets.map(bet => calculateSingleBet(bet, appState.lotteryNumbers));
             
             // 汇总
@@ -5217,87 +5206,45 @@
             resultText += `📋 识别 ${calcResults.length} 注 | 总投 ${totalBet}元\n`;
             resultText += `中${totalWin}注 | 派彩 ${totalWinAmount}元\n`;
             // 🆕 v2.4.8 结算：从玩家角度，派彩 - 总投入 = 净盈亏（正数为赢）
-            const settleAmount = totalWinAmount - totalBet;  // 玩家盈亏 = 派彩 - 投入
+            const settleAmount = totalWinAmount - totalBet;
             resultText += `💰 结算: ${settleAmount >= 0 ? '+' : ''}${settleAmount}元\n`;
             resultText += `━━━━━━━━━━━━━━━━━━\n`;
             
-            // 🆕 v2.4.6 按原文分组显示（和反馈页面格式一致）
+            // 按原文分组显示
             const byOriginal = {};
             calcResults.forEach(r => {
                 const key = r.raw || r.originalLine || r.type;
                 if (!byOriginal[key]) {
-                    byOriginal[key] = {
-                        type: r.type,
-                        originalLine: key,
-                        items: [],
-                        odds: r.odds || 1  // 🆕 保存赔率
-                    };
+                    byOriginal[key] = { type: r.type, originalLine: key, items: [], odds: r.odds || 1 };
                 }
                 byOriginal[key].items.push(r);
             });
             
-            // 🆕 v2.4.8 获取赔率设置，用于显示
             const savedOdds = JSON.parse(localStorage.getItem('lhc_odds') || '{}');
-            
-            // 🆕 v2.4.8 高亮中奖号码的函数
-            function highlightWinNum(text, winNum) {
-                if (!winNum) return text;
-                // 匹配号码（1-2位数字）
-                return String(text).replace(/(\d{1,2})/g, (match) => {
-                    if (parseInt(match) === parseInt(winNum)) {
-                        return `<span style="color:#ff4d4f;font-weight:bold;">${match}</span>`;
-                    }
-                    return match;
-                });
-            }
             
             for (const group of Object.values(byOriginal)) {
                 const items = group.items;
                 const type = group.type;
                 const originalLine = group.originalLine;
-                const nums = items.map(r => r.number || r.value || '').filter(n => n).join(',');
-                const amt = items[0]?.amount || 0;
                 const betCount = items.length;
-                const typeTotal = items.reduce((s, it) => s + it.amount, 0);
                 const hasWin = items.some(r => r.isWin);
-                
-                // 🆕 v2.4.8 获取对应类型的赔率
                 let typeOdds = items[0]?.odds || 1;
                 if (type === '特码' || type === '生肖特码') {
                     typeOdds = parseFloat(savedOdds['odds-tema']) || 43;
                 } else if (type === '平特生肖' || type === '平特一肖') {
                     typeOdds = parseFloat(savedOdds['odds-pingte1']) || 11;
-                } else if (type === '生肖' || type === '多肖') {
-                    typeOdds = parseFloat(savedOdds['odds-shengxiao']) || 12;
                 }
+                const winPayout = items.filter(r => r.isWin).reduce((s, r) => s + r.winAmount, 0);
                 
-                // 🆕 中奖状态：绿✓ / 红✗
-                const statusIcon = hasWin 
-                    ? '<span style="color:#4caf50;font-weight:bold;">✓</span>' 
-                    : '<span style="color:#f44336;">✗</span>';
-                
-                // 🆕 v2.4.8 高亮中奖号码（只对特码类型）
-                let displayLine = originalLine;
-                if ((type === '特码' || type === '生肖特码') && tema) {
-                    displayLine = highlightWinNum(originalLine, tema);
-                }
-                
-                // 🆕 v2.4.7 只有生肖特码才显示号码列表
-                let numbersStr = '';
-                if (type === '生肖特码' && nums) {
-                    // 高亮号码列表中的中奖号码
-                    numbersStr = ` （${highlightWinNum(nums, tema)}）`;
-                }
-                
-                // 🆕 v2.4.8 格式：✗ 类型(赔率倍): 原文 注数×金额元=总额元
-                resultText += `${statusIcon} ${type}(${typeOdds}倍): ${displayLine}${numbersStr} ${betCount}×${amt}元=${typeTotal}元\n`;
+                const icon = hasWin ? '✓' : '✗';
+                resultText += `${icon} ${type} (${typeOdds}倍): ${originalLine} ${betCount}×${items[0]?.amount || 0}元=${winPayout}元\n`;
             }
             
-            // 如果有问题提示
-            resultText += `\n💡 结果有误？点击下方"提交反馈"`;
+            resultText += `━━━━━━━━━━━━━━━━━━\n`;
+            resultText += `💡 结果有误？点击下方"提交反馈"\n`;
             
-            document.getElementById('result-content').innerHTML = resultText.replace(/\n/g, '<br>');
-            document.getElementById('result-section').classList.add('show');
+            // 显示结果
+            document.getElementById('result-output').innerText = resultText;
         }
         
         // 显示核对详情
