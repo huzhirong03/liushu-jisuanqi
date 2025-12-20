@@ -4835,12 +4835,19 @@
             
             if (bet.type === '特码') {
                 odds = parseFloat(savedOdds['odds-tema']) || 43;
-                isWin = bet.number === tema;
+                // 🆕 v2.4.8 修复：确保类型一致比较
+                isWin = parseInt(bet.number) === parseInt(tema);
                 detail = `特码 ${String(bet.number).padStart(2,'0')} vs 开奖特码 ${String(tema).padStart(2,'0')}`;
+            } else if (bet.type === '生肖特码') {
+                // 🆕 v2.4.8 新增：生肖特码中奖判断
+                odds = parseFloat(savedOdds['odds-tema']) || 43;
+                const sxNums = LHC_DATA.shengxiao[bet.value] || [];
+                isWin = sxNums.includes(parseInt(tema));
+                detail = `生肖特码 ${bet.value} (${sxNums.join(',')}) vs 特码 ${tema}`;
             } else if (bet.type === '生肖' || bet.type === '多肖') {
                 odds = parseFloat(savedOdds['odds-shengxiao']) || 12;
                 const sxNums = LHC_DATA.shengxiao[bet.value] || [];
-                isWin = sxNums.includes(tema);
+                isWin = sxNums.includes(parseInt(tema));
                 detail = `生肖 ${bet.value} (${sxNums.join(',')}) vs 特码 ${tema}`;
             } else if (bet.type === '平特生肖') {
                 // 平特生肖：检查平码中是否有该生肖
@@ -5228,6 +5235,18 @@
             // 🆕 v2.4.8 获取赔率设置，用于显示
             const savedOdds = JSON.parse(localStorage.getItem('lhc_odds') || '{}');
             
+            // 🆕 v2.4.8 高亮中奖号码的函数
+            function highlightWinNum(text, winNum) {
+                if (!winNum) return text;
+                // 匹配号码（1-2位数字）
+                return String(text).replace(/(\d{1,2})/g, (match) => {
+                    if (parseInt(match) === parseInt(winNum)) {
+                        return `<span style="color:#ff4d4f;font-weight:bold;">${match}</span>`;
+                    }
+                    return match;
+                });
+            }
+            
             for (const group of Object.values(byOriginal)) {
                 const items = group.items;
                 const type = group.type;
@@ -5248,19 +5267,32 @@
                     typeOdds = parseFloat(savedOdds['odds-shengxiao']) || 12;
                 }
                 
-                // 🆕 中奖状态：红X / 绿✓
-                const statusIcon = hasWin ? '✓' : '✗';
+                // 🆕 中奖状态：绿✓ / 红✗
+                const statusIcon = hasWin 
+                    ? '<span style="color:#4caf50;font-weight:bold;">✓</span>' 
+                    : '<span style="color:#f44336;">✗</span>';
+                
+                // 🆕 v2.4.8 高亮中奖号码（只对特码类型）
+                let displayLine = originalLine;
+                if ((type === '特码' || type === '生肖特码') && tema) {
+                    displayLine = highlightWinNum(originalLine, tema);
+                }
+                
                 // 🆕 v2.4.7 只有生肖特码才显示号码列表
-                const numbersStr = (type === '生肖特码' && nums) ? ` （${nums}）` : ' ';
+                let numbersStr = '';
+                if (type === '生肖特码' && nums) {
+                    // 高亮号码列表中的中奖号码
+                    numbersStr = ` （${highlightWinNum(nums, tema)}）`;
+                }
                 
                 // 🆕 v2.4.8 格式：✗ 类型(赔率倍): 原文 注数×金额元=总额元
-                resultText += `${statusIcon} ${type}(${typeOdds}倍): ${originalLine}${numbersStr}${betCount}×${amt}元=${typeTotal}元\n`;
+                resultText += `${statusIcon} ${type}(${typeOdds}倍): ${displayLine}${numbersStr} ${betCount}×${amt}元=${typeTotal}元\n`;
             }
             
             // 如果有问题提示
             resultText += `\n💡 结果有误？点击下方"提交反馈"`;
             
-            document.getElementById('result-content').textContent = resultText;
+            document.getElementById('result-content').innerHTML = resultText.replace(/\n/g, '<br>');
             document.getElementById('result-section').classList.add('show');
         }
         
