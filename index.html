@@ -5234,9 +5234,10 @@
                 
                 // 🆕 中奖状态：红X / 绿✓
                 const statusIcon = hasWin ? '✓' : '✗';
-                const numbersStr = nums ? `（${nums}）` : '';
+                // 🆕 v2.4.7 只有生肖特码才显示号码列表
+                const numbersStr = (type === '生肖特码' && nums) ? ` （${nums}）` : ' ';
                 
-                resultText += `${statusIcon} ${type}: ${originalLine} ${numbersStr} ${betCount}×${amt}=${typeTotal}元\n`;
+                resultText += `${statusIcon} ${type}: ${originalLine}${numbersStr}${betCount}×${amt}元=${typeTotal}元\n`;
             }
             
             // 如果有问题提示
@@ -8517,16 +8518,16 @@
                         ? '<span style="color:#4caf50;font-weight:bold;font-size:14px;">✓</span>' 
                         : '<span style="color:#f44336;font-weight:bold;font-size:14px;">✗</span>';
                     
-                    // 🆕 提取号码列表（去重后显示）
+                    // 🆕 v2.4.7 提取号码列表（只有生肖特码才显示）
                     const allNumbers = items.map(it => {
-                        // 优先使用 number，其次 value
                         const num = it.numbers || it.number || it.value || '';
                         return String(num).padStart(2, '0');
                     }).filter(n => n && n !== '00');
                     const uniqueNumbers = [...new Set(allNumbers)];
-                    const numbersStr = uniqueNumbers.length > 0 ? `（${uniqueNumbers.join(',')}）` : '';
+                    // 🆕 只有生肖特码才显示号码列表
+                    const numbersStr = (typeName === '生肖特码' && uniqueNumbers.length > 0) ? `（${uniqueNumbers.join(',')}）` : '';
                     
-                    // 格式：✓/✗ 类型: 原文（号码）注数×金额= 总额  盈亏  ❌
+                    // 格式：✓/✗ 类型: 原文（号码）注数×金额元= 总额元  盈亏  ❌
                     html += `
                     <div class="fb-line" data-index="${firstIndex}" style="
                         display:flex;
@@ -8541,8 +8542,8 @@
                             ${statusIcon}
                             <span style="color:#64b5f6;margin-left:4px;">${typeName}:</span>
                             <span style="color:#fbbf24;font-weight:bold;margin-left:4px;">${line.originalLine}</span>
-                            <span style="color:#888;font-size:11px;">${numbersStr}</span>
-                            <span style="color:#aaa;margin-left:6px;">${betCount}×${unitAmount}=</span>
+                            ${numbersStr ? `<span style="color:#888;font-size:11px;">${numbersStr}</span>` : ''}
+                            <span style="color:#aaa;margin-left:6px;">${betCount}×${unitAmount}元=</span>
                             <span style="color:#fff;">${totalAmount}元</span>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
