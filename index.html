@@ -7733,7 +7733,7 @@
         }
         
         // ==================== 版本更新检测 ====================
-        const APP_VERSION = 'v2.2.0';  // 当前版本号，与 sw.js 保持一致（缓存优先策略）
+        const APP_VERSION = 'v2.3.0';  // 当前版本号，与 sw.js 保持一致（缓存优先策略）
         
         // 注册 Service Worker 并检测更新
         if ('serviceWorker' in navigator) {
@@ -7880,7 +7880,8 @@
         }
         
         // ════════════════════════════════════════════════════════════════════════════
-        // 【小票风格反馈渲染系统 v3.0】按组→按行→按注 三层结构
+        // 【简洁反馈系统 v4.0】一目了然的文字列表
+        // 格式：原文（号码列表）注数×金额=总额  盈亏
         // ════════════════════════════════════════════════════════════════════════════
         
         function renderFeedbackCards() {
@@ -7892,13 +7893,13 @@
             }
             
             // ═══════════════════════════════════════════════════════════════════════
-            // 【步骤1】初始化反馈数据，绑定原文和行信息
+            // 【步骤1】初始化反馈数据
             // ═══════════════════════════════════════════════════════════════════════
             feedbackData.items = calcResults.map((r, index) => ({
                 index: index,
                 groupId: r.groupId || 1,
                 lineId: r.lineId || `1-0`,
-                originalLine: r.originalLine || r.raw || '',  // 🔑 优先使用 originalLine
+                originalLine: r.originalLine || r.raw || '',
                 type: r.type || '未识别',
                 value: r.value || '',
                 numbers: r.number || r.value || r.numbers?.join(',') || '',
@@ -7907,306 +7908,138 @@
                 winAmount: r.winAmount || 0,
                 odds: r.odds || 43,
                 isError: r.isError || false,
-                hasError: false,       // 用户标记的错误
+                hasError: false,
                 errorType: '',
                 correction: '',
                 errorBlame: ''
             }));
             
             // ═══════════════════════════════════════════════════════════════════════
-            // 【步骤2】构建三层数据结构：组 → 行 → 注
+            // 【步骤2】按行聚合数据（同一行的多注合并显示）
             // ═══════════════════════════════════════════════════════════════════════
-            const groupMap = {};  // groupId → { lines: { lineId → [items] } }
+            const lineMap = {};  // lineId → { originalLine, items: [], groupId }
             
             feedbackData.items.forEach(item => {
-                const gid = item.groupId || 1;
-                const lid = item.lineId || `${gid}-0`;
-                
+                const lid = item.lineId || `${item.groupId}-0`;
+                if (!lineMap[lid]) {
+                    lineMap[lid] = {
+                        lineId: lid,
+                        groupId: item.groupId,
+                        originalLine: item.originalLine,
+                        items: []
+                    };
+                }
+                lineMap[lid].items.push(item);
+            });
+            
+            // 按 groupId 分组
+            const groupMap = {};
+            Object.values(lineMap).forEach(line => {
+                const gid = line.groupId;
                 if (!groupMap[gid]) {
-                    groupMap[gid] = { lines: {}, lineOrder: [] };
+                    groupMap[gid] = [];
                 }
-                if (!groupMap[gid].lines[lid]) {
-                    groupMap[gid].lines[lid] = [];
-                    groupMap[gid].lineOrder.push(lid);
-                }
-                groupMap[gid].lines[lid].push(item);
+                groupMap[gid].push(line);
             });
             
             const groupIds = Object.keys(groupMap).map(Number).sort((a, b) => a - b);
-            const hasMultipleGroups = groupIds.length > 1;
             
             // ═══════════════════════════════════════════════════════════════════════
-            // 【步骤3】渲染小票风格 HTML
+            // 【步骤3】生成简洁文字格式
             // ═══════════════════════════════════════════════════════════════════════
             let html = '';
             
-            groupIds.forEach((gid, groupIndex) => {
-                const groupData = groupMap[gid];
-                const lineIds = groupData.lineOrder;
+            groupIds.forEach((gid) => {
+                const lines = groupMap[gid];
                 
-                // 计算组统计
-                const allItemsInGroup = Object.values(groupData.lines).flat();
-                const groupProfit = allItemsInGroup.reduce((sum, it) => {
-                    if (it.isError) return sum;
-                    return sum + (it.isWin ? it.winAmount - it.amount : -it.amount);
+                // 计算组盈亏
+                const groupProfit = lines.reduce((sum, line) => {
+                    return sum + line.items.reduce((s, it) => {
+                        if (it.isError) return s;
+                        return s + (it.isWin ? it.winAmount - it.amount : -it.amount);
+                    }, 0);
                 }, 0);
-                const groupWinCount = allItemsInGroup.filter(it => it.isWin && !it.isError).length;
-                const groupBetCount = allItemsInGroup.filter(it => !it.isError).length;
                 
-                // ─────────────────────────────────────────────────────────────────
-                // 【组容器】小票风格，虚线边框
-                // ─────────────────────────────────────────────────────────────────
+                // 组标题
                 html += `
-                <div class="fb-group-ticket" style="
-                    margin-bottom:15px;
-                    background:rgba(20,20,30,0.8);
-                    border:2px dashed rgba(102,126,234,0.4);
-                    border-radius:8px;
-                    overflow:hidden;
-                    font-family:'Courier New',monospace;
-                ">
-                    <!-- 组标题栏 -->
-                    <div style="
-                        display:flex;
-                        justify-content:space-between;
-                        align-items:center;
-                        padding:8px 12px;
-                        background:rgba(102,126,234,0.15);
-                        border-bottom:1px dashed rgba(102,126,234,0.3);
-                    ">
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            <span style="
-                                background:linear-gradient(135deg,#667eea,#764ba2);
-                                color:white;
-                                padding:2px 10px;
-                                border-radius:10px;
-                                font-size:11px;
-                                font-weight:bold;
-                            ">组 ${gid}</span>
-                            <span style="font-size:10px;color:#888;">${lineIds.length}行 / ${groupBetCount}注</span>
+                <div class="fb-group" style="margin-bottom:12px;background:rgba(30,30,45,0.9);border-radius:8px;overflow:hidden;border:1px solid rgba(102,126,234,0.3);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:rgba(102,126,234,0.2);border-bottom:1px solid rgba(102,126,234,0.3);">
+                        <span style="color:#a78bfa;font-weight:bold;font-size:13px;">第${gid}组</span>
+                        <span style="font-size:13px;font-weight:bold;color:${groupProfit >= 0 ? '#4caf50' : '#f44336'};">${groupProfit >= 0 ? '+' : ''}${groupProfit}元</span>
+                    </div>
+                    <div style="padding:8px 12px;">
+                `;
+                
+                // 每行数据
+                lines.forEach((line, lineIdx) => {
+                    const items = line.items.filter(it => !it.isError);
+                    if (items.length === 0) {
+                        // 解析失败的行
+                        html += `
+                        <div style="padding:6px 0;border-bottom:${lineIdx < lines.length - 1 ? '1px dashed rgba(255,255,255,0.1)' : 'none'};">
+                            <span style="color:#f44336;font-size:12px;">⚠️ ${line.originalLine || '无法识别'}</span>
                         </div>
-                        <div style="font-size:12px;font-weight:bold;color:${groupProfit >= 0 ? '#4caf50' : '#f44336'};">
-                            ${groupWinCount > 0 ? '🎯' : ''}${groupProfit >= 0 ? '+' : ''}${groupProfit}
+                        `;
+                        return;
+                    }
+                    
+                    // 聚合同一行的号码
+                    const allNumbers = items.map(it => it.numbers || it.value).filter(n => n);
+                    const uniqueNumbers = [...new Set(allNumbers.join(',').split(',').filter(n => n))];
+                    const betCount = items.length;
+                    const unitAmount = items[0]?.amount || 0;
+                    const totalAmount = items.reduce((s, it) => s + it.amount, 0);
+                    const lineProfit = items.reduce((s, it) => {
+                        return s + (it.isWin ? it.winAmount - it.amount : -it.amount);
+                    }, 0);
+                    const hasWin = items.some(it => it.isWin);
+                    const firstIndex = items[0]?.index || 0;
+                    
+                    // 格式：原文（号码）注数×金额=总额  盈亏  ❌
+                    html += `
+                    <div class="fb-line" data-index="${firstIndex}" style="
+                        display:flex;
+                        align-items:center;
+                        padding:8px 0;
+                        border-bottom:${lineIdx < lines.length - 1 ? '1px dashed rgba(255,255,255,0.1)' : 'none'};
+                        border-left:3px solid ${hasWin ? '#4caf50' : 'transparent'};
+                        padding-left:${hasWin ? '8px' : '0'};
+                        margin-left:${hasWin ? '-8px' : '0'};
+                    ">
+                        <div style="flex:1;font-size:12px;line-height:1.5;">
+                            <span style="color:#fbbf24;font-weight:bold;">${line.originalLine}</span>
+                            <span style="color:#888;">（${uniqueNumbers.join(',')}）</span>
+                            <span style="color:#aaa;">${betCount}×${unitAmount}=</span>
+                            <span style="color:#fff;">${totalAmount}元</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:13px;font-weight:bold;color:${lineProfit >= 0 ? '#4caf50' : '#f44336'};">${lineProfit >= 0 ? '+' : ''}${lineProfit}</span>
+                            <span id="fb-err-btn-${firstIndex}" onclick="toggleErrorPanel(${firstIndex})" style="cursor:pointer;font-size:14px;opacity:0.5;">❌</span>
                         </div>
                     </div>
                     
-                    <!-- 组内容：按行渲染 -->
-                    <div style="padding:8px;">
-                `;
-                
-                // ─────────────────────────────────────────────────────────────────
-                // 【行级渲染】每行原文 + 该行的下注项
-                // ─────────────────────────────────────────────────────────────────
-                lineIds.forEach((lid, lineIndex) => {
-                    const lineItems = groupData.lines[lid];
-                    const originalLine = lineItems[0]?.originalLine || '(无原文)';
-                    const lineProfit = lineItems.reduce((sum, it) => {
-                        if (it.isError) return sum;
-                        return sum + (it.isWin ? it.winAmount - it.amount : -it.amount);
-                    }, 0);
-                    const hasWin = lineItems.some(it => it.isWin && !it.isError);
-                    const isLastLine = lineIndex === lineIds.length - 1;
-                    
-                    html += `
-                    <div class="fb-line-block" data-line-id="${lid}" style="
-                        background:rgba(255,255,255,0.03);
-                        border-radius:6px;
-                        margin-bottom:${isLastLine ? '0' : '8'}px;
-                        overflow:hidden;
-                        border-left:3px solid ${hasWin ? '#4caf50' : '#444'};
-                    ">
-                        <!-- 原文行（高亮显示） -->
-                        <div style="
-                            padding:6px 10px;
-                            background:rgba(251,191,36,0.08);
-                            border-bottom:1px solid rgba(255,255,255,0.05);
-                            display:flex;
-                            justify-content:space-between;
-                            align-items:center;
-                        ">
-                            <div style="
-                                font-size:12px;
-                                color:#fbbf24;
-                                font-weight:bold;
-                                word-break:break-all;
-                                flex:1;
-                            ">📝 ${originalLine}</div>
-                            <div style="
-                                font-size:11px;
-                                font-weight:bold;
-                                color:${lineProfit >= 0 ? '#4caf50' : '#f44336'};
-                                margin-left:8px;
-                                white-space:nowrap;
-                            ">${lineProfit >= 0 ? '+' : ''}${lineProfit}</div>
+                    <!-- 隐藏的错误面板 -->
+                    <div id="fb-err-panel-${firstIndex}" style="display:none;background:rgba(244,67,54,0.1);padding:10px;margin:4px 0 8px 0;border-radius:6px;border:1px solid rgba(244,67,54,0.2);">
+                        <div style="font-size:11px;color:#f44336;margin-bottom:8px;font-weight:bold;">⚠️ 标记错误类型</div>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+                            <span class="fb-err-tag" data-idx="${firstIndex}" data-err="type" onclick="selectErrorType(${firstIndex},'type')" style="padding:5px 10px;border-radius:4px;font-size:11px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);">🤖 类型识别错</span>
+                            <span class="fb-err-tag" data-idx="${firstIndex}" data-err="calc" onclick="selectErrorType(${firstIndex},'calc')" style="padding:5px 10px;border-radius:4px;font-size:11px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);">🔢 金额算错</span>
+                            <span class="fb-err-tag" data-idx="${firstIndex}" data-err="num" onclick="selectErrorType(${firstIndex},'num')" style="padding:5px 10px;border-radius:4px;font-size:11px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);">📝 号码提取错</span>
                         </div>
-                        
-                        <!-- 该行解析出的下注项 -->
-                        <div style="padding:4px 8px;">
-                    `;
-                    
-                    // ─────────────────────────────────────────────────────────────
-                    // 【注级渲染】每个下注项
-                    // ─────────────────────────────────────────────────────────────
-                    lineItems.forEach((item, itemIdx) => {
-                        const i = item.index;  // 全局索引
-                        const isLastItem = itemIdx === lineItems.length - 1;
-                        
-                        if (item.isError) {
-                            // 解析失败的占位显示
-                            html += `
-                            <div class="fb-bet-item" data-index="${i}" style="
-                                display:flex;
-                                align-items:center;
-                                padding:4px 6px;
-                                margin-bottom:${isLastItem ? '0' : '4'}px;
-                                background:rgba(244,67,54,0.1);
-                                border-radius:4px;
-                                border:1px dashed rgba(244,67,54,0.3);
-                            ">
-                                <div style="flex:1;font-size:11px;color:#f44336;">
-                                    ⚠️ 未能识别此行
-                                </div>
-                                <div onclick="toggleErrorPanel(${i})" style="
-                                    padding:2px 8px;
-                                    cursor:pointer;
-                                    font-size:12px;
-                                    opacity:0.6;
-                                ">❌</div>
-                            </div>
-                            `;
-                        } else {
-                            // 正常下注项
-                            const resultValue = item.isWin ? item.winAmount - item.amount : -item.amount;
-                            
-                            html += `
-                            <div class="fb-bet-item" data-index="${i}" style="
-                                display:flex;
-                                align-items:center;
-                                padding:4px 6px;
-                                margin-bottom:${isLastItem ? '0' : '3'}px;
-                                background:rgba(255,255,255,0.02);
-                                border-radius:4px;
-                            ">
-                                <!-- 左侧：类型+号码+金额 -->
-                                <div style="flex:1;display:flex;align-items:center;gap:6px;font-size:11px;">
-                                    <span style="
-                                        background:${item.isWin ? 'rgba(76,175,80,0.25)' : 'rgba(102,126,234,0.2)'};
-                                        color:${item.isWin ? '#4caf50' : '#a78bfa'};
-                                        padding:1px 6px;
-                                        border-radius:3px;
-                                        font-size:9px;
-                                        font-weight:bold;
-                                    ">${item.type}</span>
-                                    <span style="color:#fbbf24;">${item.numbers || item.value || '-'}</span>
-                                    <span style="color:#666;">×</span>
-                                    <span style="color:#fff;">${item.amount}</span>
-                                </div>
-                                
-                                <!-- 右侧：盈亏结果 + 报错按钮 -->
-                                <div style="display:flex;align-items:center;gap:6px;">
-                                    <span style="
-                                        font-size:11px;
-                                        font-weight:bold;
-                                        color:${resultValue >= 0 ? '#4caf50' : '#f44336'};
-                                    ">${resultValue >= 0 ? '+' : ''}${resultValue}</span>
-                                    <span id="fb-err-btn-${i}" onclick="toggleErrorPanel(${i})" style="
-                                        cursor:pointer;
-                                        font-size:12px;
-                                        opacity:0.4;
-                                        padding:2px;
-                                    ">❌</span>
-                                </div>
-                            </div>
-                            `;
-                        }
-                        
-                        // 诊断面板（隐藏）
-                        html += `
-                        <div id="fb-err-panel-${i}" style="
-                            display:none;
-                            background:rgba(244,67,54,0.1);
-                            padding:8px;
-                            margin-bottom:4px;
-                            border-radius:4px;
-                            border:1px solid rgba(244,67,54,0.2);
-                        ">
-                            <div style="font-size:10px;color:#f44336;margin-bottom:6px;font-weight:bold;">⚠️ 标记错误类型</div>
-                            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
-                                <span class="fb-err-tag" data-idx="${i}" data-err="type" onclick="selectErrorType(${i},'type')" style="
-                                    padding:4px 8px;
-                                    border-radius:4px;
-                                    font-size:10px;
-                                    cursor:pointer;
-                                    background:rgba(255,255,255,0.1);
-                                    color:#ccc;
-                                    border:1px solid rgba(255,255,255,0.15);
-                                ">🤖 类型错</span>
-                                <span class="fb-err-tag" data-idx="${i}" data-err="calc" onclick="selectErrorType(${i},'calc')" style="
-                                    padding:4px 8px;
-                                    border-radius:4px;
-                                    font-size:10px;
-                                    cursor:pointer;
-                                    background:rgba(255,255,255,0.1);
-                                    color:#ccc;
-                                    border:1px solid rgba(255,255,255,0.15);
-                                ">🔢 算错</span>
-                                <span class="fb-err-tag" data-idx="${i}" data-err="num" onclick="selectErrorType(${i},'num')" style="
-                                    padding:4px 8px;
-                                    border-radius:4px;
-                                    font-size:10px;
-                                    cursor:pointer;
-                                    background:rgba(255,255,255,0.1);
-                                    color:#ccc;
-                                    border:1px solid rgba(255,255,255,0.15);
-                                ">📝 号码错</span>
-                            </div>
-                            <div id="fb-type-select-${i}" style="display:none;margin-bottom:6px;">
-                                <select onchange="setCorrectType(${i}, this.value)" style="
-                                    width:100%;
-                                    padding:6px;
-                                    background:#2a2a3e;
-                                    color:#fff;
-                                    border:1px solid rgba(255,255,255,0.15);
-                                    border-radius:4px;
-                                    font-size:11px;
-                                ">
-                                    <option value="">正确类型是？</option>
-                                    ${PLAY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
-                                </select>
-                            </div>
-                            <div id="fb-amount-input-${i}" style="display:none;margin-bottom:6px;">
-                                <input type="number" placeholder="正确金额？" oninput="setCorrection(${i}, this.value)" style="
-                                    width:100%;
-                                    padding:6px;
-                                    background:#2a2a3e;
-                                    color:#fff;
-                                    border:1px solid rgba(255,255,255,0.15);
-                                    border-radius:4px;
-                                    font-size:11px;
-                                    box-sizing:border-box;
-                                ">
-                            </div>
-                            <input type="text" id="fb-note-${i}" placeholder="备注说明（选填）" oninput="setItemNote(${i}, this.value)" style="
-                                width:100%;
-                                padding:6px;
-                                background:rgba(0,0,0,0.2);
-                                color:#fff;
-                                border:1px solid rgba(255,255,255,0.08);
-                                border-radius:4px;
-                                font-size:10px;
-                                box-sizing:border-box;
-                            ">
+                        <div id="fb-type-select-${firstIndex}" style="display:none;margin-bottom:8px;">
+                            <select onchange="setCorrectType(${firstIndex}, this.value)" style="width:100%;padding:8px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;font-size:12px;">
+                                <option value="">正确类型应该是？</option>
+                                ${PLAY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
+                            </select>
                         </div>
-                        `;
-                    });
-                    
-                    html += `
+                        <div id="fb-amount-input-${firstIndex}" style="display:none;margin-bottom:8px;">
+                            <input type="number" placeholder="正确金额应该是？" oninput="setCorrection(${firstIndex}, this.value)" style="width:100%;padding:8px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;font-size:12px;box-sizing:border-box;">
                         </div>
+                        <input type="text" id="fb-note-${firstIndex}" placeholder="其他备注说明（选填）" oninput="setItemNote(${firstIndex}, this.value)" style="width:100%;padding:8px;background:rgba(0,0,0,0.2);color:#fff;border:1px solid rgba(255,255,255,0.08);border-radius:4px;font-size:11px;box-sizing:border-box;">
                     </div>
                     `;
                 });
                 
-                // 关闭组容器
                 html += `
                     </div>
                 </div>
@@ -8220,35 +8053,41 @@
         function toggleErrorPanel(index) {
             const panel = document.getElementById(`fb-err-panel-${index}`);
             const btn = document.getElementById(`fb-err-btn-${index}`);
-            const card = document.querySelector(`.fb-card[data-index="${index}"]`);
+            const line = document.querySelector(`.fb-line[data-index="${index}"]`);
             const item = feedbackData.items[index];
+            
+            if (!panel) return;
             
             if (panel.style.display === 'none') {
                 // 展开面板
                 panel.style.display = 'block';
-                btn.style.opacity = '1';
-                card.style.borderLeftColor = '#f44336';
-                item.hasError = true;
+                if (btn) btn.style.opacity = '1';
+                if (line) line.style.background = 'rgba(244,67,54,0.1)';
+                if (item) item.hasError = true;
             } else {
                 // 收起面板 - 重置状态
                 panel.style.display = 'none';
-                btn.style.opacity = '0.6';
-                card.style.borderLeftColor = '#666';
-                item.hasError = false;
-                item.errorType = '';
-                item.correction = '';
-                item.errorBlame = '';
+                if (btn) btn.style.opacity = '0.5';
+                if (line) line.style.background = 'transparent';
+                if (item) {
+                    item.hasError = false;
+                    item.errorType = '';
+                    item.correction = '';
+                    item.errorBlame = '';
+                }
                 
                 // 重置所有标签样式
                 document.querySelectorAll(`.fb-err-tag[data-idx="${index}"]`).forEach(tag => {
                     tag.style.background = 'rgba(255,255,255,0.1)';
                     tag.style.color = '#ccc';
-                    tag.style.borderColor = 'rgba(255,255,255,0.2)';
+                    tag.style.borderColor = 'rgba(255,255,255,0.15)';
                 });
                 
                 // 隐藏子面板
-                document.getElementById(`fb-type-select-${index}`).style.display = 'none';
-                document.getElementById(`fb-amount-input-${index}`).style.display = 'none';
+                const typeSelect = document.getElementById(`fb-type-select-${index}`);
+                const amountInput = document.getElementById(`fb-amount-input-${index}`);
+                if (typeSelect) typeSelect.style.display = 'none';
+                if (amountInput) amountInput.style.display = 'none';
             }
             
             updateErrorCount();
