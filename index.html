@@ -4802,12 +4802,38 @@
                     
                     if (aiResult && aiResult.bets && aiResult.bets.length > 0) {
                         // parseWithAI 已经完成了类型识别和数值提取，直接使用结果
-                        parsedBets = aiResult.bets.map(bet => ({
-                            ...bet,
-                            fromAI: true
+                        // 🆕 为 AI 结果添加分组信息
+                        const groups = input.split(/\n\s*\n/).filter(g => g.trim());
+                        
+                        parsedBets = aiResult.bets.map(bet => {
+                            // 根据 raw 原文找到所属分组
+                            let groupId = 1;
+                            if (bet.raw && groups.length > 1) {
+                                for (let i = 0; i < groups.length; i++) {
+                                    // 检查原文是否在该分组中
+                                    if (groups[i].includes(bet.raw.substring(0, 10))) {
+                                        groupId = i + 1;
+                                        break;
+                                    }
+                                }
+                            }
+                            return {
+                                ...bet,
+                                fromAI: true,
+                                groupId: groupId  // 🆕 添加分组ID
+                            };
+                        });
+                        
+                        // 🆕 保存分组信息
+                        parsedGroups = groups.map((g, i) => ({
+                            id: i + 1,
+                            rawText: g,
+                            lines: g.split('\n').filter(l => l.trim()),
+                            bets: parsedBets.filter(b => b.groupId === i + 1),
+                            betCount: parsedBets.filter(b => b.groupId === i + 1).length
                         }));
                         
-                        console.log('AI解析成功，下注数:', parsedBets.length);
+                        console.log('AI解析成功，下注数:', parsedBets.length, '分组数:', parsedGroups.length);
                         showAutoCloseToast(`✅ AI识别 ${parsedBets.length} 条`, 2000);
                     } else {
                         // AI返回空结果，回退本地解析
@@ -7151,7 +7177,8 @@
                                             extracted.push({
                                                 type: '特码',
                                                 value: String(num).padStart(2, '0'),
-                                                amount: amount
+                                                amount: amount,
+                                                raw: raw  // 🆕 保留原文
                                             });
                                         }
                                     } else {
@@ -7160,7 +7187,8 @@
                                             extracted.push({
                                                 type: type,
                                                 value: String(num).padStart(2, '0'),
-                                                amount: amount
+                                                amount: amount,
+                                                raw: raw  // 🆕 保留原文
                                             });
                                         }
                                     }
@@ -7182,7 +7210,8 @@
                                             type: '生肖特码',
                                             value: String(num).padStart(2, '0'),
                                             zodiac: zodiacName,
-                                            amount: amount
+                                            amount: amount,
+                                            raw: raw  // 🆕 保留原文
                                         });
                                     }
                                 }
@@ -7194,6 +7223,7 @@
                                         type: type,
                                         value: raw,
                                         amount: 0,
+                                        raw: raw,  // 🆕 保留原文
                                         parseError: '后端未提取数值'
                                     }];
                                 }
@@ -7620,7 +7650,7 @@
         }
         
         // ==================== 版本更新检测 ====================
-        const APP_VERSION = 'v2.1.0';  // 当前版本号，与 sw.js 保持一致（缓存优先策略）
+        const APP_VERSION = 'v2.1.1';  // 当前版本号，与 sw.js 保持一致（缓存优先策略）
         
         // 注册 Service Worker 并检测更新
         if ('serviceWorker' in navigator) {
