@@ -2237,18 +2237,21 @@
         <div class="page" id="page-feedback">
             <!-- 顶部固定栏 -->
             <div id="feedback-fixed-header" style="position:sticky;top:0;z-index:100;background:linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.1);">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                     <button class="btn-back" onclick="showPage('page-main')" style="padding:5px 10px;background:rgba(255,255,255,0.1);border:none;border-radius:5px;color:#fff;font-size:14px;cursor:pointer;">← 返回</button>
                     <span id="fb-issue" style="font-size:13px;color:#a78bfa;font-weight:bold;">第--期</span>
-            </div>
+                </div>
+                
+                <!-- 🆕 开奖号码球显示 -->
+                <div id="fb-lottery-balls" class="lottery-balls" style="gap:4px;justify-content:center;margin-bottom:8px;min-height:40px;">
+                    <!-- 动态渲染 -->
+                </div>
+                
                 <div style="display:flex;justify-content:space-between;font-size:12px;color:#aaa;">
-                    <span>特码: <span id="fb-tema" style="color:#e94560;font-weight:bold;">--</span></span>
+                    <span>总投: <span id="fb-total-bet" style="color:#fff;">0</span>元</span>
                     <span>赔率: <span id="fb-odds" style="color:#fbbf24;">43</span>倍</span>
-            </div>
-                <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;">
-                    <span style="color:#888;">总投: <span id="fb-total-bet" style="color:#fff;">0</span>元</span>
                     <span>盈亏: <span id="fb-total-result" style="font-weight:bold;">+0</span></span>
-            </div>
+                </div>
             </div>
             
             <!-- 列表容器 -->
@@ -4878,6 +4881,25 @@
                 alert('请先设置开奖号码！');
                 return;
             }
+            
+            // ════════════════════════════════════════════════════════════════
+            // 🆕 v2.4.2 【预处理】去除行首的标签前缀（如 "华龙:" "123:"）
+            // 规则：行首的 "XXX:" 格式，XXX可以是任意中英文数字，:是冒号
+            // ════════════════════════════════════════════════════════════════
+            input = input.split('\n').map(line => {
+                // 匹配行首的 "XXX:" 或 "XXX：" 格式（支持中英文冒号）
+                // XXX 可以是中文、英文、数字的组合
+                const prefixMatch = line.match(/^[\u4e00-\u9fa5a-zA-Z0-9]+[:：]\s*/);
+                if (prefixMatch) {
+                    const remaining = line.substring(prefixMatch[0].length).trim();
+                    // 只有当去掉前缀后还有内容时才去除
+                    if (remaining) {
+                        console.log(`🏷️ 去除前缀: "${prefixMatch[0]}" → "${remaining}"`);
+                        return remaining;
+                    }
+                }
+                return line;
+            }).join('\n');
             
             // ════════════════════════════════════════════════════════════════
             // 🆕 【孤儿行检测】在正式解析前检测可能的断行
@@ -8212,11 +8234,13 @@
             
             // 更新顶部固定栏
             document.getElementById('fb-issue').textContent = `${typeNames[currentType]} 第${issue}期`;
-            document.getElementById('fb-tema').textContent = tema ? String(tema).padStart(2,'0') : '--';
             document.getElementById('fb-odds').textContent = temaOdds;
             document.getElementById('fb-total-bet').textContent = totalBet;
             document.getElementById('fb-total-result').textContent = (profit >= 0 ? '+' : '') + profit;
             document.getElementById('fb-total-result').style.color = profit >= 0 ? '#4caf50' : '#f44336';
+            
+            // 🆕 渲染开奖号码球
+            renderFeedbackLotteryBalls(lotteryNums);
             
             // 渲染卡片列表
             renderFeedbackCards();
@@ -8226,6 +8250,48 @@
             
             // 切换到反馈页面
             showPage('page-feedback');
+        }
+        
+        // ════════════════════════════════════════════════════════════════════════════
+        // 🆕 渲染反馈页的开奖号码球
+        // ════════════════════════════════════════════════════════════════════════════
+        function renderFeedbackLotteryBalls(lotteryNums) {
+            const container = document.getElementById('fb-lottery-balls');
+            if (!container) return;
+            
+            if (!lotteryNums || lotteryNums.length < 7) {
+                container.innerHTML = '<span style="color:#666;font-size:12px;">未设置开奖号码</span>';
+                return;
+            }
+            
+            let html = '';
+            // 前6个平码
+            for (let i = 0; i < 6; i++) {
+                const num = lotteryNums[i];
+                const color = getNumberColor(num);
+                const shengxiao = getNumberShengxiao(num);
+                html += `
+                    <div class="ball-wrapper" style="transform:scale(0.85);">
+                        <div class="ball ${color} no-anim">${String(num).padStart(2, '0')}</div>
+                        <div class="ball-info">${shengxiao}</div>
+                    </div>
+                `;
+            }
+            
+            html += '<span class="ball-plus">+</span>';
+            
+            // 特码
+            const special = lotteryNums[6];
+            const specialColor = getNumberColor(special);
+            const specialShengxiao = getNumberShengxiao(special);
+            html += `
+                <div class="ball-wrapper" style="transform:scale(0.85);">
+                    <div class="ball ${specialColor} no-anim">${String(special).padStart(2, '0')}</div>
+                    <div class="ball-info">${specialShengxiao}</div>
+                </div>
+            `;
+            
+            container.innerHTML = html;
         }
         
         // ════════════════════════════════════════════════════════════════════════════
@@ -8251,6 +8317,7 @@
                 originalLine: r.originalLine || r.raw || '',
                 type: r.type || '未识别',
                 value: r.value || '',
+                number: r.number || r.value || '',  // 🆕 单独保存号码
                 numbers: r.number || r.value || r.numbers?.join(',') || '',
                 amount: r.amount || 0,
                 isWin: r.isWin || false,
@@ -8262,6 +8329,14 @@
                 correction: '',
                 errorBlame: ''
             }));
+            
+            // 🆕 调试日志：显示解析结果详情
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('📊 反馈数据初始化:', feedbackData.items.length, '条');
+            feedbackData.items.forEach((item, i) => {
+                console.log(`  ${i+1}. [${item.lineId}] ${item.type} ${item.number} ${item.amount}元 | 原文: ${item.originalLine?.substring(0,20)}...`);
+            });
+            console.log('═══════════════════════════════════════════════════════');
             
             // ═══════════════════════════════════════════════════════════════════════
             // 【步骤2】按行聚合数据（同一行的多注合并显示）
@@ -8279,6 +8354,12 @@
                     };
                 }
                 lineMap[lid].items.push(item);
+            });
+            
+            // 🆕 调试日志：显示聚合结果
+            console.log('📋 按行聚合结果:');
+            Object.values(lineMap).forEach(line => {
+                console.log(`  [${line.lineId}] "${line.originalLine?.substring(0,20)}..." → ${line.items.length}注`);
             });
             
             // 按 groupId 分组
@@ -8332,7 +8413,7 @@
                         return;
                     }
                     
-                    // 🆕 v2.4.1 简化显示格式：原文  注数×金额= 总额  盈亏
+                    // 🆕 v2.4.2 显示格式：原文（号码列表）注数×金额= 总额  盈亏
                     const betCount = items.length;
                     const unitAmount = items[0]?.amount || 0;
                     const totalAmount = items.reduce((s, it) => s + it.amount, 0);
@@ -8342,7 +8423,16 @@
                     const hasWin = items.some(it => it.isWin);
                     const firstIndex = items[0]?.index || 0;
                     
-                    // 简洁格式：原文  注数×金额= 总额  盈亏  ❌
+                    // 🆕 提取号码列表（去重后显示）
+                    const allNumbers = items.map(it => {
+                        // 优先使用 number，其次 value
+                        const num = it.numbers || it.number || it.value || '';
+                        return String(num).padStart(2, '0');
+                    }).filter(n => n && n !== '00');
+                    const uniqueNumbers = [...new Set(allNumbers)];
+                    const numbersStr = uniqueNumbers.length > 0 ? `（${uniqueNumbers.join(',')}）` : '';
+                    
+                    // 格式：原文（号码）注数×金额= 总额  盈亏  ❌
                     html += `
                     <div class="fb-line" data-index="${firstIndex}" style="
                         display:flex;
@@ -8355,7 +8445,8 @@
                     ">
                         <div style="flex:1;font-size:12px;line-height:1.5;">
                             <span style="color:#fbbf24;font-weight:bold;">${line.originalLine}</span>
-                            <span style="color:#aaa;margin-left:8px;">${betCount}×${unitAmount}=</span>
+                            <span style="color:#888;font-size:11px;">${numbersStr}</span>
+                            <span style="color:#aaa;margin-left:6px;">${betCount}×${unitAmount}=</span>
                             <span style="color:#fff;">${totalAmount}元</span>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
