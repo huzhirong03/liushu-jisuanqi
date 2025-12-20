@@ -1176,6 +1176,8 @@
                             <button onclick="showLocalDebug()" style="padding:4px 8px;background:linear-gradient(90deg,#27ae60,#229954);color:white;border:none;border-radius:4px;font-size:10px;cursor:pointer;" title="查看程序识别详情">📋程序</button>
                             <!-- 多模型对比按钮 - 直接打开弹窗，支持边缘测试 -->
                             <button onclick="openMultiModelModal()" style="padding:4px 8px;background:linear-gradient(90deg,#f39c12,#e67e22);color:white;border:none;border-radius:4px;font-size:10px;cursor:pointer;" title="多模型对比测试">🔬对比</button>
+                            <!-- 分组编辑按钮 -->
+                            <button onclick="showGroupEditor()" style="padding:4px 8px;background:linear-gradient(90deg,#667eea,#764ba2);color:white;border:none;border-radius:4px;font-size:10px;cursor:pointer;" title="手动编辑分组">📦分组</button>
                             <!-- 原有按钮 -->
                             <button onclick="showCheckDetail()" style="padding:6px 12px;background:linear-gradient(90deg,#3498db,#2980b9);color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">🔍 核对</button>
                             <button onclick="clearInput()" style="padding:6px 12px;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.2);border-radius:6px;font-size:12px;cursor:pointer;">清空</button>
@@ -1994,6 +1996,31 @@
                     <div class="ref-table-wrap">
                         <table class="ref-table" id="ref-jiaqin"></table>
                     </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 🆕 分组编辑器弹窗 v2.4 -->
+        <div class="import-modal" id="group-editor-modal" style="display:none;">
+            <div class="import-modal-content" style="max-width:95%;width:450px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">
+                <div class="import-modal-title" style="display:flex;justify-content:space-between;align-items:center;">
+                    <span>📦 手动分组编辑</span>
+                    <button onclick="closeGroupEditor()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;">×</button>
+                </div>
+                
+                <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.1);font-size:12px;color:#888;">
+                    💡 提示：点击行之间的 <span style="color:#667eea;">「+分组线」</span> 按钮来分隔不同组
+                </div>
+                
+                <!-- 行列表区域 -->
+                <div id="group-editor-lines" style="flex:1;overflow-y:auto;padding:12px 0;">
+                    <!-- 动态生成 -->
+                </div>
+                
+                <!-- 底部按钮 -->
+                <div style="display:flex;gap:8px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);">
+                    <button onclick="resetGroupEditor()" style="flex:1;padding:10px;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.2);border-radius:6px;font-size:13px;cursor:pointer;">🔄 重置</button>
+                    <button onclick="applyGroupEdits()" style="flex:2;padding:10px;background:linear-gradient(90deg,#667eea,#764ba2);color:white;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer;">✅ 应用分组</button>
                 </div>
             </div>
         </div>
@@ -4885,38 +4912,97 @@
                     
                     if (aiResult && aiResult.bets && aiResult.bets.length > 0) {
                         // parseWithAI 已经完成了类型识别和数值提取，直接使用结果
-                        // 🆕 为 AI 结果添加分组信息
+                        // 🆕 v2.4 为 AI 结果添加完整的分组和行级信息
                         const groups = input.split(/\n\s*\n/).filter(g => g.trim());
                         
-                        parsedBets = aiResult.bets.map(bet => {
-                            // 根据 raw 原文找到所属分组
-                            let groupId = 1;
-                            if (bet.raw && groups.length > 1) {
-                                for (let i = 0; i < groups.length; i++) {
-                                    // 检查原文是否在该分组中
-                                    if (groups[i].includes(bet.raw.substring(0, 10))) {
-                                        groupId = i + 1;
+                        // 构建行索引映射：每一行的原文 → { groupId, lineIndexInGroup, globalLineIndex }
+                        const lineIndexMap = {};
+                        let globalIdx = 0;
+                        groups.forEach((groupText, gIdx) => {
+                            const lines = groupText.split('\n').map(l => l.trim()).filter(l => l);
+                            lines.forEach((line, lIdx) => {
+                                lineIndexMap[line] = {
+                                    groupId: gIdx + 1,
+                                    lineIndexInGroup: lIdx,
+                                    lineId: `${gIdx + 1}-${lIdx}`,
+                                    globalLineIndex: globalIdx,
+                                    originalLine: line
+                                };
+                                globalIdx++;
+                            });
+                        });
+                        
+                        console.log('📋 行索引映射:', lineIndexMap);
+                        
+                        // 为每个 bet 找到对应的行信息
+                        parsedBets = aiResult.bets.map((bet, betIdx) => {
+                            const rawText = bet.raw || '';
+                            
+                            // 尝试精确匹配
+                            let lineInfo = lineIndexMap[rawText];
+                            
+                            // 如果精确匹配失败，尝试模糊匹配（处理前后空格差异）
+                            if (!lineInfo) {
+                                const rawTrimmed = rawText.trim();
+                                for (const [key, info] of Object.entries(lineIndexMap)) {
+                                    if (key.includes(rawTrimmed) || rawTrimmed.includes(key.substring(0, Math.min(10, key.length)))) {
+                                        lineInfo = info;
                                         break;
                                     }
                                 }
                             }
+                            
+                            // 如果还是没找到，使用默认值（单独一行）
+                            if (!lineInfo) {
+                                lineInfo = {
+                                    groupId: 1,
+                                    lineIndexInGroup: betIdx,
+                                    lineId: `1-${betIdx}`,
+                                    globalLineIndex: betIdx,
+                                    originalLine: rawText
+                                };
+                            }
+                            
                             return {
                                 ...bet,
                                 fromAI: true,
-                                groupId: groupId  // 🆕 添加分组ID
+                                groupId: lineInfo.groupId,
+                                lineId: lineInfo.lineId,
+                                originalLine: lineInfo.originalLine,
+                                globalLineIndex: lineInfo.globalLineIndex,
+                                betIndexInLine: 0  // AI 解析时一行一条，默认为0
                             };
                         });
                         
-                        // 🆕 保存分组信息
-                        parsedGroups = groups.map((g, i) => ({
-                            id: i + 1,
-                            rawText: g,
-                            lines: g.split('\n').filter(l => l.trim()),
-                            bets: parsedBets.filter(b => b.groupId === i + 1),
-                            betCount: parsedBets.filter(b => b.groupId === i + 1).length
-                        }));
+                        // 处理同一行多注的情况（比如 "买猪各10" 会生成多个号码的下注）
+                        // 按 originalLine 分组，重新分配 betIndexInLine
+                        const lineGrouped = {};
+                        parsedBets.forEach(bet => {
+                            const key = bet.originalLine || bet.raw || '';
+                            if (!lineGrouped[key]) lineGrouped[key] = [];
+                            lineGrouped[key].push(bet);
+                        });
+                        Object.values(lineGrouped).forEach(betsInLine => {
+                            betsInLine.forEach((bet, idx) => {
+                                bet.betIndexInLine = idx;
+                            });
+                        });
+                        
+                        // 🆕 保存分组信息（包含行级数据）
+                        parsedGroups = groups.map((g, i) => {
+                            const lines = g.split('\n').map(l => l.trim()).filter(l => l);
+                            return {
+                                id: i + 1,
+                                rawText: g,
+                                lines: lines,
+                                bets: parsedBets.filter(b => b.groupId === i + 1),
+                                betCount: parsedBets.filter(b => b.groupId === i + 1).length,
+                                lineCount: lines.length
+                            };
+                        });
                         
                         console.log('AI解析成功，下注数:', parsedBets.length, '分组数:', parsedGroups.length);
+                        console.log('📊 分组详情:', parsedGroups.map(g => `组${g.id}: ${g.lineCount}行 ${g.betCount}注`));
                         showAutoCloseToast(`✅ AI识别 ${parsedBets.length} 条`, 2000);
                     } else {
                         // AI返回空结果，回退本地解析
@@ -5053,6 +5139,197 @@
             
             showPage('page-check');
         }
+        
+        // ════════════════════════════════════════════════════════════════════════════
+        // 【分组编辑器 v2.4】手动控制下注行的分组
+        // ════════════════════════════════════════════════════════════════════════════
+        
+        // 临时存储分组编辑状态
+        let groupEditorLines = [];  // 每个元素 { text: string, hasGroupBreakAfter: boolean }
+        
+        /**
+         * 打开分组编辑器
+         */
+        function showGroupEditor() {
+            const input = document.getElementById('bet-input').value.trim();
+            if (!input) {
+                alert('请先粘贴下注信息');
+                return;
+            }
+            
+            // 解析现有内容，识别已有的分组分隔符
+            const rawLines = input.split('\n');
+            groupEditorLines = [];
+            
+            let currentGroupText = [];
+            for (let i = 0; i < rawLines.length; i++) {
+                const line = rawLines[i].trim();
+                
+                // 空行表示分组分隔
+                if (!line) {
+                    // 标记上一行后面有分组线
+                    if (groupEditorLines.length > 0) {
+                        groupEditorLines[groupEditorLines.length - 1].hasGroupBreakAfter = true;
+                    }
+                    continue;
+                }
+                
+                groupEditorLines.push({
+                    text: line,
+                    hasGroupBreakAfter: false
+                });
+            }
+            
+            // 渲染编辑器
+            renderGroupEditor();
+            
+            // 显示弹窗
+            document.getElementById('group-editor-modal').style.display = 'flex';
+        }
+        
+        /**
+         * 渲染分组编辑器界面
+         */
+        function renderGroupEditor() {
+            const container = document.getElementById('group-editor-lines');
+            
+            if (groupEditorLines.length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:#666;padding:40px;">暂无内容</div>';
+                return;
+            }
+            
+            let html = '';
+            let currentGroupId = 1;
+            
+            groupEditorLines.forEach((lineData, idx) => {
+                // 如果上一行有分组线，当前行是新组的开始
+                if (idx > 0 && groupEditorLines[idx - 1].hasGroupBreakAfter) {
+                    currentGroupId++;
+                }
+                
+                // 组颜色
+                const groupColors = ['#667eea', '#e94560', '#4ade80', '#f59e0b', '#06b6d4', '#ec4899'];
+                const groupColor = groupColors[(currentGroupId - 1) % groupColors.length];
+                
+                html += `
+                <div style="margin-bottom:4px;">
+                    <!-- 行内容 -->
+                    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(${currentGroupId % 2 === 1 ? '102,126,234' : '233,69,96'},0.1);border-radius:6px;border-left:3px solid ${groupColor};">
+                        <span style="color:${groupColor};font-size:10px;font-weight:bold;min-width:24px;">组${currentGroupId}</span>
+                        <span style="flex:1;color:#fff;font-size:13px;">${escapeHtml(lineData.text)}</span>
+                        <button onclick="removeGroupLine(${idx})" style="background:none;border:none;color:#f44336;font-size:14px;cursor:pointer;opacity:0.5;" title="删除此行">🗑️</button>
+                    </div>
+                    
+                    <!-- 分组线按钮 (最后一行不显示) -->
+                    ${idx < groupEditorLines.length - 1 ? `
+                    <div style="display:flex;align-items:center;justify-content:center;padding:2px 0;">
+                        ${lineData.hasGroupBreakAfter ? `
+                            <button onclick="toggleGroupBreak(${idx})" style="padding:4px 12px;background:linear-gradient(90deg,#667eea,#764ba2);color:white;border:none;border-radius:12px;font-size:10px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                                <span>━━━ 分组线 ━━━</span>
+                                <span style="opacity:0.7;">✕移除</span>
+                            </button>
+                        ` : `
+                            <button onclick="toggleGroupBreak(${idx})" style="padding:3px 10px;background:rgba(255,255,255,0.05);color:#888;border:1px dashed rgba(255,255,255,0.2);border-radius:10px;font-size:10px;cursor:pointer;">
+                                + 插入分组线
+                            </button>
+                        `}
+                    </div>
+                    ` : ''}
+                </div>
+                `;
+            });
+            
+            // 显示分组预览
+            const groupCount = groupEditorLines.filter(l => l.hasGroupBreakAfter).length + 1;
+            html += `
+            <div style="margin-top:12px;padding:10px;background:rgba(102,126,234,0.1);border-radius:6px;text-align:center;">
+                <span style="color:#667eea;font-size:12px;">📊 当前共 <strong>${groupCount}</strong> 个分组，<strong>${groupEditorLines.length}</strong> 行数据</span>
+            </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+        
+        /**
+         * 切换分组线
+         */
+        function toggleGroupBreak(lineIdx) {
+            if (lineIdx >= 0 && lineIdx < groupEditorLines.length) {
+                groupEditorLines[lineIdx].hasGroupBreakAfter = !groupEditorLines[lineIdx].hasGroupBreakAfter;
+                renderGroupEditor();
+            }
+        }
+        
+        /**
+         * 删除某一行
+         */
+        function removeGroupLine(lineIdx) {
+            if (lineIdx >= 0 && lineIdx < groupEditorLines.length) {
+                groupEditorLines.splice(lineIdx, 1);
+                renderGroupEditor();
+            }
+        }
+        
+        /**
+         * 重置分组编辑器
+         */
+        function resetGroupEditor() {
+            // 移除所有分组线
+            groupEditorLines.forEach(line => {
+                line.hasGroupBreakAfter = false;
+            });
+            renderGroupEditor();
+            showAutoCloseToast('✅ 已重置为单组', 1500);
+        }
+        
+        /**
+         * 应用分组编辑
+         */
+        function applyGroupEdits() {
+            // 根据分组线重建文本
+            let result = [];
+            let currentGroup = [];
+            
+            groupEditorLines.forEach((lineData, idx) => {
+                currentGroup.push(lineData.text);
+                
+                if (lineData.hasGroupBreakAfter || idx === groupEditorLines.length - 1) {
+                    result.push(currentGroup.join('\n'));
+                    currentGroup = [];
+                }
+            });
+            
+            // 用双换行连接各组
+            const newInput = result.join('\n\n');
+            
+            // 更新输入框
+            document.getElementById('bet-input').value = newInput;
+            
+            // 关闭弹窗
+            closeGroupEditor();
+            
+            // 提示
+            const groupCount = result.length;
+            showAutoCloseToast(`✅ 已应用 ${groupCount} 个分组`, 2000);
+        }
+        
+        /**
+         * 关闭分组编辑器
+         */
+        function closeGroupEditor() {
+            document.getElementById('group-editor-modal').style.display = 'none';
+        }
+        
+        /**
+         * HTML转义
+         */
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // ════════════════════════════════════════════════════════════════════════════
         
         function clearInput() {
             document.getElementById('bet-input').value = '';
