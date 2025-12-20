@@ -5155,7 +5155,8 @@
                         resultText += `💡 结果有误？点击下方"提交反馈"\n`;
                         
                         // 显示结果
-                        document.getElementById('result-output').innerText = resultText;
+                        document.getElementById('result-content').innerHTML = resultText.replace(/\n/g, '<br>');
+                        document.getElementById('result-section').classList.add('show');
                         return; // 🆕 v3.0 后端计算完成，直接返回
                     } else {
                         // 后端返回空结果或失败，回退本地解析
@@ -5244,7 +5245,8 @@
             resultText += `💡 结果有误？点击下方"提交反馈"\n`;
             
             // 显示结果
-            document.getElementById('result-output').innerText = resultText;
+            document.getElementById('result-content').innerHTML = resultText.replace(/\n/g, '<br>');
+            document.getElementById('result-section').classList.add('show');
         }
         
         // 显示核对详情
