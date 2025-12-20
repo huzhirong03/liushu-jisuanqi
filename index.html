@@ -4835,9 +4835,10 @@
             
             if (bet.type === '特码') {
                 odds = parseFloat(savedOdds['odds-tema']) || 43;
-                // 🆕 v2.4.8 修复：确保类型一致比较
-                isWin = parseInt(bet.number) === parseInt(tema);
-                detail = `特码 ${String(bet.number).padStart(2,'0')} vs 开奖特码 ${String(tema).padStart(2,'0')}`;
+                // 🆕 v2.4.8 修复：兼容本地解析(number)和AI解析(value)两种字段
+                const betNum = parseInt(bet.number || bet.value);
+                isWin = betNum === parseInt(tema);
+                detail = `特码 ${String(betNum).padStart(2,'0')} vs 开奖特码 ${String(tema).padStart(2,'0')}`;
             } else if (bet.type === '生肖特码') {
                 // 🆕 v2.4.8 新增：生肖特码中奖判断
                 odds = parseFloat(savedOdds['odds-tema']) || 43;
