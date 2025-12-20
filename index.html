@@ -5215,8 +5215,8 @@
             // 🆕 v2.4.8 统计信息：识别注数 | 总投 | 中奖注数 | 派彩
             resultText += `📋 识别 ${calcResults.length} 注 | 总投 ${totalBet}元\n`;
             resultText += `中${totalWin}注 | 派彩 ${totalWinAmount}元\n`;
-            // 🆕 结算：从庄家角度，不中奖=收入(+)，中奖=支出(-)
-            const settleAmount = totalBet - totalWinAmount;  // 庄家盈亏 = 收入 - 派彩
+            // 🆕 v2.4.8 结算：从玩家角度，派彩 - 总投入 = 净盈亏（正数为赢）
+            const settleAmount = totalWinAmount - totalBet;  // 玩家盈亏 = 派彩 - 投入
             resultText += `💰 结算: ${settleAmount >= 0 ? '+' : ''}${settleAmount}元\n`;
             resultText += `━━━━━━━━━━━━━━━━━━\n`;
             
@@ -8365,8 +8365,8 @@
             const totalBet = calcResults?.reduce((sum, r) => sum + r.amount, 0) || 0;
             const winCount = calcResults?.filter(r => r.isWin).length || 0;
             const winAmount = calcResults?.filter(r => r.isWin).reduce((sum, r) => sum + r.winAmount, 0) || 0;
-            // 🆕 v2.4.8 从庄家角度：盈亏 = 收入(总投) - 支出(派彩)
-            const profit = totalBet - winAmount;
+            // 🆕 v2.4.8 从玩家角度：盈亏 = 派彩 - 投入（正数为赢）
+            const profit = winAmount - totalBet;
             
             // 更新顶部固定栏
             document.getElementById('fb-issue').textContent = `${typeNames[currentType]} 第${issue}期`;
