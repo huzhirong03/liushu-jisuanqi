@@ -4232,10 +4232,32 @@
                 .trim();                     // 移除首尾空白
             
             // ═══════════════════════════════════════════════════════════════
-            // 【第一层切割】严格按空行分组（连续2个或更多换行符）
-            // 正则：\n\s*\n+ 匹配"换行+可选空白+一个或多个换行"
+            // 【第一层切割】严格按空行分组 v2.4.6
+            // 🆕 改进：逐行检测空行（只包含空白字符的行），避免行首空格干扰分组
             // ═══════════════════════════════════════════════════════════════
-            const groupTexts = normalizedInput.split(/\n\s*\n+/).filter(g => g.trim());
+            const allLines = normalizedInput.split('\n');
+            const groupTexts = [];
+            let currentGroup = [];
+            
+            for (const line of allLines) {
+                const trimmedLine = line.trim();
+                if (trimmedLine === '') {
+                    // 空行：如果当前组有内容，则结束当前组
+                    if (currentGroup.length > 0) {
+                        groupTexts.push(currentGroup.join('\n'));
+                        currentGroup = [];
+                    }
+                } else {
+                    // 非空行：添加到当前组（已trim过）
+                    currentGroup.push(trimmedLine);
+                }
+            }
+            // 添加最后一组
+            if (currentGroup.length > 0) {
+                groupTexts.push(currentGroup.join('\n'));
+            }
+            
+            console.log(`📦 分组切割 v2.4.6: 检测到 ${allLines.length} 行，分成 ${groupTexts.length} 组`);
             
             console.log(`📦 分组切割: 共 ${groupTexts.length} 个组`);
             
@@ -4977,8 +4999,25 @@
                         // 统一换行符处理
                         const normalizedInput = input.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                         
-                        // 按空行分组（连续空白行视为一个分隔）
-                        const groups = normalizedInput.split(/\n\s*\n+/).filter(g => g.trim());
+                        // 🆕 v2.4.6 改进分组逻辑：逐行检测空行，避免行首空格干扰
+                        const allLines = normalizedInput.split('\n');
+                        const groups = [];
+                        let currentGroup = [];
+                        
+                        for (const line of allLines) {
+                            const trimmedLine = line.trim();
+                            if (trimmedLine === '') {
+                                if (currentGroup.length > 0) {
+                                    groups.push(currentGroup.join('\n'));
+                                    currentGroup = [];
+                                }
+                            } else {
+                                currentGroup.push(trimmedLine);
+                            }
+                        }
+                        if (currentGroup.length > 0) {
+                            groups.push(currentGroup.join('\n'));
+                        }
                         
                         console.log('═══════════════════════════════════════════════════════');
                         console.log('📦 分组切割结果:', groups.length, '组');
@@ -5169,26 +5208,35 @@
             resultText += `💰 结算: ${netResult >= 0 ? '+' : ''}${netResult}元\n`;
             resultText += `━━━━━━━━━━━━━━━━━━\n`;
             
-            // 按类型分组显示
-            const byType = {};
+            // 🆕 v2.4.6 按原文分组显示（和反馈页面格式一致）
+            const byOriginal = {};
             calcResults.forEach(r => {
-                const key = r.type;
-                if (!byType[key]) byType[key] = [];
-                byType[key].push(r);
+                const key = r.raw || r.originalLine || r.type;
+                if (!byOriginal[key]) {
+                    byOriginal[key] = {
+                        type: r.type,
+                        originalLine: key,
+                        items: []
+                    };
+                }
+                byOriginal[key].items.push(r);
             });
             
-            for (const [type, items] of Object.entries(byType)) {
-                const nums = items.map(r => r.number || r.value || '').join(',');
+            for (const group of Object.values(byOriginal)) {
+                const items = group.items;
+                const type = group.type;
+                const originalLine = group.originalLine;
+                const nums = items.map(r => r.number || r.value || '').filter(n => n).join(',');
                 const amt = items[0]?.amount || 0;
-                const typeTotal = items.length * amt;
-                const winItems = items.filter(r => r.isWin);
+                const betCount = items.length;
+                const typeTotal = items.reduce((s, it) => s + it.amount, 0);
+                const hasWin = items.some(r => r.isWin);
                 
-                if (winItems.length > 0) {
-                    const winNums = winItems.map(r => r.number || r.value).join(',');
-                    resultText += `🎯 ${type}: ${nums} 各${amt}元=${typeTotal}元 【中:${winNums}】\n`;
-                } else {
-                    resultText += `✗ ${type}: ${nums} 各${amt}元=${typeTotal}元\n`;
-                }
+                // 🆕 中奖状态：红X / 绿✓
+                const statusIcon = hasWin ? '✓' : '✗';
+                const numbersStr = nums ? `（${nums}）` : '';
+                
+                resultText += `${statusIcon} ${type}: ${originalLine} ${numbersStr} ${betCount}×${amt}=${typeTotal}元\n`;
             }
             
             // 如果有问题提示
@@ -8451,7 +8499,7 @@
                         return;
                     }
                     
-                    // 🆕 v2.4.2 显示格式：原文（号码列表）注数×金额= 总额  盈亏
+                    // 🆕 v2.4.6 显示格式：✓/✗ 类型: 原文（号码列表）注数×金额= 总额  盈亏
                     const betCount = items.length;
                     const unitAmount = items[0]?.amount || 0;
                     const totalAmount = items.reduce((s, it) => s + it.amount, 0);
@@ -8460,6 +8508,14 @@
                     }, 0);
                     const hasWin = items.some(it => it.isWin);
                     const firstIndex = items[0]?.index || 0;
+                    
+                    // 🆕 获取类型名称
+                    const typeName = items[0]?.type || '未知';
+                    
+                    // 🆕 中奖状态标记
+                    const statusIcon = hasWin 
+                        ? '<span style="color:#4caf50;font-weight:bold;font-size:14px;">✓</span>' 
+                        : '<span style="color:#f44336;font-weight:bold;font-size:14px;">✗</span>';
                     
                     // 🆕 提取号码列表（去重后显示）
                     const allNumbers = items.map(it => {
@@ -8470,7 +8526,7 @@
                     const uniqueNumbers = [...new Set(allNumbers)];
                     const numbersStr = uniqueNumbers.length > 0 ? `（${uniqueNumbers.join(',')}）` : '';
                     
-                    // 格式：原文（号码）注数×金额= 总额  盈亏  ❌
+                    // 格式：✓/✗ 类型: 原文（号码）注数×金额= 总额  盈亏  ❌
                     html += `
                     <div class="fb-line" data-index="${firstIndex}" style="
                         display:flex;
@@ -8482,7 +8538,9 @@
                         margin-left:${hasWin ? '-8px' : '0'};
                     ">
                         <div style="flex:1;font-size:12px;line-height:1.5;">
-                            <span style="color:#fbbf24;font-weight:bold;">${line.originalLine}</span>
+                            ${statusIcon}
+                            <span style="color:#64b5f6;margin-left:4px;">${typeName}:</span>
+                            <span style="color:#fbbf24;font-weight:bold;margin-left:4px;">${line.originalLine}</span>
                             <span style="color:#888;font-size:11px;">${numbersStr}</span>
                             <span style="color:#aaa;margin-left:6px;">${betCount}×${unitAmount}=</span>
                             <span style="color:#fff;">${totalAmount}元</span>
