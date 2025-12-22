@@ -5343,13 +5343,27 @@
                         resultText += `💰 结算: ${settleAmount >= 0 ? '+' : ''}${settleAmount}元\n`;
                         resultText += `━━━━━━━━━━━━━━━━━━\n`;
                         
-                        // 按原文分组显示（🆕 v3.7.2 优先使用 originalLine 作为聚合 key）
+                        // 按原文分组显示（🆕 v3.8.2 区分展开型和拆分型）
                         const byOriginal = {};
                         calcResults.forEach(r => {
-                            // 优先使用 originalLine（用户原始输入），而不是 raw（后端展开后的单条数据）
-                            const key = r.originalLine || r.raw || r.type;
+                            // 判断是拆分型还是展开型：
+                            // - 拆分型：raw 是 originalLine 的一部分（如 "羊X4" 在 "羊X4  23.35.47X3  牛X10" 中）
+                            // - 展开型：raw 是后端生成的（如 "T01 1 10" 不在 "小码 10元" 中）
+                            const rawText = r.raw || '';
+                            const originalText = r.originalLine || '';
+                            
+                            // 检查 raw 是否在 originalLine 中能找到（允许脱敏后的匹配）
+                            const isSliceType = originalText.length > rawText.length && (
+                                originalText.includes(rawText) || 
+                                originalText.replace(/\s+/g, '').includes(rawText.replace(/\s+/g, ''))
+                            );
+                            
+                            // 拆分型用 raw 聚合，展开型用 originalLine 聚合
+                            const key = isSliceType ? rawText : (originalText || rawText || r.type);
+                            const displayText = isSliceType ? rawText : (originalText || rawText);
+                            
                             if (!byOriginal[key]) {
-                                byOriginal[key] = { type: r.type, originalLine: key, items: [], odds: r.odds || 1 };
+                                byOriginal[key] = { type: r.type, originalLine: displayText, items: [], odds: r.odds || 1 };
                             }
                             byOriginal[key].items.push(r);
                         });
@@ -9351,13 +9365,24 @@
             // 🆕 v2.4.5 修复：使用 AI 返回的原文 (raw) 作为分组依据，避免行匹配错误
             // ═══════════════════════════════════════════════════════════════════════
             // v3.2 初始化反馈数据，包含完整系统识别值
-            // 🆕 v3.7.2 修复：优先使用 originalLine（用户原始输入）进行聚合
-            feedbackData.items = calcResults.map((r, index) => ({
+            // 🆕 v3.8.2 区分展开型和拆分型，使用正确的显示文本
+            feedbackData.items = calcResults.map((r, index) => {
+                // 判断是拆分型还是展开型
+                const rawText = r.raw || '';
+                const originalText = r.originalLine || '';
+                const isSliceType = originalText.length > rawText.length && (
+                    originalText.includes(rawText) || 
+                    originalText.replace(/\s+/g, '').includes(rawText.replace(/\s+/g, ''))
+                );
+                // 拆分型用 raw，展开型用 originalLine
+                const displayLine = isSliceType ? rawText : (originalText || rawText);
+                
+                return {
                 index: index,
                 groupId: r.groupId || 1,
                 lineId: r.lineId || `1-0`,
-                // 🆕 v3.7.2 优先使用 originalLine（用户原始输入），而不是 raw（后端展开后的单条数据）
-                originalLine: r.originalLine || r.raw || '',
+                // 🆕 v3.8.2 拆分型用 raw，展开型用 originalLine
+                originalLine: displayLine,
                 type: r.type || '未识别',
                 value: r.value || '',
                 number: r.number || r.value || '',  // 单独保存号码
@@ -9374,7 +9399,7 @@
                 errorBlame: '',       // regex_service/calc_service
                 systemValue: null,    // 🆕 v3.2 系统识别值（选择错误类型时填充）
                 note: ''              // 🆕 v3.2 备注
-            }));
+            };});
             
             // 🆕 调试日志：显示解析结果详情
             console.log('═══════════════════════════════════════════════════════');
