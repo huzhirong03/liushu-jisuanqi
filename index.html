@@ -5463,6 +5463,12 @@
                             let numsDisplay = '';
                             if (hasZodiac && allNums.length > 0 && betCount > 1) {
                                 // 🆕 v3.8.4 按生肖分组显示号码（如：猴10,22,34,46,龙02,14,26,38）
+                                // Z代号转生肖名称映射
+                                const Z_TO_NAME = {
+                                    'Z1': '鼠', 'Z2': '牛', 'Z3': '虎', 'Z4': '兔',
+                                    'Z5': '龙', 'Z6': '蛇', 'Z7': '马', 'Z8': '羊',
+                                    'Z9': '猴', 'Z10': '鸡', 'Z11': '狗', 'Z12': '猪'
+                                };
                                 const zodiacGroups = {};
                                 items.forEach(it => {
                                     const z = it.zodiac;
@@ -5481,7 +5487,9 @@
                                 });
                                 const parts = zodiacOrder.map(z => {
                                     const nums = zodiacGroups[z] || [];
-                                    return z + nums.map(n => String(n).padStart(2,'0')).join(',');
+                                    // 将Z代号转换为生肖名称（如Z9→猴）
+                                    const zName = Z_TO_NAME[z] || z;
+                                    return zName + nums.map(n => String(n).padStart(2,'0')).join(',');
                                 });
                                 numsDisplay = ` (${parts.join(',')})`;
                             }
@@ -5591,6 +5599,12 @@
                 let numsDisplay = '';
                 if (hasZodiac && allNums.length > 0 && betCount > 1) {
                     // 🆕 v3.8.4 按生肖分组显示号码（如：猴10,22,34,46,龙02,14,26,38）
+                    // Z代号转生肖名称映射
+                    const Z_TO_NAME = {
+                        'Z1': '鼠', 'Z2': '牛', 'Z3': '虎', 'Z4': '兔',
+                        'Z5': '龙', 'Z6': '蛇', 'Z7': '马', 'Z8': '羊',
+                        'Z9': '猴', 'Z10': '鸡', 'Z11': '狗', 'Z12': '猪'
+                    };
                     const zodiacGroups = {};
                     items.forEach(it => {
                         const z = it.zodiac;
@@ -5609,7 +5623,9 @@
                     });
                     const parts = zodiacOrder.map(z => {
                         const nums = zodiacGroups[z] || [];
-                        return z + nums.map(n => String(n).padStart(2,'0')).join(',');
+                        // 将Z代号转换为生肖名称（如Z9→猴）
+                        const zName = Z_TO_NAME[z] || z;
+                        return zName + nums.map(n => String(n).padStart(2,'0')).join(',');
                     });
                     numsDisplay = ` (${parts.join(',')})`;
                 }
@@ -9705,6 +9721,12 @@
                         displayOriginalLine = fbHighlightWinNum(line.originalLine, fbTema);
                         // 🆕 v3.8.4 按生肖分组显示号码（如：猴10,22,34,46,龙02,14,26,38）
                         if (hasZodiac && uniqueNumbers.length > 0) {
+                            // Z代号转生肖名称映射
+                            const Z_TO_NAME = {
+                                'Z1': '鼠', 'Z2': '牛', 'Z3': '虎', 'Z4': '兔',
+                                'Z5': '龙', 'Z6': '蛇', 'Z7': '马', 'Z8': '羊',
+                                'Z9': '猴', 'Z10': '鸡', 'Z11': '狗', 'Z12': '猪'
+                            };
                             // 按生肖分组
                             const zodiacGroups = {};
                             items.forEach(it => {
@@ -9724,7 +9746,9 @@
                             });
                             const parts = zodiacOrder.map(z => {
                                 const nums = zodiacGroups[z] || [];
-                                return z + nums.map(n => String(n).padStart(2,'0')).join(',');
+                                // 将Z代号转换为生肖名称（如Z9→猴）
+                                const zName = Z_TO_NAME[z] || z;
+                                return zName + nums.map(n => String(n).padStart(2,'0')).join(',');
                             });
                             numbersStr = `（${fbHighlightWinNum(parts.join(','), fbTema)}）`;
                         }
