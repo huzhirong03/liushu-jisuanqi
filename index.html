@@ -5109,7 +5109,17 @@
                         debugInfo.modelUsed = backendResult.model_used || 'unknown';
                         debugInfo.latencyMs = backendResult.latency_ms || 0;
                         
-                        console.log(`✅ 后端计算完成: 识别${calcResults.length}注, 总投${totalBet}, 中${totalWin}注, 派彩${totalWinAmount}, 结算${settleAmount}`);
+                        // 🆕 v3.1 保存后端返回的详细调试信息（用于反馈追踪）
+                        debugInfo.extractItems = backendResult.extract_items || [];  // 正则/AI 识别的每条详情
+                        debugInfo.calcInputCount = backendResult.input_count || 0;   // 识别条数
+                        debugInfo.calcOutputCount = backendResult.output_count || 0; // 展开后条数
+                        debugInfo.calcItems = backendResult.items || [];             // 计算后的每条详情
+                        debugInfo.calcS1 = totalBet;
+                        debugInfo.calcS2 = totalWin;
+                        debugInfo.calcS3 = totalWinAmount;
+                        debugInfo.calcS4 = settleAmount;
+                        
+                        console.log(`✅ 后端计算完成: 识别${debugInfo.calcInputCount}条→展开${debugInfo.calcOutputCount}条, 总投${totalBet}, 中${totalWin}注, 派彩${totalWinAmount}, 结算${settleAmount}`);
                         showAutoCloseToast(`✅ 计算完成 ${calcResults.length} 注`, 2000);
                         
                         // 🆕 v3.0 直接跳转到显示结果部分
@@ -8987,10 +8997,11 @@ ${winDetailText}║    ───────────────────
                 const settings = getFormatSettings();
                 
                 // ═══════════════════════════════════════════════════════════
-                // 构建【完整调试链条】数据 - 便于精准定位问题环节
+                // 构建【完整调试链条】数据 v3.1 - 便于精准定位问题环节
                 // ═══════════════════════════════════════════════════════════
                 const dbData = {
                     version: APP_VERSION,
+                    app_version: APP_VERSION,
                     
                     // 📌 第1步：用户原始输入
                     raw_input: document.getElementById('bet-input')?.value || '',
@@ -8998,18 +9009,40 @@ ${winDetailText}║    ───────────────────
                     // 📌 第2步：前端脱敏转换（暗号）
                     sanitized_input: debugInfo.sanitizedInput || debugInfo.aiInput || '',
                     
-                    // 📌 第3步：AI模型识别
+                    // 📌 第3步：后端识别
+                    backend_method: debugInfo.modelUsed === 'regex' ? 'regex' : 'ai',
+                    
+                    // 🆕 v3.1 正则识别结果（关键！包含 code, zodiac, nums, amt）
+                    regex_items: JSON.stringify(debugInfo.extractItems || []),
+                    
+                    // AI识别结果（当 backend_method 是 ai 时）
                     ai_provider: settings.aiProvider || 'unknown',
                     ai_model: debugInfo.modelUsed || '',
                     ai_raw_response: (debugInfo.aiOutput || '').substring(0, 3000),
                     ai_parsed_result: JSON.stringify(debugInfo.aiParsed || null),
                     ai_latency_ms: debugInfo.latencyMs || 0,
                     
-                    // 📌 第4步：后端处理方式
-                    backend_method: debugInfo.modelUsed === 'regex' ? 'regex' : 'ai_fc',
-                    backend_extracted: JSON.stringify(debugInfo.aiParsed || []),
+                    // 📌 第4步：后端计算（🆕 v3.1 新增关键字段）
+                    calc_input_count: debugInfo.calcInputCount || 0,     // 识别条数
+                    calc_output_count: debugInfo.calcOutputCount || 0,   // 展开后条数（关键！）
+                    calc_items: JSON.stringify((debugInfo.calcItems || []).slice(0, 100)),  // 计算后每条详情
+                    calc_s1: debugInfo.calcS1 || 0,   // 总投入
+                    calc_s2: debugInfo.calcS2 || 0,   // 命中数
+                    calc_s3: debugInfo.calcS3 || 0,   // 命中金额
+                    calc_s4: debugInfo.calcS4 || 0,   // 结算
+                    calc_latency_ms: debugInfo.latencyMs || 0,
                     
-                    // 📌 第5步：前端还原+计算
+                    // 📌 第5步：前端显示
+                    display_items: JSON.stringify((calcResults || []).slice(0, 50).map(r => ({
+                        type: r.type,
+                        zodiac: r.zodiac,
+                        numbers: r.numbers,
+                        amount: r.amount,
+                        isWin: r.isWin,
+                        winAmount: r.winAmount
+                    }))),
+                    
+                    // 旧字段保留兼容
                     restored_result: JSON.stringify((parsedBets || []).slice(0, 50)),
                     calc_bets: JSON.stringify((parsedBets || []).map(b => ({
                         type: b.type,
@@ -9038,7 +9071,10 @@ ${winDetailText}║    ───────────────────
                     win_amount: (calcResults || []).filter(r => r.isWin).reduce((s, r) => s + r.winAmount, 0),
                     profit: submitData.summary.profit,
                     
-                    // 🚨 第8步：用户反馈的错误
+                    // 📌 第8步：用户反馈的错误
+                    error_stage: errorItems[0]?.errorBlame || 'unknown',  // 🆕 错误环节
+                    error_detail: errorItems.map(e => e.note || '').filter(n => n).join('; '),  // 🆕 详细描述
+                    expected_result: errorItems[0]?.correction || '',  // 🆕 期望结果
                     error_items: JSON.stringify(submitData.error_reports),
                     error_summary: errorItems.map(e => `[${e.errorType}:${e.errorBlame}]${e.original}`).join(' | ')
                 };
