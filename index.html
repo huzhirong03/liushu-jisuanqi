@@ -1689,60 +1689,6 @@
                     <div class="page-title">自定义格式</div>
                 </div>
                 
-                <!-- AI智能解析设置（简化版 - 对用户隐藏技术细节） -->
-                <div class="setting-group" style="background:linear-gradient(135deg,rgba(102,126,234,0.2),rgba(118,75,162,0.2));border:1px solid rgba(102,126,234,0.3);">
-                    <div class="setting-group-title" style="color:#a78bfa;">🤖 AI智能解析</div>
-                    <div style="font-size:12px;color:#888;margin-bottom:12px;">
-                        开启后可自动识别各种复杂格式，无需手动配置
-                    </div>
-                    
-                    <div class="setting-item">
-                        <span class="setting-item-label">启用AI智能解析</span>
-                        <input type="checkbox" id="ai-parse-enabled" checked style="width:20px;height:20px;">
-                    </div>
-                    
-                    <!-- AI模型切换按钮 -->
-                    <div style="margin-top:12px;">
-                        <div style="font-size:12px;color:#888;margin-bottom:8px;">选择AI模型：</div>
-                        <div id="ai-model-buttons" style="display:flex;gap:8px;flex-wrap:wrap;">
-                            <button type="button" class="ai-model-btn active" data-provider="deepseek" onclick="switchAIModel('deepseek')">
-                                🚀 DS
-                            </button>
-                            <button type="button" class="ai-model-btn" data-provider="zhipu" onclick="switchAIModel('zhipu')">
-                                🧠 智谱
-                            </button>
-                            <button type="button" class="ai-model-btn" data-provider="qwen" onclick="switchAIModel('qwen')">
-                                ☁️ 千问
-                            </button>
-                            <button type="button" class="ai-model-btn" data-provider="tuzi" onclick="switchAIModel('tuzi')">
-                                🌐 谷歌
-                            </button>
-                            <button type="button" class="ai-model-btn" data-provider="claude" onclick="switchAIModel('claude')">
-                                🤖 Claude
-                            </button>
-                            <button type="button" class="ai-model-btn" data-provider="gpt" onclick="switchAIModel('gpt')">
-                                💡 GPT
-                            </button>
-                        </div>
-                        <div id="ai-model-status" style="margin-top:8px;padding:8px;background:rgba(76,175,80,0.1);border-radius:6px;font-size:11px;color:#81c784;">
-                            ✅ 当前：DeepSeek（国内直连）
-                        </div>
-                    </div>
-                    
-                    <!-- 隐藏的配置 -->
-                    <div style="display:none;">
-                        <select id="ai-provider">
-                            <option value="deepseek" selected>DeepSeek</option>
-                            <option value="zhipu">智谱GLM</option>
-                            <option value="qwen">通义千问</option>
-                            <option value="claude">Claude Opus</option>
-                            <option value="gpt">GPT 5.1</option>
-                            <option value="tuzi">Gemini 3 Pro</option>
-                        </select>
-                        <input type="hidden" id="ai-api-key" value="">
-                    </div>
-                </div>
-                
                 <!-- 🆕 v3.6 自定义识别规则（优先级最高，直接传计算跳过识别） -->
                 <div class="setting-group" style="background:linear-gradient(135deg,rgba(251,191,36,0.1),rgba(245,158,11,0.1));border:1px solid rgba(251,191,36,0.3);">
                     <div class="setting-group-title" style="color:#fbbf24;">🎯 自定义识别规则</div>
@@ -1928,23 +1874,6 @@
                     </div>
                 </div>
                 
-                <!-- 导入导出 -->
-                <div class="setting-group">
-                    <div class="setting-group-title">📦 导入/导出配置</div>
-                    <div style="display:flex;gap:8px;">
-                        <button onclick="exportAllSettings()" style="flex:1;padding:10px;background:rgba(102,126,234,0.2);color:#a78bfa;border:1px solid rgba(102,126,234,0.3);border-radius:6px;font-size:12px;cursor:pointer;">
-                            📤 导出配置
-                        </button>
-                        <button onclick="document.getElementById('import-file').click()" style="flex:1;padding:10px;background:rgba(76,175,80,0.2);color:#81c784;border:1px solid rgba(76,175,80,0.3);border-radius:6px;font-size:12px;cursor:pointer;">
-                            📥 导入配置
-                        </button>
-                        <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importAllSettings(event)">
-                    </div>
-                    <div style="font-size:10px;color:#666;margin-top:8px;">
-                        包含：自定义规则 + 倍率设置
-                    </div>
-                </div>
-                
                 <button onclick="saveFormatSettings()" style="width:100%;padding:12px;background:linear-gradient(90deg,#e94560,#c23a51);color:white;border:none;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;margin-top:15px;">
                     💾 保存设置
                 </button>
@@ -1961,66 +1890,83 @@
                     <div class="page-title">参数设置</div>
                 </div>
                 
-                <div class="setting-group">
-                    <div class="setting-group-title">计算容错设置</div>
-                    <div style="font-size:12px;color:#888;margin-bottom:15px;">
-                        调整计算的宽容度，避免因小错误导致计算失败
+                <!-- AI智能解析设置（从自定义格式页面移入） -->
+                <div class="setting-group" style="background:linear-gradient(135deg,rgba(102,126,234,0.2),rgba(118,75,162,0.2));border:1px solid rgba(102,126,234,0.3);">
+                    <div class="setting-group-title" style="color:#a78bfa;">🤖 AI智能解析</div>
+                    <div style="font-size:12px;color:#888;margin-bottom:12px;">
+                        开启后可自动识别各种复杂格式，无需手动配置
                     </div>
                     
                     <div class="setting-item">
-                        <span class="setting-item-label">允许省略"元"字</span>
-                        <input type="checkbox" id="param-omit-yuan" checked style="width:20px;height:20px;">
+                        <span class="setting-item-label">启用AI智能解析</span>
+                        <input type="checkbox" id="ai-parse-enabled" checked style="width:20px;height:20px;">
                     </div>
-                    <div class="setting-item">
-                        <span class="setting-item-label">允许省略"码"字</span>
-                        <input type="checkbox" id="param-omit-ma" checked style="width:20px;height:20px;">
+                    
+                    <!-- AI模型切换按钮 -->
+                    <div style="margin-top:12px;">
+                        <div style="font-size:12px;color:#888;margin-bottom:8px;">选择AI模型：</div>
+                        <div id="ai-model-buttons" style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button type="button" class="ai-model-btn active" data-provider="deepseek" onclick="switchAIModel('deepseek')">
+                                🚀 DS
+                            </button>
+                            <button type="button" class="ai-model-btn" data-provider="zhipu" onclick="switchAIModel('zhipu')">
+                                🧠 智谱
+                            </button>
+                            <button type="button" class="ai-model-btn" data-provider="qwen" onclick="switchAIModel('qwen')">
+                                ☁️ 千问
+                            </button>
+                            <button type="button" class="ai-model-btn" data-provider="tuzi" onclick="switchAIModel('tuzi')">
+                                🌐 谷歌
+                            </button>
+                            <button type="button" class="ai-model-btn" data-provider="claude" onclick="switchAIModel('claude')">
+                                🤖 Claude
+                            </button>
+                            <button type="button" class="ai-model-btn" data-provider="gpt" onclick="switchAIModel('gpt')">
+                                💡 GPT
+                            </button>
+                        </div>
+                        <div id="ai-model-status" style="margin-top:8px;padding:8px;background:rgba(76,175,80,0.1);border-radius:6px;font-size:11px;color:#81c784;">
+                            ✅ 当前：DeepSeek（阿里云代理）
+                        </div>
                     </div>
-                    <div class="setting-item">
-                        <span class="setting-item-label">自动纠正同音字</span>
-                        <input type="checkbox" id="param-auto-correct" checked style="width:20px;height:20px;">
-                    </div>
-                    <div class="setting-item">
-                        <span class="setting-item-label">模糊匹配生肖</span>
-                        <input type="checkbox" id="param-fuzzy-shengxiao" checked style="width:20px;height:20px;">
-                    </div>
-                </div>
-                
-                <div class="setting-group">
-                    <div class="setting-group-title">金额单位设置</div>
-                    <div class="setting-item">
-                        <span class="setting-item-label">默认单位</span>
-                        <select id="param-default-unit" style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;padding:8px 12px;font-size:13px;">
-                            <option value="1">元</option>
-                            <option value="10">十元</option>
-                            <option value="100">百元</option>
+                    
+                    <!-- 隐藏的配置 -->
+                    <div style="display:none;">
+                        <select id="ai-provider">
+                            <option value="deepseek" selected>DeepSeek</option>
+                            <option value="zhipu">智谱GLM</option>
+                            <option value="qwen">通义千问</option>
+                            <option value="claude">Claude Opus</option>
+                            <option value="gpt">GPT 5.1</option>
+                            <option value="tuzi">Gemini 3 Pro</option>
                         </select>
+                        <input type="hidden" id="ai-api-key" value="">
                     </div>
                 </div>
                 
+                <!-- 导入导出配置（从自定义格式页面移入） -->
                 <div class="setting-group">
-                    <div class="setting-group-title">特殊计算规则</div>
-                    <textarea id="custom-calc-rules" style="width:100%;height:80px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;padding:10px;font-size:13px;resize:none;" placeholder="添加特殊计算规则..."></textarea>
+                    <div class="setting-group-title">📦 导入/导出配置</div>
+                    <div style="font-size:12px;color:#888;margin-bottom:12px;">
+                        导出配置可在其他设备导入使用
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button onclick="exportAllSettings()" style="flex:1;padding:10px;background:rgba(102,126,234,0.2);color:#a78bfa;border:1px solid rgba(102,126,234,0.3);border-radius:6px;font-size:12px;cursor:pointer;">
+                            📤 导出配置
+                        </button>
+                        <button onclick="document.getElementById('import-file-params').click()" style="flex:1;padding:10px;background:rgba(76,175,80,0.2);color:#81c784;border:1px solid rgba(76,175,80,0.3);border-radius:6px;font-size:12px;cursor:pointer;">
+                            📥 导入配置
+                        </button>
+                        <input type="file" id="import-file-params" accept=".json" style="display:none;" onchange="importAllSettings(event)">
+                    </div>
+                    <div style="font-size:10px;color:#666;margin-top:8px;">
+                        包含：自定义规则 + 倍率设置
+                    </div>
                 </div>
                 
                 <button onclick="saveParamSettings()" style="width:100%;padding:12px;background:linear-gradient(90deg,#e94560,#c23a51);color:white;border:none;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;margin-top:15px;">
-                    保存设置
+                    💾 保存设置
                 </button>
-                
-                <!-- 导入导出配置 -->
-                <div class="setting-group" style="margin-top:20px;">
-                    <div class="setting-group-title">配置备份与恢复</div>
-                    <div style="font-size:12px;color:#888;margin-bottom:12px;">
-                        导出赔率配置可在其他设备导入使用
-                    </div>
-                    <div style="display:flex;gap:10px;">
-                        <button onclick="showExportOptions()" style="flex:1;padding:12px;background:linear-gradient(90deg,#3498db,#2980b9);color:white;border:none;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;">
-                            📤 导出配置
-                        </button>
-                        <button onclick="showImportModal()" style="flex:1;padding:12px;background:linear-gradient(90deg,#2ecc71,#27ae60);color:white;border:none;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;">
-                            📥 导入配置
-                        </button>
-                    </div>
-                </div>
             </div>
             
             <!-- 激活页面 -->
@@ -8540,31 +8486,41 @@
         // ╚════════════════════════════════════════════════════════════════╝
         
         // ==================== 参数设置 ====================
+        // v3.7 参数设置页面现在包含AI智能解析和导入/导出配置
         function saveParamSettings() {
             const settings = {
-                omitYuan: document.getElementById('param-omit-yuan').checked,
-                omitMa: document.getElementById('param-omit-ma').checked,
-                autoCorrect: document.getElementById('param-auto-correct').checked,
-                fuzzyShengxiao: document.getElementById('param-fuzzy-shengxiao').checked,
-                defaultUnit: document.getElementById('param-default-unit').value,
-                customRules: document.getElementById('custom-calc-rules').value
+                // AI设置
+                aiEnabled: document.getElementById('ai-parse-enabled')?.checked !== false,
+                aiProvider: localStorage.getItem('ai_provider') || 'deepseek'
             };
-            localStorage.setItem('lhc_param_settings', JSON.stringify(settings));
-            alert('✅ 参数设置已保存！');
+            localStorage.setItem('lhc_format_settings', JSON.stringify(settings));
+            showAutoCloseToast('✅ 参数设置已保存！');
+            
+            // 保存后返回首页
+            setTimeout(() => {
+                showPage('page-main');
+            }, 800);
         }
         
         function loadParamSettings() {
-            const saved = localStorage.getItem('lhc_param_settings');
+            // v3.7 加载AI设置到参数设置页面
+            const saved = localStorage.getItem('lhc_format_settings');
             if (saved) {
-                const settings = JSON.parse(saved);
-                if (document.getElementById('param-omit-yuan')) {
-                    document.getElementById('param-omit-yuan').checked = settings.omitYuan !== false;
-                    document.getElementById('param-omit-ma').checked = settings.omitMa !== false;
-                    document.getElementById('param-auto-correct').checked = settings.autoCorrect !== false;
-                    document.getElementById('param-fuzzy-shengxiao').checked = settings.fuzzyShengxiao !== false;
-                    document.getElementById('param-default-unit').value = settings.defaultUnit || '1';
-                    document.getElementById('custom-calc-rules').value = settings.customRules || '';
+                try {
+                    const s = JSON.parse(saved);
+                    const aiCheckbox = document.getElementById('ai-parse-enabled');
+                    if (aiCheckbox) {
+                        aiCheckbox.checked = s.aiEnabled !== false;
+                    }
+                } catch(e) {
+                    console.error('加载参数设置失败:', e);
                 }
+            }
+            
+            // 加载保存的AI模型选择
+            const savedProvider = localStorage.getItem('ai_provider');
+            if (savedProvider) {
+                switchAIModel(savedProvider);
             }
         }
         
