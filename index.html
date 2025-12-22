@@ -5075,26 +5075,84 @@
                             'UK': '未知'
                         };
                         
-                        parsedBets = backendResult.items.map((item, idx) => ({
-                            type: TYPE_NAME_MAP[item.code] || item.code,
-                            number: item.n && item.n.length === 1 ? item.n[0] : null,
-                            numbers: item.n || [],
-                            amount: item.a || 0,
-                            raw: restoreText(item.raw || ''),
-                            originalLine: restoreText(item.raw || ''),
-                            zodiac: item.z || null,
-                            fromAI: true,
-                            groupId: 1,
-                            lineId: `1-${idx}`,
-                            globalLineIndex: idx,
-                            betIndexInLine: item.idx || 0,
-                            // 🆕 v3.0 后端计算的结果
-                            isWin: item.w || false,
-                            winAmount: item.v || 0,
-                            odds: item.r || 1,
-                            detail: `${TYPE_NAME_MAP[item.code] || item.code} ${item.n ? item.n.join(',') : ''} vs 特码${appState.lotteryNumbers[6]}`,
-                            netResult: item.w ? -(item.v - item.a) : item.a
-                        }));
+                        // 🆕 v3.1 从原始输入中解析分组信息（空行分隔）
+                        const rawInput = document.getElementById('bet-input')?.value || '';
+                        const inputGroups = [];  // 每组的原文行列表
+                        let currentGroup = [];
+                        rawInput.split('\n').forEach(line => {
+                            if (line.trim() === '') {
+                                // 空行：保存当前组，开始新组
+                                if (currentGroup.length > 0) {
+                                    inputGroups.push(currentGroup);
+                                    currentGroup = [];
+                                }
+                            } else {
+                                currentGroup.push(line.trim());
+                            }
+                        });
+                        if (currentGroup.length > 0) {
+                            inputGroups.push(currentGroup);
+                        }
+                        
+                        console.log('📦 输入分组:', inputGroups);
+                        
+                        // 🆕 v3.1 构建行→分组映射
+                        const lineToGroupMap = {};  // 脱敏后的行 → {groupId, lineIndex}
+                        inputGroups.forEach((group, gIdx) => {
+                            group.forEach((line, lIdx) => {
+                                // 对原始行进行脱敏，用于匹配后端返回的 raw
+                                const sanitizedLine = sanitizeText(line);
+                                lineToGroupMap[sanitizedLine] = {
+                                    groupId: gIdx + 1,
+                                    lineIndex: lIdx,
+                                    originalLine: line
+                                };
+                            });
+                        });
+                        
+                        console.log('📋 行→分组映射:', lineToGroupMap);
+                        
+                        parsedBets = backendResult.items.map((item, idx) => {
+                            // 🆕 v3.1 根据 item.raw 找到对应的分组
+                            const itemRaw = item.raw || '';
+                            let groupInfo = lineToGroupMap[itemRaw];
+                            
+                            // 如果精确匹配失败，尝试模糊匹配
+                            if (!groupInfo) {
+                                for (const [key, info] of Object.entries(lineToGroupMap)) {
+                                    if (itemRaw.includes(key) || key.includes(itemRaw)) {
+                                        groupInfo = info;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            // 默认分组
+                            if (!groupInfo) {
+                                groupInfo = { groupId: 1, lineIndex: 0, originalLine: itemRaw };
+                            }
+                            
+                            return {
+                                type: TYPE_NAME_MAP[item.code] || item.code,
+                                number: item.n && item.n.length === 1 ? item.n[0] : null,
+                                numbers: item.n || [],
+                                amount: item.a || 0,
+                                raw: restoreText(item.raw || ''),
+                                originalLine: restoreText(groupInfo.originalLine || item.raw || ''),
+                                zodiac: item.z || null,
+                                fromAI: true,
+                                groupId: groupInfo.groupId,
+                                lineId: `${groupInfo.groupId}-${groupInfo.lineIndex}`,
+                                globalLineIndex: idx,
+                                betIndexInLine: item.idx || 0,
+                                // 🆕 v3.0 后端计算的结果
+                                isWin: item.w || false,
+                                winAmount: item.v || 0,
+                                odds: item.r || 1,
+                                detail: `${TYPE_NAME_MAP[item.code] || item.code} ${item.n ? item.n.join(',') : ''} vs 特码${appState.lotteryNumbers[6]}`,
+                                netResult: item.w ? -(item.v - item.a) : item.a
+                            };
+                        });
                         
                         // 🆕 v3.0 直接使用后端计算的结果
                         calcResults = parsedBets;
