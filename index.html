@@ -5457,9 +5457,12 @@
                             const allNums = items.map(it => it.number || (it.numbers && it.numbers[0])).filter(n => n);
                             const winNums = items.filter(r => r.isWin).map(it => it.number || (it.numbers && it.numbers[0])).filter(n => n);
                             
+                            // 🆕 v3.8.3 只有生肖输入才显示号码列表（直接输入号码的不显示，避免冗余）
+                            const hasZodiac = items.some(it => it.zodiac);
+                            
                             let numsDisplay = '';
-                            if (allNums.length > 0 && betCount > 1) {
-                                // 展开类型：显示号码列表
+                            if (hasZodiac && allNums.length > 0 && betCount > 1) {
+                                // 生肖类型：显示号码列表（用户需要知道生肖对应哪些号码）
                                 const sortedNums = [...new Set(allNums)].sort((a,b) => a-b);
                                 if (sortedNums.length > 8) {
                                     // 太多号码时简化显示
@@ -5567,8 +5570,13 @@
                 
                 // 🆕 v3.6.1 优化展示：聚合号码列表
                 const allNums = items.map(it => it.number || (it.numbers && it.numbers[0])).filter(n => n);
+                
+                // 🆕 v3.8.3 只有生肖输入才显示号码列表（直接输入号码的不显示，避免冗余）
+                const hasZodiac = items.some(it => it.zodiac);
+                
                 let numsDisplay = '';
-                if (allNums.length > 0 && betCount > 1) {
+                if (hasZodiac && allNums.length > 0 && betCount > 1) {
+                    // 生肖类型：显示号码列表（用户需要知道生肖对应哪些号码）
                     const sortedNums = [...new Set(allNums)].sort((a,b) => a-b);
                     if (sortedNums.length > 8) {
                         numsDisplay = ` (${sortedNums.slice(0,3).map(n=>String(n).padStart(2,'0')).join(',')}...${sortedNums.slice(-2).map(n=>String(n).padStart(2,'0')).join(',')})`;
@@ -9666,8 +9674,8 @@
                     let numbersStr = '';
                     if (typeName === '特码' || typeName === '生肖特码') {
                         displayOriginalLine = fbHighlightWinNum(line.originalLine, fbTema);
-                        // 🆕 v3.6.1 展开类型显示号码列表（超过1个号码时）
-                        if (uniqueNumbers.length > 1) {
+                        // 🆕 v3.8.3 只有生肖输入才显示号码列表（直接输入号码的不显示，避免冗余）
+                        if (hasZodiac && uniqueNumbers.length > 0) {
                             let numsDisplay;
                             if (uniqueNumbers.length > 8) {
                                 // 太多号码时简化显示
@@ -9678,8 +9686,6 @@
                                 numsDisplay = uniqueNumbers.map(n=>String(n).padStart(2,'0')).join(',');
                             }
                             numbersStr = `（${fbHighlightWinNum(numsDisplay, fbTema)}）`;
-                        } else if (hasZodiac && uniqueNumbers.length > 0) {
-                            numbersStr = `（${fbHighlightWinNum(uniqueNumbers.map(n=>String(n).padStart(2,'0')).join(','), fbTema)}）`;
                         }
                     }
                     
