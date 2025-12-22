@@ -8408,15 +8408,255 @@
             errorCount: 0   // 标记为错误的条目数
         };
         
-        // 支持的玩法类型列表
+        // 🆕 v3.4 Z代号到生肖名称的映射
+        const Z_CODE_NAMES = {
+            'Z1': '鼠', 'Z2': '牛', 'Z3': '虎', 'Z4': '兔',
+            'Z5': '龙', 'Z6': '蛇', 'Z7': '马', 'Z8': '羊',
+            'Z9': '猴', 'Z10': '鸡', 'Z11': '狗', 'Z12': '猪'
+        };
+        
+        // 🆕 v3.4 完整玩法类型配置（根据《玩法规则大全》）
+        const PLAY_TYPE_CONFIG = {
+            // ========== T01 特码类 ==========
+            'T01': {
+                name: '特码',
+                subTypes: null,  // 无子类型，只需要号码+金额
+                winRule: '投注号码 == 特码（第7个数字）',
+                needFields: ['numbers', 'amount'],
+                defaultOdds: 46
+            },
+            
+            // ========== DXDS 大小单双类 ==========
+            'DXDS': {
+                name: '大小单双',
+                subTypes: ['小数', '大数', '单数', '双数', '合大', '合小', '合单', '合双'],
+                winRule: {
+                    '小数': '特码 1-24',
+                    '大数': '特码 25-48',
+                    '单数': '特码为奇数',
+                    '双数': '特码为偶数',
+                    '合大': '合数(十位+个位) 7-13',
+                    '合小': '合数(十位+个位) 0-6',
+                    '合单': '合数为奇数',
+                    '合双': '合数为偶数'
+                },
+                special49: '特码49为"和"，退回本金',
+                needFields: ['subType', 'amount'],
+                defaultOdds: 1.98
+            },
+            
+            // ========== BS 波色类 ==========
+            'BS': {
+                name: '波色',
+                subTypes: ['红波', '蓝波', '绿波'],
+                winRule: '特码属于所选颜色',
+                colorNums: {
+                    '红波': [1,2,7,8,12,13,18,19,23,24,29,30,34,35,40,45,46],
+                    '蓝波': [3,4,9,10,14,15,20,25,26,31,36,37,41,42,47,48],
+                    '绿波': [5,6,11,16,17,21,22,27,28,32,33,38,39,43,44,49]
+                },
+                needFields: ['subType', 'amount'],
+                defaultOdds: 2.8
+            },
+            
+            // ========== BB 半波类 ==========
+            'BB': {
+                name: '半波',
+                subTypes: ['红单', '红双', '红大', '红小', '蓝单', '蓝双', '蓝大', '蓝小', '绿单', '绿双', '绿大', '绿小'],
+                winRule: '特码同时满足颜色+大小/单双条件',
+                needFields: ['subType', 'amount'],
+                defaultOdds: 3.2
+            },
+            
+            // ========== PT1 平特一肖 ==========
+            'PT1': {
+                name: '平特一肖',
+                subTypes: ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'],
+                winRule: '7个开奖号码中有该生肖的号码',
+                needFields: ['zodiac', 'amount'],
+                defaultOdds: 11
+            },
+            
+            // ========== TX 特肖 ==========
+            'TX': {
+                name: '特肖',
+                subTypes: ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'],
+                winRule: '特码属于所选生肖',
+                needFields: ['zodiac', 'amount'],
+                defaultOdds: 12
+            },
+            
+            // ========== SX 生肖 ==========
+            'SX': {
+                name: '生肖',
+                subTypes: ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'],
+                winRule: '特码属于所选生肖',
+                needFields: ['zodiac', 'amount'],
+                defaultOdds: 12
+            },
+            
+            // ========== SX6 六肖 ==========
+            'SX6': {
+                name: '六肖',
+                subTypes: null,
+                winRule: '特码属于所选6个生肖之一',
+                needFields: ['zodiacs', 'amount'],
+                defaultOdds: 4.2
+            },
+            
+            // ========== HX 合肖 ==========
+            'HX': {
+                name: '合肖',
+                subTypes: ['二合肖', '三合肖', '四合肖'],
+                winRule: '特码属于所选生肖之一',
+                needFields: ['zodiacs', 'amount'],
+                defaultOdds: { '二合肖': 6, '三合肖': 4, '四合肖': 3 }
+            },
+            
+            // ========== DP 单平/平码 ==========
+            'DP': {
+                name: '单平',
+                subTypes: null,
+                winRule: '投注号码在前6个正码中（不含特码）',
+                needFields: ['numbers', 'amount'],
+                defaultOdds: 9.8
+            },
+            
+            // ========== E2 二中二 ==========
+            'E2': {
+                name: '二中二',
+                subTypes: null,
+                winRule: '选2个号码，在6个正码（不含特码）中至少出现2个',
+                needFields: ['numbers', 'amount'],
+                defaultOdds: 38
+            },
+            
+            // ========== S3 三中三 ==========
+            'S3': {
+                name: '三中三',
+                subTypes: null,
+                winRule: '选3个号码，在6个正码（不含特码）中至少出现3个',
+                needFields: ['numbers', 'amount'],
+                defaultOdds: 180
+            },
+            
+            // ========== BZ 不中类 ==========
+            'BZ5': { name: '五不中', subTypes: null, winRule: '5个号码全不出现在7个开奖号码中', needFields: ['numbers', 'amount'], defaultOdds: 2.8 },
+            'BZ6': { name: '六不中', subTypes: null, winRule: '6个号码全不出现在7个开奖号码中', needFields: ['numbers', 'amount'], defaultOdds: 4.2 },
+            'BZ7': { name: '七不中', subTypes: null, winRule: '7个号码全不出现在7个开奖号码中', needFields: ['numbers', 'amount'], defaultOdds: 7 },
+            'BZ8': { name: '八不中', subTypes: null, winRule: '8个号码全不出现在7个开奖号码中', needFields: ['numbers', 'amount'], defaultOdds: 12 },
+            'BZ9': { name: '九不中', subTypes: null, winRule: '9个号码全不出现在7个开奖号码中', needFields: ['numbers', 'amount'], defaultOdds: 20 },
+            'BZ10': { name: '十不中', subTypes: null, winRule: '10个号码全不出现在7个开奖号码中', needFields: ['numbers', 'amount'], defaultOdds: 35 },
+            
+            // ========== PTW 平特尾数 ==========
+            'PTW': {
+                name: '平特尾数',
+                subTypes: ['0尾', '1尾', '2尾', '3尾', '4尾', '5尾', '6尾', '7尾', '8尾', '9尾'],
+                winRule: '7个开奖号码中有该尾数的号码',
+                needFields: ['tail', 'amount'],
+                defaultOdds: 2.8
+            },
+            
+            // ========== ZX 正肖 ==========
+            'ZX': {
+                name: '正肖',
+                subTypes: ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'],
+                winRule: '前6个正码中有该生肖的号码（不含特码）',
+                needFields: ['zodiac', 'amount'],
+                defaultOdds: 2
+            },
+            
+            // ========== ZH 总和 ==========
+            'ZH': {
+                name: '总和',
+                subTypes: ['总和大', '总和小', '总和单', '总和双'],
+                winRule: {
+                    '总和大': '7个号码之和 >= 175',
+                    '总和小': '7个号码之和 <= 174',
+                    '总和单': '7个号码之和为奇数',
+                    '总和双': '7个号码之和为偶数'
+                },
+                needFields: ['subType', 'amount'],
+                defaultOdds: 1.98
+            },
+            
+            // ========== JY 家禽野兽 ==========
+            'JY': {
+                name: '家禽野兽',
+                subTypes: ['家禽', '野兽'],
+                winRule: {
+                    '家禽': '特码生肖属于牛马羊鸡狗猪',
+                    '野兽': '特码生肖属于鼠虎兔龙蛇猴'
+                },
+                needFields: ['subType', 'amount'],
+                defaultOdds: 1.98
+            },
+            
+            // ========== TS 头数 ==========
+            'TS': {
+                name: '头数',
+                subTypes: ['0头', '1头', '2头', '3头', '4头'],
+                winRule: '特码的十位数 = 投注头数',
+                needFields: ['subType', 'amount'],
+                defaultOdds: 4
+            },
+            
+            // ========== WS 尾数 ==========
+            'WS': {
+                name: '尾数',
+                subTypes: ['0尾', '1尾', '2尾', '3尾', '4尾', '5尾', '6尾', '7尾', '8尾', '9尾'],
+                winRule: '特码的个位数 = 投注尾数',
+                needFields: ['subType', 'amount'],
+                defaultOdds: 9
+            },
+            
+            // ========== WX 五行 ==========
+            'WX': {
+                name: '五行',
+                subTypes: ['金', '木', '水', '火', '土'],
+                winRule: '特码属于所选五行的号码',
+                needFields: ['subType', 'amount'],
+                defaultOdds: 4.8
+            }
+        };
+        
+        // 简化的玩法类型列表（用于下拉框）
         const PLAY_TYPES = [
-            '特码', '生肖特码', '生肖', '波色', '半波',
-            '平特一肖', '平特二连肖', '平特三连肖', '平特四连肖', '平特五连肖', '平特尾数',
-            '六肖', '特肖', '合肖', '正肖', '单平', '大小单双',
-            '二中二', '三中三', '二全中', '三全中', '二中特', '三中特', '特串',
-            '五不中', '六不中', '七不中', '八不中', '九不中', '十不中', '十一不中', '十二不中',
-            '总和', '五行', '家野'
+            // 大类
+            '特码', '大小单双', '波色', '半波', '平特一肖', '特肖', '生肖', '六肖', '合肖',
+            '单平', '二中二', '三中三', '五不中', '六不中', '七不中', '八不中', '九不中', '十不中',
+            '平特尾数', '正肖', '总和', '家禽野兽', '头数', '尾数', '五行',
+            // DXDS子类型
+            '小数', '大数', '单数', '双数', '合大', '合小', '合单', '合双',
+            // BS子类型
+            '红波', '蓝波', '绿波',
+            // BB子类型
+            '红单', '红双', '红大', '红小', '蓝单', '蓝双', '蓝大', '蓝小', '绿单', '绿双', '绿大', '绿小',
+            // ZH子类型
+            '总和大', '总和小', '总和单', '总和双',
+            // JY子类型
+            '家禽', '野兽',
+            // TS子类型
+            '0头', '1头', '2头', '3头', '4头',
+            // WS/PTW子类型
+            '0尾', '1尾', '2尾', '3尾', '4尾', '5尾', '6尾', '7尾', '8尾', '9尾',
+            // WX子类型
+            '金', '木', '水', '火', '土'
         ];
+        
+        // 根据类型代号获取配置
+        function getTypeConfig(code) {
+            return PLAY_TYPE_CONFIG[code] || PLAY_TYPE_CONFIG['T01'];
+        }
+        
+        // 根据显示名称获取代号
+        function getTypeCode(displayName) {
+            for (const [code, config] of Object.entries(PLAY_TYPE_CONFIG)) {
+                if (config.name === displayName) return code;
+                if (config.subTypes && config.subTypes.includes(displayName)) return code;
+            }
+            return 'T01';
+        }
         
         // 显示精准纠错页面
         function showFeedbackModal() {
@@ -8500,6 +8740,59 @@
             `;
             
             container.innerHTML = html;
+        }
+        
+        // ════════════════════════════════════════════════════════════════════════════
+        // 🆕 v3.4 根据玩法类型动态生成错误按钮
+        // ════════════════════════════════════════════════════════════════════════════
+        
+        function generateErrorButtons(index, typeName, typeCode) {
+            // 通用错误类型（所有玩法都有）
+            const commonErrors = [
+                { err: 'type', label: '类型错' },
+                { err: 'amount', label: '金额错' }
+            ];
+            
+            // 根据玩法类型决定是否显示"号码错"按钮
+            const needNumError = ['特码', '二中二', '三中三', '五不中', '六不中', '七不中', '八不中', '九不中', '十不中', '单平', '平码'];
+            
+            // 根据玩法类型决定是否显示"子类型错"按钮
+            const needSubtypeError = ['大小单双', '波色', '半波', '平特一肖', '特肖', '生肖', '六肖', '合肖', '总和', '家禽野兽', '头数', '尾数', '五行', '平特尾数', '正肖',
+                                       '小数', '大数', '单数', '双数', '合大', '合小', '合单', '合双',
+                                       '红波', '蓝波', '绿波',
+                                       '红单', '红双', '红大', '红小', '蓝单', '蓝双', '蓝大', '蓝小', '绿单', '绿双', '绿大', '绿小'];
+            
+            let buttons = [];
+            
+            // 1. 类型错按钮
+            buttons.push({ err: 'type', label: '类型错' });
+            
+            // 2. 金额错按钮
+            buttons.push({ err: 'amount', label: '金额错' });
+            
+            // 3. 根据类型决定是否显示"号码错"
+            if (needNumError.includes(typeName)) {
+                buttons.push({ err: 'num', label: '号码错' });
+            }
+            
+            // 4. 根据类型决定是否显示"子类型错"
+            if (needSubtypeError.includes(typeName)) {
+                buttons.push({ err: 'subtype', label: '选项错' });
+            }
+            
+            // 5. 注数错（所有玩法）
+            buttons.push({ err: 'count', label: '注数错' });
+            
+            // 6. 命中判断错（所有玩法）
+            buttons.push({ err: 'win', label: '命中错' });
+            
+            // 生成HTML
+            return buttons.map(btn => `
+                <span class="fb-err-tag" data-idx="${index}" data-err="${btn.err}" onclick="selectErrorType(${index},'${btn.err}',this)" 
+                    style="flex:1;min-width:50px;padding:4px 2px;border-radius:3px;font-size:10px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);text-align:center;">
+                    ${btn.label}
+                </span>
+            `).join('');
         }
         
         // ════════════════════════════════════════════════════════════════════════════
@@ -8718,26 +9011,42 @@
                         </div>
                     </div>
                     
-                    <!-- 隐藏的错误面板 v3.2 - 5个紧凑按钮 + 动态提示 -->
-                    <div id="fb-err-panel-${firstIndex}" style="display:none;background:rgba(244,67,54,0.1);padding:8px;margin:4px 0 8px 0;border-radius:6px;border:1px solid rgba(244,67,54,0.2);">
-                        <div style="font-size:10px;color:#f44336;margin-bottom:6px;font-weight:bold;">⚠️ 标记错误类型</div>
-                        <div style="display:flex;gap:4px;margin-bottom:6px;">
-                            <span class="fb-err-tag" data-idx="${firstIndex}" data-err="type" onclick="selectErrorType(${firstIndex},'type',this)" style="flex:1;padding:4px 2px;border-radius:3px;font-size:10px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);text-align:center;">类型错</span>
-                            <span class="fb-err-tag" data-idx="${firstIndex}" data-err="amount" onclick="selectErrorType(${firstIndex},'amount',this)" style="flex:1;padding:4px 2px;border-radius:3px;font-size:10px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);text-align:center;">金额错</span>
-                            <span class="fb-err-tag" data-idx="${firstIndex}" data-err="num" onclick="selectErrorType(${firstIndex},'num',this)" style="flex:1;padding:4px 2px;border-radius:3px;font-size:10px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);text-align:center;">号码错</span>
-                            <span class="fb-err-tag" data-idx="${firstIndex}" data-err="count" onclick="selectErrorType(${firstIndex},'count',this)" style="flex:1;padding:4px 2px;border-radius:3px;font-size:10px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);text-align:center;">注数错</span>
-                            <span class="fb-err-tag" data-idx="${firstIndex}" data-err="win" onclick="selectErrorType(${firstIndex},'win',this)" style="flex:1;padding:4px 2px;border-radius:3px;font-size:10px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);text-align:center;">中奖错</span>
+                    <!-- 🆕 v3.4 隐藏的错误面板 - 根据玩法类型动态显示选项 -->
+                    <div id="fb-err-panel-${firstIndex}" data-type="${typeName}" data-code="${items[0]?.code || 'T01'}" style="display:none;background:rgba(244,67,54,0.1);padding:8px;margin:4px 0 8px 0;border-radius:6px;border:1px solid rgba(244,67,54,0.2);">
+                        <div style="font-size:10px;color:#f44336;margin-bottom:6px;font-weight:bold;">⚠️ 标记错误类型 <span style="color:#888;font-weight:normal;">(${typeName})</span></div>
+                        <!-- 🆕 v3.4 根据类型动态显示按钮 -->
+                        <div id="fb-err-btns-${firstIndex}" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
+                            ${generateErrorButtons(firstIndex, typeName, items[0]?.code)}
                         </div>
                         <!-- 动态提示区域 -->
                         <div id="fb-hint-${firstIndex}" style="display:none;font-size:10px;color:#ffc107;margin-bottom:4px;padding:4px 6px;background:rgba(255,193,7,0.1);border-radius:3px;"></div>
+                        <!-- 🆕 v3.4 规则说明区域 -->
+                        <div id="fb-rule-${firstIndex}" style="display:none;font-size:10px;color:#888;margin-bottom:4px;padding:4px 6px;background:rgba(0,0,0,0.2);border-radius:3px;"></div>
                         <!-- 统一输入区域 -->
                         <div id="fb-input-wrapper-${firstIndex}" style="display:none;margin-bottom:6px;">
+                            <!-- 类型选择下拉框 -->
                             <div id="fb-type-select-${firstIndex}" style="display:none;">
                                 <select onchange="setCorrection(${firstIndex}, this.value)" style="width:100%;padding:6px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;font-size:11px;">
                                     <option value="">选择正确类型</option>
                                     ${PLAY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
                                 </select>
                             </div>
+                            <!-- 🆕 v3.4 子类型选择下拉框（根据当前类型动态生成） -->
+                            <div id="fb-subtype-select-${firstIndex}" style="display:none;">
+                                <select id="fb-subtype-dropdown-${firstIndex}" onchange="setSubtypeCorrection(${firstIndex}, this.value)" style="width:100%;padding:6px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;font-size:11px;">
+                                    <!-- 动态生成 -->
+                                </select>
+                            </div>
+                            <!-- 🆕 v3.4 中奖判断选择 -->
+                            <div id="fb-win-select-${firstIndex}" style="display:none;">
+                                <select onchange="setWinCorrection(${firstIndex}, this.value)" style="width:100%;padding:6px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;font-size:11px;">
+                                    <option value="">选择正确结果</option>
+                                    <option value="should_win">应该命中（系统误判未中）</option>
+                                    <option value="should_not_win">不应命中（系统误判中奖）</option>
+                                    <option value="wrong_amount">命中但金额错误</option>
+                                </select>
+                            </div>
+                            <!-- 文本输入框 -->
                             <input type="text" id="fb-correction-${firstIndex}" style="display:none;width:100%;padding:6px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;font-size:11px;box-sizing:border-box;" oninput="setCorrection(${firstIndex}, this.value)">
                         </div>
                         <input type="text" id="fb-note-${firstIndex}" placeholder="其他备注说明（选填）" oninput="setItemNote(${firstIndex}, this.value)" style="width:100%;padding:6px;background:rgba(0,0,0,0.2);color:#fff;border:1px solid rgba(255,255,255,0.08);border-radius:4px;font-size:10px;box-sizing:border-box;">
@@ -8802,29 +9111,38 @@
             updateErrorCount();
         }
         
-        // 选择错误类型 v3.2 - 支持5种类型 + 动态提示
+        // 🆕 v3.4 选择错误类型 - 根据玩法类型动态显示选项
         function selectErrorType(index, errType, btnEl) {
             const item = feedbackData.items[index];
+            const panel = document.getElementById(`fb-err-panel-${index}`);
+            const currentType = panel?.dataset?.type || item.type;
+            const currentCode = panel?.dataset?.code || item.code || 'T01';
+            
             item.errorType = errType;
             
-            // 归因映射
+            // 🆕 v3.4 更新归因映射
             const blameMap = {
                 'type': 'regex_service',      // 类型识别 → 正则服务
                 'amount': 'regex_service',    // 金额提取 → 正则服务
                 'num': 'regex_service',       // 号码提取 → 正则服务
+                'subtype': 'regex_service',   // 子类型识别 → 正则服务
                 'count': 'calc_service',      // 注数展开 → 计算服务
-                'win': 'calc_service'         // 中奖判断 → 计算服务
+                'win': 'calc_service'         // 命中判断 → 计算服务
             };
             item.errorBlame = blameMap[errType] || 'unknown';
             
-            // 保存系统当前值（用于对比）
+            // 🆕 v3.4 保存更完整的系统当前值
             item.systemValue = {
                 type: item.type,
-                numbers: item.numbers,
+                code: item.code,
+                subType: item.subType,
+                zodiac: item.zodiac,
+                numbers: item.numbers || item.number,
                 amount: item.amount,
-                count: 1, // 从展开后计算
+                count: 1,
                 isWin: item.isWin,
-                winAmount: item.winAmount
+                winAmount: item.winAmount,
+                odds: item.odds
             };
             
             // 更新标签样式
@@ -8835,58 +9153,209 @@
                 tag.style.borderColor = isSelected ? '#f44336' : 'rgba(255,255,255,0.2)';
             });
             
-            // 动态提示和输入框配置
+            // 获取元素
             const hintEl = document.getElementById(`fb-hint-${index}`);
+            const ruleEl = document.getElementById(`fb-rule-${index}`);
             const inputWrapper = document.getElementById(`fb-input-wrapper-${index}`);
             const typeSelect = document.getElementById(`fb-type-select-${index}`);
+            const subtypeSelect = document.getElementById(`fb-subtype-select-${index}`);
+            const winSelect = document.getElementById(`fb-win-select-${index}`);
             const correctionInput = document.getElementById(`fb-correction-${index}`);
             
-            // 根据错误类型显示不同提示和输入框
-            const config = {
-                'type': {
-                    hint: `💡 当前识别: <b>${item.type}</b>，正确类型是？`,
-                    showTypeSelect: true,
-                    showInput: false,
-                    placeholder: ''
-                },
-                'amount': {
-                    hint: `💡 当前识别: <b>${item.amount}元/注</b>，正确金额是？`,
-                    showTypeSelect: false,
-                    showInput: true,
-                    placeholder: '输入正确金额（数字）'
-                },
-                'num': {
-                    hint: `💡 当前识别: <b>${item.numbers || item.number}</b>，正确号码是？`,
-                    showTypeSelect: false,
-                    showInput: true,
-                    placeholder: '输入正确号码（如: 35,47）'
-                },
-                'count': {
-                    hint: `💡 当前计算: <b>1注</b>，正确注数是？`,
-                    showTypeSelect: false,
-                    showInput: true,
-                    placeholder: '输入正确注数（数字）'
-                },
-                'win': {
-                    hint: `💡 当前判断: <b>${item.isWin ? '中奖' + item.winAmount + '元' : '未中奖'}</b>，实际应该？`,
-                    showTypeSelect: false,
-                    showInput: true,
-                    placeholder: '如: 应中奖430元 或 不应中奖'
-                }
-            };
+            // 隐藏所有输入区域
+            if (typeSelect) typeSelect.style.display = 'none';
+            if (subtypeSelect) subtypeSelect.style.display = 'none';
+            if (winSelect) winSelect.style.display = 'none';
+            if (correctionInput) { correctionInput.style.display = 'none'; correctionInput.value = ''; }
+            if (ruleEl) ruleEl.style.display = 'none';
             
-            const cfg = config[errType];
-            if (cfg) {
-                hintEl.innerHTML = cfg.hint;
-                hintEl.style.display = 'block';
-                inputWrapper.style.display = 'block';
-                typeSelect.style.display = cfg.showTypeSelect ? 'block' : 'none';
-                correctionInput.style.display = cfg.showInput ? 'block' : 'none';
-                if (cfg.showInput) {
-                    correctionInput.placeholder = cfg.placeholder;
-                    correctionInput.value = '';
-                }
+            // 🆕 v3.4 根据玩法类型获取配置
+            const typeConfig = PLAY_TYPE_CONFIG[currentCode] || {};
+            const winRuleText = typeof typeConfig.winRule === 'string' 
+                ? typeConfig.winRule 
+                : (typeConfig.winRule?.[item.subType] || typeConfig.winRule?.[currentType] || '');
+            
+            // 🆕 v3.4 根据错误类型和玩法类型生成提示
+            let hint = '';
+            let showRule = false;
+            
+            switch(errType) {
+                case 'type':
+                    hint = `💡 当前识别: <b>${currentType}</b>，正确类型是？`;
+                    if (typeSelect) typeSelect.style.display = 'block';
+                    break;
+                    
+                case 'amount':
+                    hint = `💡 当前识别: <b>${item.amount}元/注</b>，正确金额是？`;
+                    if (correctionInput) {
+                        correctionInput.style.display = 'block';
+                        correctionInput.placeholder = '输入正确金额（数字）';
+                    }
+                    break;
+                    
+                case 'num':
+                    hint = `💡 当前识别: <b>${item.numbers || item.number || '无'}</b>，正确号码是？`;
+                    if (correctionInput) {
+                        correctionInput.style.display = 'block';
+                        correctionInput.placeholder = '输入正确号码（如: 35,47）';
+                    }
+                    break;
+                    
+                case 'subtype':
+                    // 🆕 v3.4 根据玩法类型显示对应的子类型选项
+                    hint = generateSubtypeHint(currentType, currentCode, item);
+                    if (subtypeSelect) {
+                        populateSubtypeDropdown(index, currentType, currentCode);
+                        subtypeSelect.style.display = 'block';
+                    }
+                    showRule = true;
+                    break;
+                    
+                case 'count':
+                    hint = `💡 当前计算: <b>1注</b>，正确注数是？`;
+                    if (correctionInput) {
+                        correctionInput.style.display = 'block';
+                        correctionInput.placeholder = '输入正确注数（数字）';
+                    }
+                    break;
+                    
+                case 'win':
+                    // 🆕 v3.4 命中判断使用下拉选择
+                    hint = `💡 当前判断: <b>${item.isWin ? '命中 +' + item.winAmount + '元' : '未命中'}</b>`;
+                    if (winSelect) winSelect.style.display = 'block';
+                    showRule = true;
+                    break;
             }
+            
+            // 显示提示
+            if (hintEl) {
+                hintEl.innerHTML = hint;
+                hintEl.style.display = 'block';
+            }
+            
+            // 🆕 v3.4 显示命中规则说明
+            if (showRule && ruleEl && winRuleText) {
+                ruleEl.innerHTML = `📋 命中规则: ${winRuleText}`;
+                ruleEl.style.display = 'block';
+            }
+            
+            if (inputWrapper) inputWrapper.style.display = 'block';
+        }
+        
+        // 🆕 v3.4 根据玩法类型生成子类型提示
+        function generateSubtypeHint(typeName, typeCode, item) {
+            const config = PLAY_TYPE_CONFIG[typeCode];
+            if (!config) return `💡 当前识别: <b>${typeName}</b>，正确选项是？`;
+            
+            // 根据不同类型显示当前识别的子类型
+            let currentSubtype = item.subType || item.zodiac || typeName;
+            
+            if (['DXDS', 'XS', 'DS', 'ODD', 'EVEN'].includes(typeCode) || 
+                ['小数', '大数', '单数', '双数', '合大', '合小', '合单', '合双'].includes(typeName)) {
+                return `💡 当前识别: <b>${currentSubtype}</b>，正确的大小单双是？`;
+            }
+            
+            if (['BS', 'C1', 'C2', 'C3'].includes(typeCode) || 
+                ['红波', '蓝波', '绿波', '波色'].includes(typeName)) {
+                return `💡 当前识别: <b>${currentSubtype}</b>，正确的颜色是？`;
+            }
+            
+            if (['BB'].includes(typeCode) || 
+                ['红单', '红双', '红大', '红小', '蓝单', '蓝双', '蓝大', '蓝小', '绿单', '绿双', '绿大', '绿小', '半波'].includes(typeName)) {
+                return `💡 当前识别: <b>${currentSubtype}</b>，正确的半波是？`;
+            }
+            
+            if (['PT1', 'TX', 'SX', 'ZX'].includes(typeCode) || 
+                ['平特一肖', '特肖', '生肖', '正肖'].includes(typeName)) {
+                const zodiacName = item.zodiac ? Z_CODE_NAMES[item.zodiac] || item.zodiac : currentSubtype;
+                return `💡 当前识别: <b>${zodiacName}</b>，正确的生肖是？`;
+            }
+            
+            if (['ZH'].includes(typeCode) || ['总和', '总和大', '总和小', '总和单', '总和双'].includes(typeName)) {
+                return `💡 当前识别: <b>${currentSubtype}</b>，正确的总和类型是？`;
+            }
+            
+            if (['JY'].includes(typeCode) || ['家禽野兽', '家禽', '野兽'].includes(typeName)) {
+                return `💡 当前识别: <b>${currentSubtype}</b>，正确是家禽还是野兽？`;
+            }
+            
+            if (['TS'].includes(typeCode) || ['头数', '0头', '1头', '2头', '3头', '4头'].includes(typeName)) {
+                return `💡 当前识别: <b>${currentSubtype}</b>，正确的头数是？`;
+            }
+            
+            if (['WS', 'PTW'].includes(typeCode) || typeName.includes('尾')) {
+                return `💡 当前识别: <b>${currentSubtype}</b>，正确的尾数是？`;
+            }
+            
+            if (['WX'].includes(typeCode) || ['五行', '金', '木', '水', '火', '土'].includes(typeName)) {
+                return `💡 当前识别: <b>${currentSubtype}</b>，正确的五行是？`;
+            }
+            
+            return `💡 当前识别: <b>${currentSubtype}</b>，正确选项是？`;
+        }
+        
+        // 🆕 v3.4 填充子类型下拉框
+        function populateSubtypeDropdown(index, typeName, typeCode) {
+            const dropdown = document.getElementById(`fb-subtype-dropdown-${index}`);
+            if (!dropdown) return;
+            
+            let options = ['<option value="">选择正确选项</option>'];
+            
+            // 根据类型确定子类型选项
+            if (['大小单双', '小数', '大数', '单数', '双数', '合大', '合小', '合单', '合双'].includes(typeName) ||
+                ['DXDS', 'XS', 'DS', 'ODD', 'EVEN'].includes(typeCode)) {
+                options.push(...['小数', '大数', '单数', '双数', '合大', '合小', '合单', '合双'].map(t => 
+                    `<option value="${t}">${t}</option>`));
+            }
+            else if (['波色', '红波', '蓝波', '绿波'].includes(typeName) || ['BS'].includes(typeCode)) {
+                options.push(...['红波', '蓝波', '绿波'].map(t => `<option value="${t}">${t}</option>`));
+            }
+            else if (['半波', '红单', '红双', '红大', '红小', '蓝单', '蓝双', '蓝大', '蓝小', '绿单', '绿双', '绿大', '绿小'].includes(typeName) ||
+                     ['BB'].includes(typeCode)) {
+                options.push(...['红单', '红双', '红大', '红小', '蓝单', '蓝双', '蓝大', '蓝小', '绿单', '绿双', '绿大', '绿小'].map(t => 
+                    `<option value="${t}">${t}</option>`));
+            }
+            else if (['平特一肖', '特肖', '生肖', '正肖'].includes(typeName) || 
+                     ['PT1', 'TX', 'SX', 'ZX'].includes(typeCode)) {
+                options.push(...['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'].map(t => 
+                    `<option value="${t}">${t}</option>`));
+            }
+            else if (['总和', '总和大', '总和小', '总和单', '总和双'].includes(typeName) || ['ZH'].includes(typeCode)) {
+                options.push(...['总和大', '总和小', '总和单', '总和双'].map(t => `<option value="${t}">${t}</option>`));
+            }
+            else if (['家禽野兽', '家禽', '野兽'].includes(typeName) || ['JY'].includes(typeCode)) {
+                options.push(...['家禽', '野兽'].map(t => `<option value="${t}">${t}</option>`));
+            }
+            else if (['头数', '0头', '1头', '2头', '3头', '4头'].includes(typeName) || ['TS'].includes(typeCode)) {
+                options.push(...['0头', '1头', '2头', '3头', '4头'].map(t => `<option value="${t}">${t}</option>`));
+            }
+            else if (typeName.includes('尾') || ['WS', 'PTW'].includes(typeCode)) {
+                options.push(...['0尾', '1尾', '2尾', '3尾', '4尾', '5尾', '6尾', '7尾', '8尾', '9尾'].map(t => 
+                    `<option value="${t}">${t}</option>`));
+            }
+            else if (['五行', '金', '木', '水', '火', '土'].includes(typeName) || ['WX'].includes(typeCode)) {
+                options.push(...['金', '木', '水', '火', '土'].map(t => `<option value="${t}">${t}</option>`));
+            }
+            else {
+                // 默认使用通用选项
+                options.push(...PLAY_TYPES.map(t => `<option value="${t}">${t}</option>`));
+            }
+            
+            dropdown.innerHTML = options.join('');
+        }
+        
+        // 🆕 v3.4 设置子类型修正
+        function setSubtypeCorrection(index, value) {
+            const item = feedbackData.items[index];
+            item.correction = value;
+            item.subtypeCorrection = value;
+        }
+        
+        // 🆕 v3.4 设置命中判断修正
+        function setWinCorrection(index, value) {
+            const item = feedbackData.items[index];
+            item.correction = value;
+            item.winCorrection = value;
         }
         
         // 设置正确类型
@@ -9136,39 +9605,63 @@ ${winDetailText}║    ───────────────────
                     profit: profit
                 },
                 
-                // 错误条目（核心数据）v3.2 - 完善数据结构，便于精准定位
-                error_reports: errorItems.map(item => ({
-                    // 1️⃣ 标记的记录信息
-                    item_index: item.index,
-                    item_raw: item.originalLine || item.original || '',
-                    item_group_id: item.groupId,
-                    item_line_id: item.lineId,
+                // 🆕 v3.4 错误条目（核心数据）- 根据玩法类型收集完整背景信息
+                error_reports: errorItems.map(item => {
+                    // 获取玩法类型配置
+                    const typeCode = item.code || getTypeCode(item.type) || 'T01';
+                    const typeConfig = PLAY_TYPE_CONFIG[typeCode] || {};
                     
-                    // 2️⃣ 系统识别/计算结果（关键！）
-                    system: {
-                        type: item.type,
-                        numbers: item.numbers || item.number,
-                        amount: item.amount,
-                        count: 1,
-                        is_win: item.isWin,
-                        win_amount: item.winAmount,
-                        odds: item.odds
-                    },
-                    
-                    // 3️⃣ 错误类型（5种）
-                    // type=类型错, amount=金额错, num=号码错, count=注数错, win=中奖错
-                    error_type: item.errorType,
-                    
-                    // 4️⃣ 错误归因（定位修改哪个文件）
-                    // regex_service=正则服务, calc_service=计算服务
-                    error_blame: item.errorBlame,
-                    
-                    // 5️⃣ 用户修正值
-                    user_correction: item.correction,
-                    
-                    // 6️⃣ 备注
-                    note: item.note || ''
-                })),
+                    return {
+                        // 1️⃣ 标记的记录信息
+                        item_index: item.index,
+                        item_raw: item.originalLine || item.original || '',
+                        item_group_id: item.groupId,
+                        item_line_id: item.lineId,
+                        
+                        // 2️⃣ 系统识别/计算结果（🆕 v3.4 更完整）
+                        system: {
+                            type: item.type,
+                            type_code: typeCode,
+                            sub_type: item.subType || null,
+                            zodiac: item.zodiac || null,
+                            zodiac_name: item.zodiac ? (Z_CODE_NAMES[item.zodiac] || item.zodiac) : null,
+                            numbers: item.numbers || item.number || null,
+                            amount: item.amount,
+                            count: 1,
+                            is_win: item.isWin,
+                            win_amount: item.winAmount,
+                            odds: item.odds
+                        },
+                        
+                        // 🆕 v3.4 玩法配置信息（便于AI理解规则）
+                        type_config: {
+                            name: typeConfig.name || item.type,
+                            has_subtypes: !!typeConfig.subTypes,
+                            subtypes: typeConfig.subTypes || null,
+                            win_rule: typeof typeConfig.winRule === 'string' 
+                                ? typeConfig.winRule 
+                                : (typeConfig.winRule?.[item.subType] || typeConfig.winRule?.[item.type] || null),
+                            need_fields: typeConfig.needFields || [],
+                            default_odds: typeConfig.defaultOdds || null
+                        },
+                        
+                        // 3️⃣ 错误类型（🆕 v3.4 增加subtype）
+                        // type=类型错, amount=金额错, num=号码错, subtype=子类型错, count=注数错, win=命中错
+                        error_type: item.errorType,
+                        
+                        // 4️⃣ 错误归因（定位修改哪个文件）
+                        // regex_service=正则服务, calc_service=计算服务
+                        error_blame: item.errorBlame,
+                        
+                        // 5️⃣ 用户修正值（🆕 v3.4 区分不同类型的修正）
+                        user_correction: item.correction,
+                        subtype_correction: item.subtypeCorrection || null,
+                        win_correction: item.winCorrection || null,
+                        
+                        // 6️⃣ 备注
+                        note: item.note || ''
+                    };
+                }),
                 
                 // AI调试信息
                 ai_debug: {
@@ -9263,17 +9756,32 @@ ${winDetailText}║    ───────────────────
                     win_amount: (calcResults || []).filter(r => r.isWin).reduce((s, r) => s + r.winAmount, 0),
                     profit: submitData.summary.profit,
                     
-                    // 📌 第8步：用户反馈的错误 v3.2
+                    // 📌 第8步：用户反馈的错误 v3.4
                     // error_stage: 错误归因(regex_service/calc_service)
                     error_stage: errorItems[0]?.errorBlame || 'unknown',
-                    // error_detail: 错误类型(type/amount/num/count/win) + 用户修正值
-                    error_detail: errorItems.map(e => `${e.errorType}:${e.correction || ''}${e.note ? ' ['+e.note+']' : ''}`).filter(n => n).join('; '),
+                    // 🆕 v3.4 error_detail: 更详细的错误描述
+                    error_detail: errorItems.map(e => {
+                        let detail = `${e.errorType}`;
+                        if (e.correction) detail += `:${e.correction}`;
+                        if (e.subtypeCorrection) detail += ` [子类型→${e.subtypeCorrection}]`;
+                        if (e.winCorrection) detail += ` [命中→${e.winCorrection}]`;
+                        if (e.note) detail += ` (${e.note})`;
+                        return detail;
+                    }).filter(n => n).join('; '),
                     // expected_result: 用户填写的修正值
-                    expected_result: errorItems[0]?.correction || '',
-                    // error_items: 完整的错误报告JSON
+                    expected_result: errorItems[0]?.correction || errorItems[0]?.subtypeCorrection || '',
+                    // error_items: 完整的错误报告JSON（🆕 v3.4 包含玩法配置）
                     error_items: JSON.stringify(submitData.error_reports),
-                    // error_summary: 快速摘要
-                    error_summary: errorItems.map(e => `[${e.errorType}→${e.errorBlame}]${e.originalLine || ''}`).join(' | ')
+                    // 🆕 v3.4 error_summary: 更清晰的快速摘要
+                    error_summary: errorItems.map(e => {
+                        const typeCode = e.code || getTypeCode(e.type) || '';
+                        const typeConfig = PLAY_TYPE_CONFIG[typeCode] || {};
+                        return `[${e.type}/${typeCode}:${e.errorType}→${e.errorBlame}]${e.originalLine?.substring(0, 20) || ''}`;
+                    }).join(' | '),
+                    // 🆕 v3.4 玩法类型汇总（便于快速了解涉及的玩法）
+                    play_types_involved: [...new Set(errorItems.map(e => e.type))].join(','),
+                    // 🆕 v3.4 错误类型汇总
+                    error_types_involved: [...new Set(errorItems.map(e => e.errorType))].join(',')
                 };
                 
                 console.log('📤 完整调试链条数据:', dbData);
