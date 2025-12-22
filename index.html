@@ -6062,20 +6062,43 @@
          * @param {string} text 原始文本
          * @returns {string} 脱敏后的文本
          */
+        /**
+         * 转义正则特殊字符
+         */
+        function escapeRegex(str) {
+            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+        
         function sanitizeText(text) {
             if (!text) return text;
             let result = text;
             
             // 🆕 v3.4 优先应用自定义规则（关键词→代号映射）
+            // 🆕 v3.6 支持展开功能：关键词+金额 → 多行号码+金额
             const rules = getCustomRules();
             if (rules && rules.length > 0) {
                 // 按关键词长度降序排列（长的优先匹配）
                 const sortedRules = [...rules].sort((a, b) => b.keyword.length - a.keyword.length);
                 for (const rule of sortedRules) {
                     if (result.includes(rule.keyword)) {
-                        // 将关键词替换为类型代号
-                        result = result.split(rule.keyword).join(rule.type);
-                        console.log(`🎯 自定义规则: "${rule.keyword}" → "${rule.type}"`);
+                        // 🆕 v3.6 展开功能：如果勾选展开且有号码列表
+                        if (rule.expand && rule.numbers && rule.numbers.length > 0) {
+                            // 匹配"关键词 金额"或"关键词各金额"格式
+                            const expandRegex = new RegExp(
+                                escapeRegex(rule.keyword) + '\\s*[各每统]?\\s*(\\d+)',
+                                'gi'
+                            );
+                            result = result.replace(expandRegex, (match, amount) => {
+                                // 展开为多行：T01 号码 金额
+                                const expanded = rule.numbers.map(num => `${rule.type} ${num} ${amount}`).join('\n');
+                                console.log(`🎯 自定义规则展开: "${rule.keyword}" → ${rule.numbers.length}条记录，金额${amount}`);
+                                return expanded;
+                            });
+                        } else {
+                            // 非展开模式：简单替换关键词为类型代号
+                            result = result.split(rule.keyword).join(rule.type);
+                            console.log(`🎯 自定义规则: "${rule.keyword}" → "${rule.type}"`);
+                        }
                     }
                 }
             }
