@@ -5345,7 +5345,7 @@
                         
                         // 按原文分组显示（🆕 v3.8.2 区分展开型和拆分型）
                         const byOriginal = {};
-                        calcResults.forEach(r => {
+                        calcResults.forEach((r, idx) => {
                             // 判断是拆分型还是展开型：
                             // - 拆分型：raw 是 originalLine 的一部分（如 "羊X4" 在 "羊X4  23.35.47X3  牛X10" 中）
                             // - 展开型：raw 是后端生成的（如 "T01 1 10" 不在 "小码 10元" 中）
@@ -5363,12 +5363,16 @@
                             const displayText = isSliceType ? rawText : (originalText || rawText);
                             
                             if (!byOriginal[key]) {
-                                byOriginal[key] = { type: r.type, originalLine: displayText, items: [], odds: r.odds || 1 };
+                                // 记录第一个 item 的原始索引，用于排序
+                                byOriginal[key] = { type: r.type, originalLine: displayText, items: [], odds: r.odds || 1, firstIndex: idx };
                             }
                             byOriginal[key].items.push(r);
                         });
                         
-                        for (const group of Object.values(byOriginal)) {
+                        // 🆕 v3.8.2 按原始输入顺序排序
+                        const sortedGroups = Object.values(byOriginal).sort((a, b) => a.firstIndex - b.firstIndex);
+                        
+                        for (const group of sortedGroups) {
                             const items = group.items;
                             const type = group.type;
                             const originalLine = group.originalLine;
@@ -9416,7 +9420,7 @@
             // ═══════════════════════════════════════════════════════════════════════
             const lineMap = {};  // originalLine → { originalLine, items: [], groupId }
             
-            feedbackData.items.forEach(item => {
+            feedbackData.items.forEach((item, idx) => {
                 // 🆕 使用原文作为聚合 key（确保同一条 AI 返回的记录被合并）
                 const key = item.originalLine || item.lineId || `${item.groupId}-0`;
                 if (!lineMap[key]) {
@@ -9424,7 +9428,8 @@
                         lineId: item.lineId,
                         groupId: item.groupId,
                         originalLine: item.originalLine,
-                        items: []
+                        items: [],
+                        firstIndex: idx  // 🆕 v3.8.2 记录第一个 item 的索引，用于排序
                     };
                 }
                 lineMap[key].items.push(item);
@@ -9436,9 +9441,11 @@
                 console.log(`  [${line.lineId}] "${line.originalLine?.substring(0,20)}..." → ${line.items.length}注`);
             });
             
-            // 按 groupId 分组
+            // 按 groupId 分组，组内按原始顺序排序
             const groupMap = {};
-            Object.values(lineMap).forEach(line => {
+            // 🆕 v3.8.2 先按 firstIndex 排序，保持原始输入顺序
+            const sortedLines = Object.values(lineMap).sort((a, b) => a.firstIndex - b.firstIndex);
+            sortedLines.forEach(line => {
                 const gid = line.groupId;
                 if (!groupMap[gid]) {
                     groupMap[gid] = [];
