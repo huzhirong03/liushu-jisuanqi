@@ -5243,12 +5243,50 @@
                         
                         console.log('📦 输入分组:', inputGroups);
                         
+                        // 🆕 v3.8.3 为每个片段分配全局顺序号（用于正确排序）
+                        let globalFragmentOrder = 0;
+                        const fragmentOrderMap = {};  // normalizedKey → { order, originalLine, sanitizedLine }
+                        
+                        // 提取数字序列作为匹配键（忽略分隔符差异）
+                        const extractNumbers = (str) => (str.match(/\d+/g) || []).join('-');
+                        
                         // 🆕 v3.1 构建行→分组映射
                         const lineToGroupMap = {};  // 脱敏后的行 → {groupId, lineIndex}
                         inputGroups.forEach((group, gIdx) => {
                             group.forEach((line, lIdx) => {
                                 // 对原始行进行脱敏，用于匹配后端返回的 raw
                                 const sanitizedLine = sanitizeText(line);
+                                
+                                // 🆕 v3.8.3 用多种分隔符拆分行为片段
+                                const fragments = sanitizedLine.split(/\s{2,}|\t/).filter(f => f.trim());
+                                
+                                fragments.forEach((frag, fIdx) => {
+                                    const numKey = extractNumbers(frag);
+                                    if (numKey && !fragmentOrderMap[numKey]) {
+                                        fragmentOrderMap[numKey] = {
+                                            order: globalFragmentOrder++,
+                                            originalLine: line,
+                                            sanitizedLine: sanitizedLine,
+                                            fragment: frag,
+                                            groupId: gIdx + 1,
+                                            lineIndex: lIdx
+                                        };
+                                    }
+                                });
+                                
+                                // 也存整行的数字键
+                                const lineNumKey = extractNumbers(sanitizedLine);
+                                if (lineNumKey && !fragmentOrderMap[lineNumKey]) {
+                                    fragmentOrderMap[lineNumKey] = {
+                                        order: globalFragmentOrder++,
+                                        originalLine: line,
+                                        sanitizedLine: sanitizedLine,
+                                        fragment: sanitizedLine,
+                                        groupId: gIdx + 1,
+                                        lineIndex: lIdx
+                                    };
+                                }
+                                
                                 lineToGroupMap[sanitizedLine] = {
                                     groupId: gIdx + 1,
                                     lineIndex: lIdx,
@@ -5258,6 +5296,7 @@
                         });
                         
                         console.log('📋 行→分组映射:', lineToGroupMap);
+                        console.log('🔢 片段顺序映射:', fragmentOrderMap);
                         
                         parsedBets = backendResult.items.map((item, idx) => {
                             // 🆕 v3.1 根据 item.raw 找到对应的分组
@@ -5279,6 +5318,22 @@
                                 groupInfo = { groupId: 1, lineIndex: 0, originalLine: itemRaw };
                             }
                             
+                            // 🆕 v3.8.3 根据数字键查找片段顺序
+                            const itemNumKey = extractNumbers(itemRaw);
+                            let fragmentInfo = fragmentOrderMap[itemNumKey];
+                            
+                            // 如果精确匹配失败，尝试模糊匹配
+                            if (!fragmentInfo) {
+                                for (const [numKey, info] of Object.entries(fragmentOrderMap)) {
+                                    if (itemNumKey.includes(numKey) || numKey.includes(itemNumKey)) {
+                                        fragmentInfo = info;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            const fragmentOrder = fragmentInfo ? fragmentInfo.order : 9999;
+                            
                             return {
                                 type: TYPE_NAME_MAP[item.code] || item.code,
                                 number: item.n && item.n.length === 1 ? item.n[0] : null,
@@ -5292,6 +5347,8 @@
                                 lineId: `${groupInfo.groupId}-${groupInfo.lineIndex}`,
                                 globalLineIndex: idx,
                                 betIndexInLine: item.idx || 0,
+                                // 🆕 v3.8.3 片段顺序（用于排序）
+                                fragmentOrder: fragmentOrder,
                                 // 🆕 v3.0 后端计算的结果
                                 isWin: item.w || false,
                                 winAmount: item.v || 0,
@@ -5343,9 +5400,8 @@
                         resultText += `💰 结算: ${settleAmount >= 0 ? '+' : ''}${settleAmount}元\n`;
                         resultText += `━━━━━━━━━━━━━━━━━━\n`;
                         
-                        // 按原文分组显示（🆕 v3.8.2 区分展开型和拆分型）
+                        // 按原文分组显示（🆕 v3.8.3 使用 fragmentOrder 排序）
                         const byOriginal = {};
-                        const originalLineOrder = [];  // 记录 originalLine 出现的顺序
                         
                         calcResults.forEach((r, idx) => {
                             // 判断是拆分型还是展开型：
@@ -5353,11 +5409,6 @@
                             // - 展开型：raw 是后端生成的（如 "T01 1 10" 不在 "小码 10元" 中）
                             const rawText = r.raw || '';
                             const originalText = r.originalLine || '';
-                            
-                            // 记录 originalLine 的出现顺序（按首次出现）
-                            if (originalText && !originalLineOrder.includes(originalText)) {
-                                originalLineOrder.push(originalText);
-                            }
                             
                             // 检查 raw 是否在 originalLine 中能找到（允许脱敏后的匹配）
                             const isSliceType = originalText.length > rawText.length && (
@@ -5369,27 +5420,26 @@
                             const key = isSliceType ? rawText : (originalText || rawText || r.type);
                             const displayText = isSliceType ? rawText : (originalText || rawText);
                             
-                            // 🆕 v3.8.2 计算排序依据：行顺序 + 行内位置
-                            const lineOrder = originalLineOrder.indexOf(originalText);
-                            const rawPosition = isSliceType ? originalText.indexOf(rawText) : 0;
-                            
                             if (!byOriginal[key]) {
                                 byOriginal[key] = { 
                                     type: r.type, 
                                     originalLine: displayText, 
                                     items: [], 
                                     odds: r.odds || 1, 
-                                    lineOrder: lineOrder >= 0 ? lineOrder : 999,  // 行顺序
-                                    rawPosition: rawPosition >= 0 ? rawPosition : 0  // 行内位置
+                                    // 🆕 v3.8.3 使用 fragmentOrder（预处理时分配的全局顺序）
+                                    fragmentOrder: r.fragmentOrder !== undefined ? r.fragmentOrder : 9999
                                 };
                             }
                             byOriginal[key].items.push(r);
                         });
                         
-                        // 🆕 v3.8.2 排序：先按行顺序，同行内按 raw 出现位置
-                        const sortedGroups = Object.values(byOriginal).sort((a, b) => {
-                            if (a.lineOrder !== b.lineOrder) return a.lineOrder - b.lineOrder;
-                            return a.rawPosition - b.rawPosition;
+                        // 🆕 v3.8.3 按 fragmentOrder 排序（保持用户输入顺序）
+                        const sortedGroups = Object.values(byOriginal).sort((a, b) => a.fragmentOrder - b.fragmentOrder);
+                        
+                        // 调试日志：显示排序结果
+                        console.log('📊 排序结果:');
+                        sortedGroups.forEach((g, i) => {
+                            console.log(`  [${i}] order=${g.fragmentOrder} | "${g.originalLine?.substring(0,25)}..."`);
                         });
                         
                         for (const group of sortedGroups) {
@@ -9407,9 +9457,8 @@
                 lineId: r.lineId || `1-0`,
                 // 🆕 v3.8.2 拆分型用 raw，展开型用 originalLine
                 originalLine: displayLine,
-                // 🆕 v3.8.2 保存原始数据用于排序
-                _rawOriginalLine: originalText,  // 原始整行
-                _raw: rawText,  // 识别片段
+                // 🆕 v3.8.3 片段顺序（用于排序）
+                fragmentOrder: r.fragmentOrder !== undefined ? r.fragmentOrder : 9999,
                 type: r.type || '未识别',
                 value: r.value || '',
                 number: r.number || r.value || '',  // 单独保存号码
@@ -9438,26 +9487,13 @@
             
             // ═══════════════════════════════════════════════════════════════════════
             // 【步骤2】按原文聚合数据（同一原文的多注合并显示）
-            // 🆕 v2.4.5 修复：使用 originalLine（AI返回的原文）作为聚合 key，而不是 lineId
-            // 这样可以确保 "10 12 20...各20" 的 11 个号码都被正确聚合到一起
+            // 🆕 v3.8.3 使用 fragmentOrder 排序
             // ═══════════════════════════════════════════════════════════════════════
             const lineMap = {};  // originalLine → { originalLine, items: [], groupId }
-            const originalLineOrder = [];  // 记录原始行出现的顺序
             
             feedbackData.items.forEach((item, idx) => {
                 // 🆕 使用原文作为聚合 key（确保同一条 AI 返回的记录被合并）
                 const key = item.originalLine || item.lineId || `${item.groupId}-0`;
-                
-                // 🆕 v3.8.2 记录原始行出现顺序（用于排序）
-                const rawOriginalLine = item._rawOriginalLine || item.originalLine || '';
-                if (rawOriginalLine && !originalLineOrder.includes(rawOriginalLine)) {
-                    originalLineOrder.push(rawOriginalLine);
-                }
-                
-                // 🆕 v3.8.2 计算排序依据：行顺序 + 行内位置
-                const lineOrder = originalLineOrder.indexOf(rawOriginalLine);
-                const rawText = item._raw || '';
-                const rawPosition = rawOriginalLine.indexOf(rawText);
                 
                 if (!lineMap[key]) {
                     lineMap[key] = {
@@ -9465,8 +9501,8 @@
                         groupId: item.groupId,
                         originalLine: item.originalLine,
                         items: [],
-                        lineOrder: lineOrder >= 0 ? lineOrder : 999,  // 行顺序
-                        rawPosition: rawPosition >= 0 ? rawPosition : 0  // 行内位置
+                        // 🆕 v3.8.3 使用 fragmentOrder（预处理时分配的全局顺序）
+                        fragmentOrder: item.fragmentOrder !== undefined ? item.fragmentOrder : 9999
                     };
                 }
                 lineMap[key].items.push(item);
@@ -9475,16 +9511,13 @@
             // 🆕 调试日志：显示聚合结果
             console.log('📋 按行聚合结果:');
             Object.values(lineMap).forEach(line => {
-                console.log(`  [${line.lineId}] "${line.originalLine?.substring(0,20)}..." → ${line.items.length}注`);
+                console.log(`  [${line.lineId}] "${line.originalLine?.substring(0,20)}..." → ${line.items.length}注 | order=${line.fragmentOrder}`);
             });
             
-            // 按 groupId 分组，组内按原始顺序排序
+            // 按 groupId 分组，组内按 fragmentOrder 排序
             const groupMap = {};
-            // 🆕 v3.8.2 先按行顺序 + 行内位置排序，保持用户输入顺序
-            const sortedLines = Object.values(lineMap).sort((a, b) => {
-                if (a.lineOrder !== b.lineOrder) return a.lineOrder - b.lineOrder;
-                return a.rawPosition - b.rawPosition;
-            });
+            // 🆕 v3.8.3 按 fragmentOrder 排序（保持用户输入顺序）
+            const sortedLines = Object.values(lineMap).sort((a, b) => a.fragmentOrder - b.fragmentOrder);
             sortedLines.forEach(line => {
                 const gid = line.groupId;
                 if (!groupMap[gid]) {
