@@ -4912,16 +4912,19 @@
                 // 🆕 v2.4.8 修复：兼容本地解析(number)和AI解析(value)两种字段
                 const betNum = parseInt(bet.number || bet.value);
                 isWin = betNum === parseInt(tema);
-                detail = `特码 ${String(betNum).padStart(2,'0')} vs 开奖特码 ${String(tema).padStart(2,'0')}`;
+                // 🆕 v3.3 生肖特码合并到特码，通过zodiac字段区分显示
+                if (bet.zodiac) {
+                    detail = `特码(${bet.zodiac}) ${String(betNum).padStart(2,'0')} vs 开奖特码 ${String(tema).padStart(2,'0')}`;
+                } else {
+                    detail = `特码 ${String(betNum).padStart(2,'0')} vs 开奖特码 ${String(tema).padStart(2,'0')}`;
+                }
             } else if (bet.type === '生肖特码') {
-                // 🆕 v2.4.8 新增：生肖特码中奖判断
+                // 🆕 v3.3 兼容旧版"生肖特码"类型（逐步废弃）
                 odds = parseFloat(savedOdds['odds-tema']) || 43;
-                // 🆕 v2.4.8 修复：每个号码是独立的注，只有当这个具体号码等于特码时才算中奖
-                // bet.value 或 bet.number 是具体的号码（如 "06", "18", "30", "42"）
                 const betNum = parseInt(bet.number || bet.value);
                 isWin = betNum === parseInt(tema);
                 const zodiacName = bet.zodiac || '';
-                detail = `生肖特码 ${zodiacName} 号码${betNum} vs 特码 ${tema}`;
+                detail = `特码(${zodiacName}) ${String(betNum).padStart(2,'0')} vs 开奖特码 ${String(tema).padStart(2,'0')}`;
             } else if (bet.type === '生肖' || bet.type === '多肖') {
                 odds = parseFloat(savedOdds['odds-shengxiao']) || 12;
                 const sxNums = LHC_DATA.shengxiao[bet.value] || [];
@@ -5325,6 +5328,7 @@
                 const typeTotal = items.reduce((s, it) => s + it.amount, 0);
                 const hasWin = items.some(r => r.isWin);
                 let typeOdds = items[0]?.odds || 1;
+                // 🆕 v3.3 生肖特码已合并到特码，但保留兼容旧版数据
                 if (type === '特码' || type === '生肖特码') {
                     typeOdds = parseFloat(savedOdds['odds-tema']) || 43;
                 } else if (type === '平特生肖' || type === '平特一肖') {
@@ -7802,36 +7806,10 @@
                                 
                                 let extracted = [];
                                 
-                                // 🆕 如果 Function Calling 已经提取了 numbers 和 amount，直接使用
-                                if (numbers && Array.isArray(numbers) && numbers.length > 0 && amount) {
-                                    console.log(`   ✅ 数据来源: AI已提取 (无需正则)`);
-                                    console.log(`   🔢 号码: ${JSON.stringify(numbers)}`);
-                                    console.log(`   💰 金额: ${amount}元/注`);
-                                    // 根据类型生成下注数据
-                                    if (type === '特码') {
-                                        for (const num of numbers) {
-                                            extracted.push({
-                                                type: '特码',
-                                                value: String(num).padStart(2, '0'),
-                                                amount: amount,
-                                                raw: raw  // 🆕 保留原文
-                                            });
-                                        }
-                                    } else {
-                                        // 其他类型：每个号码一注
-                                        for (const num of numbers) {
-                                            extracted.push({
-                                                type: type,
-                                                value: String(num).padStart(2, '0'),
-                                                amount: amount,
-                                                raw: raw  // 🆕 保留原文
-                                            });
-                                        }
-                                    }
-                                }
-                                // 🆕 SXTM（生肖特码）：使用 zodiacCode 和 amount
-                                else if (code === 'SXTM' && zodiacCode && amount) {
-                                    console.log('✨ 使用 Function Calling 提取的生肖特码:', { zodiacCode, amount });
+                                // 🆕 v3.3 T01 + zodiacCode：生肖格式的特码（通过Z代号选号）
+                                // 生肖特码本质上是特码的一种下注格式，统一显示为"特码"
+                                if (code === 'T01' && zodiacCode && amount) {
+                                    console.log('✨ T01(生肖格式): 使用 zodiacCode 展开号码', { zodiacCode, amount });
                                     // 将 Z1-Z12 转换为生肖名称
                                     const ZODIAC_MAP = {
                                         'Z1': '鼠', 'Z2': '牛', 'Z3': '虎', 'Z4': '兔',
@@ -7843,11 +7821,60 @@
                                     const zodiacNumbers = LHC_DATA.shengxiao[zodiacName] || [];
                                     for (const num of zodiacNumbers) {
                                         extracted.push({
-                                            type: '生肖特码',
+                                            type: '特码',  // 🆕 v3.3 统一显示为"特码"
+                                            value: String(num).padStart(2, '0'),
+                                            zodiac: zodiacName,  // 保留生肖信息用于显示
+                                            amount: amount,
+                                            raw: raw
+                                        });
+                                    }
+                                }
+                                // 🆕 如果 Function Calling 已经提取了 numbers 和 amount，直接使用
+                                else if (numbers && Array.isArray(numbers) && numbers.length > 0 && amount) {
+                                    console.log(`   ✅ 数据来源: AI已提取 (无需正则)`);
+                                    console.log(`   🔢 号码: ${JSON.stringify(numbers)}`);
+                                    console.log(`   💰 金额: ${amount}元/注`);
+                                    // 根据类型生成下注数据
+                                    if (type === '特码') {
+                                        for (const num of numbers) {
+                                            extracted.push({
+                                                type: '特码',
+                                                value: String(num).padStart(2, '0'),
+                                                amount: amount,
+                                                raw: raw
+                                            });
+                                        }
+                                    } else {
+                                        // 其他类型：每个号码一注
+                                        for (const num of numbers) {
+                                            extracted.push({
+                                                type: type,
+                                                value: String(num).padStart(2, '0'),
+                                                amount: amount,
+                                                raw: raw
+                                            });
+                                        }
+                                    }
+                                }
+                                // 🆕 v3.3 兼容旧版SXTM代号（逐步废弃）
+                                else if (code === 'SXTM' && zodiacCode && amount) {
+                                    console.log('⚠️ 收到旧版SXTM代号，将转换为T01处理:', { zodiacCode, amount });
+                                    // 将 Z1-Z12 转换为生肖名称
+                                    const ZODIAC_MAP = {
+                                        'Z1': '鼠', 'Z2': '牛', 'Z3': '虎', 'Z4': '兔',
+                                        'Z5': '龙', 'Z6': '蛇', 'Z7': '马', 'Z8': '羊',
+                                        'Z9': '猴', 'Z10': '鸡', 'Z11': '狗', 'Z12': '猪'
+                                    };
+                                    const zodiacName = ZODIAC_MAP[zodiacCode] || zodiacCode;
+                                    // 获取该生肖对应的号码
+                                    const zodiacNumbers = LHC_DATA.shengxiao[zodiacName] || [];
+                                    for (const num of zodiacNumbers) {
+                                        extracted.push({
+                                            type: '特码',  // 🆕 v3.3 统一显示为"特码"
                                             value: String(num).padStart(2, '0'),
                                             zodiac: zodiacName,
                                             amount: amount,
-                                            raw: raw  // 🆕 保留原文
+                                            raw: raw
                                         });
                                     }
                                 }
@@ -7916,22 +7943,18 @@
                     // 获取赔率设置
                     const savedOdds = JSON.parse(localStorage.getItem('lhc_odds') || '{}');
                     const temaOdds = parseFloat(savedOdds['odds-tema']) || 43;
-                    const sxtmOdds = parseFloat(savedOdds['odds-tema']) || 43; // 生肖特码也用特码赔率
                     
-                    // 计算中奖情况
+                    // 计算中奖情况 - 🆕 v3.3 统一使用"特码"类型
                     let winBets = [];
                     let totalWinAmount = 0;
                     
                     if (tema) {
                         bets.forEach(bet => {
                             const betNum = parseInt(bet.value) || parseInt(bet.number);
+                            // 🆕 v3.3 特码类型统一判断（包括生肖格式）
                             if (bet.type === '特码' && betNum === tema) {
                                 const winAmount = bet.amount * temaOdds;
                                 winBets.push({ ...bet, winAmount, odds: temaOdds });
-                                totalWinAmount += winAmount;
-                            } else if (bet.type === '生肖特码' && betNum === tema) {
-                                const winAmount = bet.amount * sxtmOdds;
-                                winBets.push({ ...bet, winAmount, odds: sxtmOdds });
                                 totalWinAmount += winAmount;
                             }
                         });
@@ -8621,6 +8644,7 @@
                     const typeName = items[0]?.type || '未知';
                     
                     // 🆕 v2.4.8 获取对应类型的赔率
+                    // 🆕 v3.3 生肖特码已合并到特码，保留兼容
                     const savedOdds = JSON.parse(localStorage.getItem('lhc_odds') || '{}');
                     let typeOdds = items[0]?.odds || 1;
                     if (typeName === '特码' || typeName === '生肖特码') {
@@ -8648,19 +8672,23 @@
                         });
                     }
                     
-                    // 🆕 v2.4.7 提取号码列表（只有生肖特码才显示）
+                    // 🆕 v2.4.7 提取号码列表（生肖格式的特码才显示）
                     const allNumbers = items.map(it => {
                         const num = it.numbers || it.number || it.value || '';
                         return String(num).padStart(2, '0');
                     }).filter(n => n && n !== '00');
                     const uniqueNumbers = [...new Set(allNumbers)];
                     
+                    // 🆕 v3.3 检查是否是生肖格式（通过zodiac字段判断）
+                    const hasZodiac = items.some(it => it.zodiac);
+                    
                     // 🆕 v2.4.8 高亮显示原文和号码列表中的中奖号码
                     let displayOriginalLine = line.originalLine;
                     let numbersStr = '';
                     if (typeName === '特码' || typeName === '生肖特码') {
                         displayOriginalLine = fbHighlightWinNum(line.originalLine, fbTema);
-                        if (typeName === '生肖特码' && uniqueNumbers.length > 0) {
+                        // 🆕 v3.3 生肖格式的特码显示号码列表
+                        if ((hasZodiac || typeName === '生肖特码') && uniqueNumbers.length > 0) {
                             numbersStr = `（${fbHighlightWinNum(uniqueNumbers.join(','), fbTema)}）`;
                         }
                     }
