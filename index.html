@@ -8260,7 +8260,7 @@
         }
         
         // ==================== 版本更新检测 ====================
-        const APP_VERSION = 'v2.3.0';  // 当前版本号，与 sw.js 保持一致（缓存优先策略）
+        const APP_VERSION = 'v3.2.0';  // 当前版本号，与 sw.js 保持一致（缓存优先策略）
         
         // 注册 Service Worker 并检测更新
         if ('serviceWorker' in navigator) {
@@ -8470,25 +8470,29 @@
             // 【步骤1】初始化反馈数据
             // 🆕 v2.4.5 修复：使用 AI 返回的原文 (raw) 作为分组依据，避免行匹配错误
             // ═══════════════════════════════════════════════════════════════════════
+            // v3.2 初始化反馈数据，包含完整系统识别值
             feedbackData.items = calcResults.map((r, index) => ({
                 index: index,
                 groupId: r.groupId || 1,
                 lineId: r.lineId || `1-0`,
-                // 🆕 优先使用 raw（AI返回的original），其次使用 originalLine（行匹配结果）
+                // 优先使用 raw（AI返回的original），其次使用 originalLine（行匹配结果）
                 originalLine: r.raw || r.originalLine || '',
                 type: r.type || '未识别',
                 value: r.value || '',
                 number: r.number || r.value || '',  // 单独保存号码
-                numbers: r.number || r.value || '',  // 🆕 改为只保存单个号码，聚合时再合并
+                numbers: r.number || r.value || '',  // 改为只保存单个号码，聚合时再合并
                 amount: r.amount || 0,
                 isWin: r.isWin || false,
                 winAmount: r.winAmount || 0,
                 odds: r.odds || 43,
+                zodiac: r.zodiac || null,  // 🆕 生肖代号
                 isError: r.isError || false,
                 hasError: false,
-                errorType: '',
-                correction: '',
-                errorBlame: ''
+                errorType: '',        // type/amount/num/count/win
+                correction: '',       // 用户填写的修正值
+                errorBlame: '',       // regex_service/calc_service
+                systemValue: null,    // 🆕 v3.2 系统识别值（选择错误类型时填充）
+                note: ''              // 🆕 v3.2 备注
             }));
             
             // 🆕 调试日志：显示解析结果详情
@@ -8660,24 +8664,29 @@
                         </div>
                     </div>
                     
-                    <!-- 隐藏的错误面板 -->
-                    <div id="fb-err-panel-${firstIndex}" style="display:none;background:rgba(244,67,54,0.1);padding:10px;margin:4px 0 8px 0;border-radius:6px;border:1px solid rgba(244,67,54,0.2);">
-                        <div style="font-size:11px;color:#f44336;margin-bottom:8px;font-weight:bold;">⚠️ 标记错误类型</div>
-                        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
-                            <span class="fb-err-tag" data-idx="${firstIndex}" data-err="type" onclick="selectErrorType(${firstIndex},'type')" style="padding:5px 10px;border-radius:4px;font-size:11px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);">🤖 类型识别错</span>
-                            <span class="fb-err-tag" data-idx="${firstIndex}" data-err="calc" onclick="selectErrorType(${firstIndex},'calc')" style="padding:5px 10px;border-radius:4px;font-size:11px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);">🔢 金额算错</span>
-                            <span class="fb-err-tag" data-idx="${firstIndex}" data-err="num" onclick="selectErrorType(${firstIndex},'num')" style="padding:5px 10px;border-radius:4px;font-size:11px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);">📝 号码提取错</span>
+                    <!-- 隐藏的错误面板 v3.2 - 5个紧凑按钮 + 动态提示 -->
+                    <div id="fb-err-panel-${firstIndex}" style="display:none;background:rgba(244,67,54,0.1);padding:8px;margin:4px 0 8px 0;border-radius:6px;border:1px solid rgba(244,67,54,0.2);">
+                        <div style="font-size:10px;color:#f44336;margin-bottom:6px;font-weight:bold;">⚠️ 标记错误类型</div>
+                        <div style="display:flex;gap:4px;margin-bottom:6px;">
+                            <span class="fb-err-tag" data-idx="${firstIndex}" data-err="type" onclick="selectErrorType(${firstIndex},'type',this)" style="flex:1;padding:4px 2px;border-radius:3px;font-size:10px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);text-align:center;">类型错</span>
+                            <span class="fb-err-tag" data-idx="${firstIndex}" data-err="amount" onclick="selectErrorType(${firstIndex},'amount',this)" style="flex:1;padding:4px 2px;border-radius:3px;font-size:10px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);text-align:center;">金额错</span>
+                            <span class="fb-err-tag" data-idx="${firstIndex}" data-err="num" onclick="selectErrorType(${firstIndex},'num',this)" style="flex:1;padding:4px 2px;border-radius:3px;font-size:10px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);text-align:center;">号码错</span>
+                            <span class="fb-err-tag" data-idx="${firstIndex}" data-err="count" onclick="selectErrorType(${firstIndex},'count',this)" style="flex:1;padding:4px 2px;border-radius:3px;font-size:10px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);text-align:center;">注数错</span>
+                            <span class="fb-err-tag" data-idx="${firstIndex}" data-err="win" onclick="selectErrorType(${firstIndex},'win',this)" style="flex:1;padding:4px 2px;border-radius:3px;font-size:10px;cursor:pointer;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.15);text-align:center;">中奖错</span>
                         </div>
-                        <div id="fb-type-select-${firstIndex}" style="display:none;margin-bottom:8px;">
-                            <select onchange="setCorrectType(${firstIndex}, this.value)" style="width:100%;padding:8px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;font-size:12px;">
-                                <option value="">正确类型应该是？</option>
-                                ${PLAY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
-                            </select>
+                        <!-- 动态提示区域 -->
+                        <div id="fb-hint-${firstIndex}" style="display:none;font-size:10px;color:#ffc107;margin-bottom:4px;padding:4px 6px;background:rgba(255,193,7,0.1);border-radius:3px;"></div>
+                        <!-- 统一输入区域 -->
+                        <div id="fb-input-wrapper-${firstIndex}" style="display:none;margin-bottom:6px;">
+                            <div id="fb-type-select-${firstIndex}" style="display:none;">
+                                <select onchange="setCorrection(${firstIndex}, this.value)" style="width:100%;padding:6px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;font-size:11px;">
+                                    <option value="">选择正确类型</option>
+                                    ${PLAY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
+                                </select>
+                            </div>
+                            <input type="text" id="fb-correction-${firstIndex}" style="display:none;width:100%;padding:6px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;font-size:11px;box-sizing:border-box;" oninput="setCorrection(${firstIndex}, this.value)">
                         </div>
-                        <div id="fb-amount-input-${firstIndex}" style="display:none;margin-bottom:8px;">
-                            <input type="number" placeholder="正确金额应该是？" oninput="setCorrection(${firstIndex}, this.value)" style="width:100%;padding:8px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;font-size:12px;box-sizing:border-box;">
-                        </div>
-                        <input type="text" id="fb-note-${firstIndex}" placeholder="其他备注说明（选填）" oninput="setItemNote(${firstIndex}, this.value)" style="width:100%;padding:8px;background:rgba(0,0,0,0.2);color:#fff;border:1px solid rgba(255,255,255,0.08);border-radius:4px;font-size:11px;box-sizing:border-box;">
+                        <input type="text" id="fb-note-${firstIndex}" placeholder="其他备注说明（选填）" oninput="setItemNote(${firstIndex}, this.value)" style="width:100%;padding:6px;background:rgba(0,0,0,0.2);color:#fff;border:1px solid rgba(255,255,255,0.08);border-radius:4px;font-size:10px;box-sizing:border-box;">
                     </div>
                     `;
                 });
@@ -8725,29 +8734,44 @@
                     tag.style.borderColor = 'rgba(255,255,255,0.15)';
                 });
                 
-                // 隐藏子面板
+                // 隐藏子面板 v3.2
+                const hintEl = document.getElementById(`fb-hint-${index}`);
+                const inputWrapper = document.getElementById(`fb-input-wrapper-${index}`);
                 const typeSelect = document.getElementById(`fb-type-select-${index}`);
-                const amountInput = document.getElementById(`fb-amount-input-${index}`);
+                const correctionInput = document.getElementById(`fb-correction-${index}`);
+                if (hintEl) hintEl.style.display = 'none';
+                if (inputWrapper) inputWrapper.style.display = 'none';
                 if (typeSelect) typeSelect.style.display = 'none';
-                if (amountInput) amountInput.style.display = 'none';
+                if (correctionInput) { correctionInput.style.display = 'none'; correctionInput.value = ''; }
             }
             
             updateErrorCount();
         }
         
-        // 选择错误类型
-        function selectErrorType(index, errType) {
+        // 选择错误类型 v3.2 - 支持5种类型 + 动态提示
+        function selectErrorType(index, errType, btnEl) {
             const item = feedbackData.items[index];
             item.errorType = errType;
             
-            // 归因
-            if (errType === 'type') {
-                item.errorBlame = 'AI';
-            } else if (errType === 'calc') {
-                item.errorBlame = 'Python';
-            } else if (errType === 'num') {
-                item.errorBlame = 'Regex/AI';
-            }
+            // 归因映射
+            const blameMap = {
+                'type': 'regex_service',      // 类型识别 → 正则服务
+                'amount': 'regex_service',    // 金额提取 → 正则服务
+                'num': 'regex_service',       // 号码提取 → 正则服务
+                'count': 'calc_service',      // 注数展开 → 计算服务
+                'win': 'calc_service'         // 中奖判断 → 计算服务
+            };
+            item.errorBlame = blameMap[errType] || 'unknown';
+            
+            // 保存系统当前值（用于对比）
+            item.systemValue = {
+                type: item.type,
+                numbers: item.numbers,
+                amount: item.amount,
+                count: 1, // 从展开后计算
+                isWin: item.isWin,
+                winAmount: item.winAmount
+            };
             
             // 更新标签样式
             document.querySelectorAll(`.fb-err-tag[data-idx="${index}"]`).forEach(tag => {
@@ -8757,9 +8781,58 @@
                 tag.style.borderColor = isSelected ? '#f44336' : 'rgba(255,255,255,0.2)';
             });
             
-            // 显示/隐藏相应输入框
-            document.getElementById(`fb-type-select-${index}`).style.display = errType === 'type' ? 'block' : 'none';
-            document.getElementById(`fb-amount-input-${index}`).style.display = errType === 'calc' ? 'block' : 'none';
+            // 动态提示和输入框配置
+            const hintEl = document.getElementById(`fb-hint-${index}`);
+            const inputWrapper = document.getElementById(`fb-input-wrapper-${index}`);
+            const typeSelect = document.getElementById(`fb-type-select-${index}`);
+            const correctionInput = document.getElementById(`fb-correction-${index}`);
+            
+            // 根据错误类型显示不同提示和输入框
+            const config = {
+                'type': {
+                    hint: `💡 当前识别: <b>${item.type}</b>，正确类型是？`,
+                    showTypeSelect: true,
+                    showInput: false,
+                    placeholder: ''
+                },
+                'amount': {
+                    hint: `💡 当前识别: <b>${item.amount}元/注</b>，正确金额是？`,
+                    showTypeSelect: false,
+                    showInput: true,
+                    placeholder: '输入正确金额（数字）'
+                },
+                'num': {
+                    hint: `💡 当前识别: <b>${item.numbers || item.number}</b>，正确号码是？`,
+                    showTypeSelect: false,
+                    showInput: true,
+                    placeholder: '输入正确号码（如: 35,47）'
+                },
+                'count': {
+                    hint: `💡 当前计算: <b>1注</b>，正确注数是？`,
+                    showTypeSelect: false,
+                    showInput: true,
+                    placeholder: '输入正确注数（数字）'
+                },
+                'win': {
+                    hint: `💡 当前判断: <b>${item.isWin ? '中奖' + item.winAmount + '元' : '未中奖'}</b>，实际应该？`,
+                    showTypeSelect: false,
+                    showInput: true,
+                    placeholder: '如: 应中奖430元 或 不应中奖'
+                }
+            };
+            
+            const cfg = config[errType];
+            if (cfg) {
+                hintEl.innerHTML = cfg.hint;
+                hintEl.style.display = 'block';
+                inputWrapper.style.display = 'block';
+                typeSelect.style.display = cfg.showTypeSelect ? 'block' : 'none';
+                correctionInput.style.display = cfg.showInput ? 'block' : 'none';
+                if (cfg.showInput) {
+                    correctionInput.placeholder = cfg.placeholder;
+                    correctionInput.value = '';
+                }
+            }
         }
         
         // 设置正确类型
@@ -9009,32 +9082,38 @@ ${winDetailText}║    ───────────────────
                     profit: profit
                 },
                 
-                // 错误条目（核心数据）
+                // 错误条目（核心数据）v3.2 - 完善数据结构，便于精准定位
                 error_reports: errorItems.map(item => ({
-                    // 原文
-                    original_text: item.original,
+                    // 1️⃣ 标记的记录信息
+                    item_index: item.index,
+                    item_raw: item.originalLine || item.original || '',
+                    item_group_id: item.groupId,
+                    item_line_id: item.lineId,
                     
-                    // AI解析结果
-                    ai_result: {
+                    // 2️⃣ 系统识别/计算结果（关键！）
+                    system: {
                         type: item.type,
-                    numbers: item.numbers,
-                        amount: item.amount
-                    },
-                    
-                    // 计算结果
-                calc_result: {
+                        numbers: item.numbers || item.number,
+                        amount: item.amount,
+                        count: 1,
                         is_win: item.isWin,
                         win_amount: item.winAmount,
                         odds: item.odds
                     },
                     
-                    // 用户标记的错误
-                    error: {
-                        type: item.errorType,           // 'type' | 'calc' | 'num'
-                        blame: item.errorBlame,         // 'AI' | 'Python' | 'Regex/AI'
-                        correction: item.correction,    // 用户填写的修正
-                        note: item.note || ''           // 备注
-                    }
+                    // 3️⃣ 错误类型（5种）
+                    // type=类型错, amount=金额错, num=号码错, count=注数错, win=中奖错
+                    error_type: item.errorType,
+                    
+                    // 4️⃣ 错误归因（定位修改哪个文件）
+                    // regex_service=正则服务, calc_service=计算服务
+                    error_blame: item.errorBlame,
+                    
+                    // 5️⃣ 用户修正值
+                    user_correction: item.correction,
+                    
+                    // 6️⃣ 备注
+                    note: item.note || ''
                 })),
                 
                 // AI调试信息
@@ -9129,12 +9208,17 @@ ${winDetailText}║    ───────────────────
                     win_amount: (calcResults || []).filter(r => r.isWin).reduce((s, r) => s + r.winAmount, 0),
                     profit: submitData.summary.profit,
                     
-                    // 📌 第8步：用户反馈的错误
-                    error_stage: errorItems[0]?.errorBlame || 'unknown',  // 🆕 错误环节
-                    error_detail: errorItems.map(e => e.note || '').filter(n => n).join('; '),  // 🆕 详细描述
-                    expected_result: errorItems[0]?.correction || '',  // 🆕 期望结果
+                    // 📌 第8步：用户反馈的错误 v3.2
+                    // error_stage: 错误归因(regex_service/calc_service)
+                    error_stage: errorItems[0]?.errorBlame || 'unknown',
+                    // error_detail: 错误类型(type/amount/num/count/win) + 用户修正值
+                    error_detail: errorItems.map(e => `${e.errorType}:${e.correction || ''}${e.note ? ' ['+e.note+']' : ''}`).filter(n => n).join('; '),
+                    // expected_result: 用户填写的修正值
+                    expected_result: errorItems[0]?.correction || '',
+                    // error_items: 完整的错误报告JSON
                     error_items: JSON.stringify(submitData.error_reports),
-                    error_summary: errorItems.map(e => `[${e.errorType}:${e.errorBlame}]${e.original}`).join(' | ')
+                    // error_summary: 快速摘要
+                    error_summary: errorItems.map(e => `[${e.errorType}→${e.errorBlame}]${e.originalLine || ''}`).join(' | ')
                 };
                 
                 console.log('📤 完整调试链条数据:', dbData);
