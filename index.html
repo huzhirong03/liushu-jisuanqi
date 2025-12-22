@@ -2337,27 +2337,40 @@
             trialDaysLeft: 7
         };
         
-        // ==================== 调试信息存储（完整数据链条） ====================
+        // ==================== 调试信息存储（完整数据链条 v3.2） ====================
         let debugInfo = {
             // 📌 第1-2步：输入阶段
             originalInput: '',     // 用户原始输入
             sanitizedInput: '',    // 脱敏后的输入（暗号）
             normalizeInfo: '',     // 规范化信息
             
-            // 📌 第3步：AI阶段
+            // 📌 第3步：AI/正则阶段
             aiInput: '',           // 发送给AI的内容
             aiOutput: '',          // AI原始输出
             aiParsed: null,        // AI解析后的JSON
             modelUsed: '',         // 使用的模型: regex / deepseek / zhipu...
             latencyMs: 0,          // AI响应耗时(毫秒)
             
-            // 📌 第4步：网络诊断
+            // 📌 第4步：后端识别结果（🆕 v3.1 新增）
+            extractItems: [],      // 正则/AI 识别的每条详情 [{code,zodiac,nums,amt,raw}]
+            
+            // 📌 第5步：后端计算结果（🆕 v3.1 新增）
+            calcInputCount: 0,     // 识别条数（输入）
+            calcOutputCount: 0,    // 展开后条数（输出）⭐关键！SXTM应展开为4条
+            calcItems: [],         // 计算后每条详情 [{code,n,a,z,w,v,r,idx}]
+            calcS1: 0,             // 总投入
+            calcS2: 0,             // 命中数
+            calcS3: 0,             // 命中金额
+            calcS4: 0,             // 结算
+            backendVersion: '',    // 🆕 v3.2.1 后端版本
+            
+            // 📌 网络诊断
             requestMode: '',       // 请求模式
             targetUrl: '',         // 目标地址
             networkError: '',      // 网络错误
             rawResponse: '',       // 原始响应
             
-            // 📌 第5步：解析结果
+            // 📌 解析结果
             aiBets: [],            // AI识别的下注列表
             localBets: [],         // 本地解析的下注列表
             
@@ -5172,6 +5185,7 @@
                         debugInfo.calcInputCount = backendResult.input_count || 0;   // 识别条数
                         debugInfo.calcOutputCount = backendResult.output_count || 0; // 展开后条数
                         debugInfo.calcItems = backendResult.items || [];             // 计算后的每条详情
+                        debugInfo.backendVersion = backendResult.backend_version || '';  // 🆕 v3.2.1 后端版本
                         debugInfo.calcS1 = totalBet;
                         debugInfo.calcS2 = totalWin;
                         debugInfo.calcS3 = totalWinAmount;
@@ -9139,6 +9153,7 @@ ${winDetailText}║    ───────────────────
                 const dbData = {
                     version: APP_VERSION,
                     app_version: APP_VERSION,
+                    backend_version: debugInfo.backendVersion || '',  // 🆕 v3.2.1 后端版本
                     
                     // 📌 第1步：用户原始输入
                     raw_input: document.getElementById('bet-input')?.value || '',
