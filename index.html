@@ -1743,92 +1743,68 @@
                     </div>
                 </div>
                 
-                <!-- 预设格式模板 -->
-                <div class="setting-group">
-                    <div class="setting-group-title">📋 预设格式模板</div>
+                <!-- 🆕 v3.4 自定义识别规则（优先级最高） -->
+                <div class="setting-group" style="background:linear-gradient(135deg,rgba(251,191,36,0.1),rgba(245,158,11,0.1));border:1px solid rgba(251,191,36,0.3);">
+                    <div class="setting-group-title" style="color:#fbbf24;">🎯 自定义识别规则</div>
                     <div style="font-size:12px;color:#888;margin-bottom:12px;">
-                        常用下注格式，勾选启用对应解析规则
+                        设置关键词→类型映射，<b style="color:#f59e0b;">优先级最高</b>，覆盖系统识别
                     </div>
                     
-                    <div class="setting-item">
-                        <span class="setting-item-label" style="font-size:12px;">31.34各20 → 多号各下注</span>
-                        <input type="checkbox" id="tpl-multi-num" checked style="width:18px;height:18px;">
+                    <!-- 规则列表 -->
+                    <div id="custom-rules-list" style="max-height:300px;overflow-y:auto;margin-bottom:12px;">
+                        <!-- 动态生成 -->
                     </div>
-                    <div class="setting-item">
-                        <span class="setting-item-label" style="font-size:12px;">特43 20元 → 特码下注</span>
-                        <input type="checkbox" id="tpl-tema" checked style="width:18px;height:18px;">
-                    </div>
-                    <div class="setting-item">
-                        <span class="setting-item-label" style="font-size:12px;">买猪各10 → 生肖下注</span>
-                        <input type="checkbox" id="tpl-shengxiao" checked style="width:18px;height:18px;">
-                    </div>
-                    <div class="setting-item">
-                        <span class="setting-item-label" style="font-size:12px;">46,45,X50 → X表示金额</span>
-                        <input type="checkbox" id="tpl-x-amount" checked style="width:18px;height:18px;">
-                    </div>
-                    <div class="setting-item">
-                        <span class="setting-item-label" style="font-size:12px;">5尾100 → 尾数下注</span>
-                        <input type="checkbox" id="tpl-wei" checked style="width:18px;height:18px;">
-                    </div>
-                    <div class="setting-item">
-                        <span class="setting-item-label" style="font-size:12px;">六肖鼠牛虎200 → 多肖下注</span>
-                        <input type="checkbox" id="tpl-duoxiao" checked style="width:18px;height:18px;">
-                    </div>
-                    <div class="setting-item">
-                        <span class="setting-item-label" style="font-size:12px;">平特猴鸡各200 → 平特生肖</span>
-                        <input type="checkbox" id="tpl-pingte" checked style="width:18px;height:18px;">
-                    </div>
-                    <div class="setting-item">
-                        <span class="setting-item-label" style="font-size:12px;">红波/蓝波/绿波 50 → 波色</span>
-                        <input type="checkbox" id="tpl-bose" checked style="width:18px;height:18px;">
-                    </div>
-                    <div class="setting-item">
-                        <span class="setting-item-label" style="font-size:12px;">大/小/单/双 100 → 两面</span>
-                        <input type="checkbox" id="tpl-dxds" checked style="width:18px;height:18px;">
-                    </div>
-                </div>
-                
-                <!-- 基础解析规则 -->
-                <div class="setting-group">
-                    <div class="setting-group-title">⚙️ 基础解析规则</div>
                     
-                    <div class="setting-item">
-                        <span class="setting-item-label">中文数字转阿拉伯</span>
-                        <input type="checkbox" id="format-cn-number" checked style="width:20px;height:20px;">
+                    <!-- 添加新规则 -->
+                    <div style="background:rgba(0,0,0,0.2);padding:12px;border-radius:8px;margin-bottom:12px;">
+                        <div style="font-size:11px;color:#888;margin-bottom:8px;">➕ 添加新规则</div>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <input type="text" id="new-rule-keyword" placeholder="关键词（如：小数）" style="flex:1;min-width:80px;padding:8px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;">
+                            <select id="new-rule-type" style="flex:1;min-width:100px;padding:8px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;">
+                                <option value="">选择类型</option>
+                                <option value="T01">T01 (号码)</option>
+                                <option value="XS">XS (小)</option>
+                                <option value="DS">DS (大)</option>
+                                <option value="ODD">ODD (单)</option>
+                                <option value="EVEN">EVEN (双)</option>
+                                <option value="BS">BS (颜色)</option>
+                                <option value="PT1">PT1 (PT一)</option>
+                                <option value="SX">SX (肖类)</option>
+                            </select>
+                            <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888;">
+                                <input type="checkbox" id="new-rule-expand" style="width:16px;height:16px;">
+                                展开
+                            </label>
+                        </div>
+                        <div id="new-rule-numbers-wrapper" style="display:none;margin-top:8px;">
+                            <input type="text" id="new-rule-numbers" placeholder="展开号码（如：1,2,3,4...24）" style="width:100%;padding:8px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;">
+                        </div>
+                        <button onclick="addCustomRule()" style="width:100%;margin-top:8px;padding:8px;background:linear-gradient(90deg,#f59e0b,#d97706);color:white;border:none;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;">
+                            ➕ 添加规则
+                        </button>
                     </div>
-                    <div class="setting-item">
-                        <span class="setting-item-label">忽略多余空格/标点</span>
-                        <input type="checkbox" id="format-ignore-space" checked style="width:20px;height:20px;">
-                    </div>
-                    <div class="setting-item">
-                        <span class="setting-item-label">自动纠正同音字</span>
-                        <input type="checkbox" id="format-auto-correct" checked style="width:20px;height:20px;">
+                    
+                    <div style="font-size:10px;color:#666;padding:8px;background:rgba(0,0,0,0.2);border-radius:6px;">
+                        💡 <b>展开</b>：勾选后关键词会展开为多个号码分别计算<br>
+                        💡 <b>优先级</b>：自定义规则 > 正则识别 > AI识别
                     </div>
                 </div>
                 
-                <!-- 自定义关键词映射 -->
+                <!-- 导入导出 -->
                 <div class="setting-group">
-                    <div class="setting-group-title">🏷️ 自定义关键词</div>
-                    <div style="font-size:12px;color:#888;margin-bottom:10px;">
-                        添加特殊关键词识别（每行一个，格式：关键词=玩法）
+                    <div class="setting-group-title">📦 导入/导出配置</div>
+                    <div style="display:flex;gap:8px;">
+                        <button onclick="exportAllSettings()" style="flex:1;padding:10px;background:rgba(102,126,234,0.2);color:#a78bfa;border:1px solid rgba(102,126,234,0.3);border-radius:6px;font-size:12px;cursor:pointer;">
+                            📤 导出配置
+                        </button>
+                        <button onclick="document.getElementById('import-file').click()" style="flex:1;padding:10px;background:rgba(76,175,80,0.2);color:#81c784;border:1px solid rgba(76,175,80,0.3);border-radius:6px;font-size:12px;cursor:pointer;">
+                            📥 导入配置
+                        </button>
+                        <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importAllSettings(event)">
                     </div>
-                    <textarea id="custom-keywords" style="width:100%;height:100px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;padding:10px;font-size:13px;resize:none;" placeholder="示例：
-    一友=特码
-    二友=正码
-    三友=正码特
-    新奥=特码
-    平特=平特生肖"></textarea>
-                </div>
-                
-                <!-- 自定义正则模板 -->
-                <div class="setting-group">
-                    <div class="setting-group-title">📝 自定义解析模板（高级）</div>
-                    <div style="font-size:12px;color:#888;margin-bottom:10px;">
-                        添加自定义正则解析规则（格式：模板名|正则|玩法类型）
+                    <div style="font-size:10px;color:#666;margin-top:8px;">
+                        包含：自定义规则 + 倍率设置
                     </div>
-                    <textarea id="custom-templates" style="width:100%;height:80px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;padding:10px;font-size:12px;resize:none;font-family:monospace;" placeholder="示例：
-    龙虎|([龙虎])(\d+)|龙虎
-    连码|连码?(\d+(?:[,，]\d+)+)\s*(\d+)|连码"></textarea>
                 </div>
                 
                 <button onclick="saveFormatSettings()" style="width:100%;padding:12px;background:linear-gradient(90deg,#e94560,#c23a51);color:white;border:none;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;margin-top:15px;">
@@ -5617,32 +5593,171 @@
         
         // ==================== 自定义格式设置 ====================
         
+        // 🆕 v3.4 自定义识别规则存储
+        let customRules = [];
+        
+        // 加载自定义规则
+        function loadCustomRules() {
+            const saved = localStorage.getItem('lhc_custom_rules');
+            if (saved) {
+                try {
+                    customRules = JSON.parse(saved);
+                } catch(e) {
+                    customRules = [];
+                }
+            }
+            renderCustomRules();
+            
+            // 监听展开复选框变化
+            const expandCheckbox = document.getElementById('new-rule-expand');
+            if (expandCheckbox) {
+                expandCheckbox.addEventListener('change', function() {
+                    const numbersWrapper = document.getElementById('new-rule-numbers-wrapper');
+                    if (numbersWrapper) {
+                        numbersWrapper.style.display = this.checked ? 'block' : 'none';
+                    }
+                });
+            }
+        }
+        
+        // 渲染规则列表
+        function renderCustomRules() {
+            const listEl = document.getElementById('custom-rules-list');
+            if (!listEl) return;
+            
+            if (customRules.length === 0) {
+                listEl.innerHTML = '<div style="text-align:center;color:#666;padding:20px;font-size:12px;">暂无自定义规则</div>';
+                return;
+            }
+            
+            const typeNames = {
+                'T01': '号码', 'XS': '小', 'DS': '大', 'ODD': '单', 'EVEN': '双',
+                'BS': '颜色', 'PT1': 'PT一', 'SX': '肖类'
+            };
+            
+            listEl.innerHTML = customRules.map((rule, idx) => `
+                <div style="display:flex;align-items:center;gap:8px;padding:8px;background:rgba(0,0,0,0.2);border-radius:6px;margin-bottom:6px;">
+                    <span style="flex:1;font-size:12px;color:#fff;">
+                        <b style="color:#fbbf24;">${rule.keyword}</b> → 
+                        <span style="color:#a78bfa;">${typeNames[rule.type] || rule.type}</span>
+                        ${rule.expand ? '<span style="color:#81c784;font-size:10px;"> (展开)</span>' : ''}
+                    </span>
+                    <button onclick="deleteCustomRule(${idx})" style="padding:4px 8px;background:rgba(244,67,54,0.2);color:#f44336;border:none;border-radius:4px;font-size:10px;cursor:pointer;">删除</button>
+                </div>
+            `).join('');
+        }
+        
+        // 添加新规则
+        function addCustomRule() {
+            const keyword = document.getElementById('new-rule-keyword')?.value?.trim();
+            const type = document.getElementById('new-rule-type')?.value;
+            const expand = document.getElementById('new-rule-expand')?.checked || false;
+            const numbersStr = document.getElementById('new-rule-numbers')?.value?.trim();
+            
+            if (!keyword) {
+                showAutoCloseToast('⚠️ 请输入关键词');
+                return;
+            }
+            if (!type) {
+                showAutoCloseToast('⚠️ 请选择类型');
+                return;
+            }
+            
+            // 检查是否已存在
+            if (customRules.some(r => r.keyword === keyword)) {
+                showAutoCloseToast('⚠️ 该关键词已存在');
+                return;
+            }
+            
+            const rule = { keyword, type, expand };
+            if (expand && numbersStr) {
+                rule.numbers = numbersStr.split(/[,，\s]+/).map(n => parseInt(n)).filter(n => !isNaN(n) && n >= 1 && n <= 49);
+            }
+            
+            customRules.push(rule);
+            localStorage.setItem('lhc_custom_rules', JSON.stringify(customRules));
+            
+            // 清空输入
+            document.getElementById('new-rule-keyword').value = '';
+            document.getElementById('new-rule-type').value = '';
+            document.getElementById('new-rule-expand').checked = false;
+            document.getElementById('new-rule-numbers').value = '';
+            document.getElementById('new-rule-numbers-wrapper').style.display = 'none';
+            
+            renderCustomRules();
+            showAutoCloseToast('✅ 规则添加成功');
+        }
+        
+        // 删除规则
+        function deleteCustomRule(idx) {
+            customRules.splice(idx, 1);
+            localStorage.setItem('lhc_custom_rules', JSON.stringify(customRules));
+            renderCustomRules();
+            showAutoCloseToast('✅ 规则已删除');
+        }
+        
+        // 导出所有配置
+        function exportAllSettings() {
+            const config = {
+                version: '3.4',
+                exportTime: new Date().toISOString(),
+                customRules: customRules,
+                odds: JSON.parse(localStorage.getItem('lhc_odds') || '{}'),
+                formatSettings: JSON.parse(localStorage.getItem('lhc_format_settings') || '{}')
+            };
+            
+            const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `lhc_config_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showAutoCloseToast('✅ 配置已导出');
+        }
+        
+        // 导入配置
+        function importAllSettings(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const config = JSON.parse(e.target.result);
+                    
+                    if (config.customRules) {
+                        customRules = config.customRules;
+                        localStorage.setItem('lhc_custom_rules', JSON.stringify(customRules));
+                    }
+                    if (config.odds) {
+                        localStorage.setItem('lhc_odds', JSON.stringify(config.odds));
+                    }
+                    if (config.formatSettings) {
+                        localStorage.setItem('lhc_format_settings', JSON.stringify(config.formatSettings));
+                    }
+                    
+                    renderCustomRules();
+                    showAutoCloseToast('✅ 配置导入成功，刷新页面生效');
+                    setTimeout(() => location.reload(), 1500);
+                } catch(err) {
+                    showAutoCloseToast('❌ 导入失败：文件格式错误');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // 清空，允许重复导入
+        }
+        
+        // 获取自定义规则（供识别时使用）
+        function getCustomRules() {
+            return customRules;
+        }
         
         function saveFormatSettings() {
             const settings = {
                 // AI设置（默认启用，API Key在后端环境变量）
                 aiEnabled: document.getElementById('ai-parse-enabled')?.checked !== false,
-                aiProvider: localStorage.getItem('ai_provider') || 'deepseek',
-                
-                // 预设模板
-                tplMultiNum: document.getElementById('tpl-multi-num')?.checked !== false,
-                tplTema: document.getElementById('tpl-tema')?.checked !== false,
-                tplShengxiao: document.getElementById('tpl-shengxiao')?.checked !== false,
-                tplXAmount: document.getElementById('tpl-x-amount')?.checked !== false,
-                tplWei: document.getElementById('tpl-wei')?.checked !== false,
-                tplDuoxiao: document.getElementById('tpl-duoxiao')?.checked !== false,
-                tplPingte: document.getElementById('tpl-pingte')?.checked !== false,
-                tplBose: document.getElementById('tpl-bose')?.checked !== false,
-                tplDxds: document.getElementById('tpl-dxds')?.checked !== false,
-                
-                // 基础规则
-                cnNumber: document.getElementById('format-cn-number')?.checked !== false,
-                ignoreSpace: document.getElementById('format-ignore-space')?.checked !== false,
-                autoCorrect: document.getElementById('format-auto-correct')?.checked !== false,
-                
-                // 自定义内容
-                customKeywords: document.getElementById('custom-keywords')?.value || '',
-                customTemplates: document.getElementById('custom-templates')?.value || ''
+                aiProvider: localStorage.getItem('ai_provider') || 'deepseek'
             };
             localStorage.setItem('lhc_format_settings', JSON.stringify(settings));
             showAutoCloseToast('✅ 格式设置已保存！');
@@ -5657,37 +5772,18 @@
                     // AI设置（默认启用）
                     const aiCheckbox = document.getElementById('ai-parse-enabled');
                     if (aiCheckbox) {
-                        aiCheckbox.checked = s.aiEnabled !== false; // 默认true
+                        aiCheckbox.checked = s.aiEnabled !== false;
                     }
-                    
-                    // 预设模板
-                    if (document.getElementById('tpl-multi-num')) document.getElementById('tpl-multi-num').checked = s.tplMultiNum !== false;
-                    if (document.getElementById('tpl-tema')) document.getElementById('tpl-tema').checked = s.tplTema !== false;
-                    if (document.getElementById('tpl-shengxiao')) document.getElementById('tpl-shengxiao').checked = s.tplShengxiao !== false;
-                    if (document.getElementById('tpl-x-amount')) document.getElementById('tpl-x-amount').checked = s.tplXAmount !== false;
-                    if (document.getElementById('tpl-wei')) document.getElementById('tpl-wei').checked = s.tplWei !== false;
-                    if (document.getElementById('tpl-duoxiao')) document.getElementById('tpl-duoxiao').checked = s.tplDuoxiao !== false;
-                    if (document.getElementById('tpl-pingte')) document.getElementById('tpl-pingte').checked = s.tplPingte !== false;
-                    if (document.getElementById('tpl-bose')) document.getElementById('tpl-bose').checked = s.tplBose !== false;
-                    if (document.getElementById('tpl-dxds')) document.getElementById('tpl-dxds').checked = s.tplDxds !== false;
-                    
-                    // 基础规则
-                    if (document.getElementById('format-cn-number')) document.getElementById('format-cn-number').checked = s.cnNumber !== false;
-                    if (document.getElementById('format-ignore-space')) document.getElementById('format-ignore-space').checked = s.ignoreSpace !== false;
-                    if (document.getElementById('format-auto-correct')) document.getElementById('format-auto-correct').checked = s.autoCorrect !== false;
-                    
-                    // 自定义内容
-                    if (document.getElementById('custom-keywords')) document.getElementById('custom-keywords').value = s.customKeywords || '';
-                    if (document.getElementById('custom-templates')) document.getElementById('custom-templates').value = s.customTemplates || '';
                 } catch(e) {
                     console.error('加载格式设置失败:', e);
-                    // 出错时加载默认值
                     loadDefaultAIConfig();
                 }
             } else {
-                // 首次加载，使用默认配置
                 loadDefaultAIConfig();
             }
+            
+            // 🆕 v3.4 加载自定义规则
+            loadCustomRules();
         }
         
         // 加载默认AI配置（默认启用AI解析）
@@ -5961,6 +6057,7 @@
         
         /**
          * 脱敏函数：将敏感词替换为代号
+         * 🆕 v3.4 优先应用自定义规则
          * @param {string} text 原始文本
          * @returns {string} 脱敏后的文本
          */
@@ -5968,8 +6065,22 @@
             if (!text) return text;
             let result = text;
             
+            // 🆕 v3.4 优先应用自定义规则（关键词→代号映射）
+            const rules = getCustomRules();
+            if (rules && rules.length > 0) {
+                // 按关键词长度降序排列（长的优先匹配）
+                const sortedRules = [...rules].sort((a, b) => b.keyword.length - a.keyword.length);
+                for (const rule of sortedRules) {
+                    if (result.includes(rule.keyword)) {
+                        // 将关键词替换为类型代号
+                        result = result.split(rule.keyword).join(rule.type);
+                        console.log(`🎯 自定义规则: "${rule.keyword}" → "${rule.type}"`);
+                    }
+                }
+            }
+            
+            // 标准脱敏映射
             for (const key of SANITIZE_KEYS_SORTED) {
-                // 使用全局替换
                 result = result.split(key).join(SANITIZE_MAP[key]);
             }
             
