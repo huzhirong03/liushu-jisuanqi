@@ -5357,10 +5357,28 @@
                             const hasWin = items.some(r => r.isWin);
                             const typeOdds = items[0]?.odds || 1;
                             const winPayout = items.filter(r => r.isWin).reduce((s, r) => s + r.winAmount, 0);
+                            const perAmount = items[0]?.amount || 0;
+                            
+                            // 🆕 v3.6.1 优化展示：聚合号码列表
+                            const allNums = items.map(it => it.number || (it.numbers && it.numbers[0])).filter(n => n);
+                            const winNums = items.filter(r => r.isWin).map(it => it.number || (it.numbers && it.numbers[0])).filter(n => n);
+                            
+                            let numsDisplay = '';
+                            if (allNums.length > 0 && betCount > 1) {
+                                // 展开类型：显示号码列表
+                                const sortedNums = [...new Set(allNums)].sort((a,b) => a-b);
+                                if (sortedNums.length > 8) {
+                                    // 太多号码时简化显示
+                                    numsDisplay = ` (${sortedNums.slice(0,3).map(n=>String(n).padStart(2,'0')).join(',')}...${sortedNums.slice(-2).map(n=>String(n).padStart(2,'0')).join(',')})`;
+                                } else {
+                                    numsDisplay = ` (${sortedNums.map(n=>String(n).padStart(2,'0')).join(',')})`;
+                                }
+                            }
                             
                             const icon = hasWin ? '✓' : '✗';
-                            // 🆕 v3.0.1 修复：显示总投注金额(typeTotal)，不是中奖派彩(winPayout)
-                            resultText += `${icon} ${type} (${typeOdds}倍): ${originalLine} ${betCount}×${items[0]?.amount || 0}元=${typeTotal}元\n`;
+                            const profitStr = hasWin ? ` 盈+${winPayout - typeTotal}元` : '';
+                            // 🆕 v3.6.1 新格式：类型(倍率): 原文 (号码列表) 各金额*注数=总额
+                            resultText += `${icon} ${type} (${typeOdds}倍): ${originalLine}${numsDisplay} 各${perAmount}元*${betCount}注=${typeTotal}元${profitStr}\n`;
                         }
                         
                         resultText += `━━━━━━━━━━━━━━━━━━\n`;
@@ -5442,6 +5460,8 @@
                 const betCount = items.length;
                 const typeTotal = items.reduce((s, it) => s + it.amount, 0);
                 const hasWin = items.some(r => r.isWin);
+                const perAmount = items[0]?.amount || 0;
+                const winPayout = items.filter(r => r.isWin).reduce((s, r) => s + r.winAmount, 0);
                 let typeOdds = items[0]?.odds || 1;
                 // 🆕 v3.3 生肖特码已合并到特码，但保留兼容旧版数据
                 if (type === '特码' || type === '生肖特码') {
@@ -5450,9 +5470,22 @@
                     typeOdds = parseFloat(savedOdds['odds-pingte1']) || 11;
                 }
                 
+                // 🆕 v3.6.1 优化展示：聚合号码列表
+                const allNums = items.map(it => it.number || (it.numbers && it.numbers[0])).filter(n => n);
+                let numsDisplay = '';
+                if (allNums.length > 0 && betCount > 1) {
+                    const sortedNums = [...new Set(allNums)].sort((a,b) => a-b);
+                    if (sortedNums.length > 8) {
+                        numsDisplay = ` (${sortedNums.slice(0,3).map(n=>String(n).padStart(2,'0')).join(',')}...${sortedNums.slice(-2).map(n=>String(n).padStart(2,'0')).join(',')})`;
+                    } else {
+                        numsDisplay = ` (${sortedNums.map(n=>String(n).padStart(2,'0')).join(',')})`;
+                    }
+                }
+                
                 const icon = hasWin ? '✓' : '✗';
-                // 🆕 v3.0.1 修复：显示总投注金额(typeTotal)，不是中奖派彩
-                resultText += `${icon} ${type} (${typeOdds}倍): ${originalLine} ${betCount}×${items[0]?.amount || 0}元=${typeTotal}元\n`;
+                const profitStr = hasWin ? ` 盈+${winPayout - typeTotal}元` : '';
+                // 🆕 v3.6.1 新格式
+                resultText += `${icon} ${type} (${typeOdds}倍): ${originalLine}${numsDisplay} 各${perAmount}元*${betCount}注=${typeTotal}元${profitStr}\n`;
             }
             
             resultText += `━━━━━━━━━━━━━━━━━━\n`;
@@ -5815,9 +5848,36 @@
                         <span style="color:#a78bfa;">${typeName}</span>
                         <span style="color:#81c784;font-size:10px;">${expandInfo}${amountMode}</span>
                     </span>
+                    <button onclick="editCustomRule(${idx})" style="padding:4px 8px;background:rgba(102,126,234,0.2);color:#667eea;border:none;border-radius:4px;font-size:10px;cursor:pointer;margin-right:4px;">修改</button>
                     <button onclick="deleteCustomRule(${idx})" style="padding:4px 8px;background:rgba(244,67,54,0.2);color:#f44336;border:none;border-radius:4px;font-size:10px;cursor:pointer;">删除</button>
                 </div>
             `}).join('');
+        }
+        
+        // 🆕 v3.6.1 编辑规则
+        function editCustomRule(idx) {
+            const rule = customRules[idx];
+            if (!rule) return;
+            
+            if (rule.expand && rule.numbers) {
+                // 展开类型：弹出设置窗口
+                document.getElementById('expand-modal-keyword').textContent = rule.keyword;
+                document.getElementById('expand-numbers-input').value = rule.numbers.join(',');
+                updateNumbersCount();
+                document.querySelector(`input[name="amount-mode"][value="${rule.amountMode || 'each'}"]`).checked = true;
+                document.getElementById('expand-modal').style.display = 'block';
+                // 标记为编辑模式
+                window.editingRuleIndex = idx;
+            } else {
+                // 非展开类型：填充到输入框
+                document.getElementById('new-rule-keyword').value = rule.keyword;
+                document.getElementById('new-rule-type').value = rule.type;
+                // 删除旧规则
+                customRules.splice(idx, 1);
+                localStorage.setItem('lhc_custom_rules', JSON.stringify(customRules));
+                renderCustomRules();
+                showAutoCloseToast('📝 请修改后重新添加');
+            }
         }
         
         // 🆕 v3.6 类型选择变化时
@@ -5851,6 +5911,7 @@
         function closeExpandModal() {
             document.getElementById('expand-modal').style.display = 'none';
             document.getElementById('new-rule-type').value = '';
+            window.editingRuleIndex = undefined; // 清除编辑状态
         }
         
         // 🆕 v3.6 填充预设号码
@@ -5889,9 +5950,30 @@
                 return;
             }
             
-            // 检查是否已存在
-            if (customRules.some(r => r.keyword === keyword)) {
-                showAutoCloseToast('⚠️ 该关键词已存在');
+            // 🆕 v3.6.1 编辑模式：更新现有规则
+            const editingIdx = window.editingRuleIndex;
+            if (typeof editingIdx === 'number' && editingIdx >= 0) {
+                customRules[editingIdx] = {
+                    keyword,
+                    type: 'T01',
+                    expand: true,
+                    numbers: numbers,
+                    amountMode: amountMode
+                };
+                window.editingRuleIndex = undefined;
+                localStorage.setItem('lhc_custom_rules', JSON.stringify(customRules));
+                document.getElementById('new-rule-keyword').value = '';
+                document.getElementById('new-rule-type').value = '';
+                closeExpandModal();
+                renderCustomRules();
+                showAutoCloseToast(`✅ 规则已更新 (${numbers.length}个号码)`);
+                return;
+            }
+            
+            // 检查是否已存在（冲突检测）
+            const existingIdx = customRules.findIndex(r => r.keyword === keyword);
+            if (existingIdx >= 0) {
+                showAutoCloseToast('⚠️ 关键词冲突！该关键词已存在');
                 return;
             }
             
@@ -5935,9 +6017,9 @@
                 return;
             }
             
-            // 检查是否已存在
+            // 🆕 v3.6.1 冲突检测
             if (customRules.some(r => r.keyword === keyword)) {
-                showAutoCloseToast('⚠️ 该关键词已存在');
+                showAutoCloseToast('⚠️ 关键词冲突！该关键词已存在，请先删除或修改');
                 return;
             }
             
@@ -6024,13 +6106,16 @@
             const pendingKeyword = document.getElementById('new-rule-keyword')?.value?.trim();
             const pendingType = document.getElementById('new-rule-type')?.value;
             if (pendingKeyword && pendingType && pendingType !== 'T01_EXPAND') {
-                if (!customRules.some(r => r.keyword === pendingKeyword)) {
-                    customRules.push({ keyword: pendingKeyword, type: pendingType, expand: false });
-                    localStorage.setItem('lhc_custom_rules', JSON.stringify(customRules));
-                    document.getElementById('new-rule-keyword').value = '';
-                    document.getElementById('new-rule-type').value = '';
-                    renderCustomRules();
+                // 🆕 v3.6.1 冲突检测
+                if (customRules.some(r => r.keyword === pendingKeyword)) {
+                    showAutoCloseToast('⚠️ 关键词冲突！该关键词已存在');
+                    return;
                 }
+                customRules.push({ keyword: pendingKeyword, type: pendingType, expand: false });
+                localStorage.setItem('lhc_custom_rules', JSON.stringify(customRules));
+                document.getElementById('new-rule-keyword').value = '';
+                document.getElementById('new-rule-type').value = '';
+                renderCustomRules();
             }
             
             const settings = {
@@ -6040,6 +6125,11 @@
             };
             localStorage.setItem('lhc_format_settings', JSON.stringify(settings));
             showAutoCloseToast('✅ 设置已保存！');
+            
+            // 🆕 v3.6.1 保存后返回首页
+            setTimeout(() => {
+                showPage('page-main');
+            }, 800);
         }
         
         function loadFormatSettings() {
@@ -9428,28 +9518,39 @@
                         });
                     }
                     
-                    // 🆕 v2.4.7 提取号码列表（生肖格式的特码才显示）
+                    // 🆕 v3.6.1 提取所有号码列表（展开类型显示）
                     const allNumbers = items.map(it => {
                         const num = it.numbers || it.number || it.value || '';
-                        return String(num).padStart(2, '0');
-                    }).filter(n => n && n !== '00');
-                    const uniqueNumbers = [...new Set(allNumbers)];
+                        return parseInt(num);
+                    }).filter(n => n && !isNaN(n));
+                    const uniqueNumbers = [...new Set(allNumbers)].sort((a,b) => a-b);
                     
                     // 🆕 v3.3 检查是否是生肖格式（通过zodiac字段判断）
                     const hasZodiac = items.some(it => it.zodiac);
                     
-                    // 🆕 v2.4.8 高亮显示原文和号码列表中的中奖号码
+                    // 🆕 v3.6.1 高亮显示原文和号码列表中的中奖号码
                     let displayOriginalLine = line.originalLine;
                     let numbersStr = '';
                     if (typeName === '特码' || typeName === '生肖特码') {
                         displayOriginalLine = fbHighlightWinNum(line.originalLine, fbTema);
-                        // 🆕 v3.3 生肖格式的特码显示号码列表
-                        if ((hasZodiac || typeName === '生肖特码') && uniqueNumbers.length > 0) {
-                            numbersStr = `（${fbHighlightWinNum(uniqueNumbers.join(','), fbTema)}）`;
+                        // 🆕 v3.6.1 展开类型显示号码列表（超过1个号码时）
+                        if (uniqueNumbers.length > 1) {
+                            let numsDisplay;
+                            if (uniqueNumbers.length > 8) {
+                                // 太多号码时简化显示
+                                const start = uniqueNumbers.slice(0,3).map(n=>String(n).padStart(2,'0')).join(',');
+                                const end = uniqueNumbers.slice(-2).map(n=>String(n).padStart(2,'0')).join(',');
+                                numsDisplay = `${start}...${end}`;
+                            } else {
+                                numsDisplay = uniqueNumbers.map(n=>String(n).padStart(2,'0')).join(',');
+                            }
+                            numbersStr = `（${fbHighlightWinNum(numsDisplay, fbTema)}）`;
+                        } else if (hasZodiac && uniqueNumbers.length > 0) {
+                            numbersStr = `（${fbHighlightWinNum(uniqueNumbers.map(n=>String(n).padStart(2,'0')).join(','), fbTema)}）`;
                         }
                     }
                     
-                    // 格式：✓/✗ 类型(赔率倍): 原文（号码）注数×金额元= 总额元  盈亏  ❌
+                    // 🆕 v3.6.1 格式：✓/✗ 类型(赔率倍): 原文（号码列表）各金额元*注数=总额元  盈亏
                     html += `
                     <div class="fb-line" data-index="${firstIndex}" style="
                         display:flex;
@@ -9465,7 +9566,7 @@
                             <span style="color:#64b5f6;margin-left:4px;">${typeName}(${typeOdds}倍):</span>
                             <span style="color:#fbbf24;font-weight:bold;margin-left:4px;">${displayOriginalLine}</span>
                             ${numbersStr ? `<span style="color:#888;font-size:11px;">${numbersStr}</span>` : ''}
-                            <span style="color:#aaa;margin-left:6px;">${betCount}×${unitAmount}元=</span>
+                            <span style="color:#aaa;margin-left:6px;">各${unitAmount}元*${betCount}注=</span>
                             <span style="color:#fff;">${totalAmount}元</span>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
