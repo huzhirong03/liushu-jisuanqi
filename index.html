@@ -9026,13 +9026,55 @@
                 // 每行数据
                 lines.forEach((line, lineIdx) => {
                     const items = line.items.filter(it => !it.isError);
-                    if (items.length === 0) {
-                        // 解析失败的行
+                    const errorItems = line.items.filter(it => it.isError);
+                    
+                    if (items.length === 0 && errorItems.length > 0) {
+                        // 🆕 v3.5 解析失败的行也要显示反馈按钮
+                        const errIndex = errorItems[0]?.index ?? feedbackData.items.findIndex(it => it.originalLine === line.originalLine);
                         html += `
-                        <div style="padding:6px 0;border-bottom:${lineIdx < lines.length - 1 ? '1px dashed rgba(255,255,255,0.1)' : 'none'};">
-                            <span style="color:#f44336;font-size:12px;">⚠️ ${line.originalLine || '无法识别'}</span>
+                        <div class="fb-line" data-index="${errIndex}" style="
+                            display:flex;
+                            align-items:center;
+                            padding:8px 0;
+                            border-bottom:${lineIdx < lines.length - 1 ? '1px dashed rgba(255,255,255,0.1)' : 'none'};
+                            border-left:3px solid #f44336;
+                            padding-left:8px;
+                            margin-left:-8px;
+                        ">
+                            <div style="flex:1;font-size:12px;line-height:1.5;">
+                                <span style="color:#f44336;font-weight:bold;font-size:14px;">✗</span>
+                                <span style="color:#f44336;margin-left:4px;">未识别:</span>
+                                <span style="color:#fbbf24;font-weight:bold;margin-left:4px;">${line.originalLine || '无法识别'}</span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span style="font-size:10px;color:#888;">点击反馈→</span>
+                                <span id="fb-err-btn-${errIndex}" onclick="toggleErrorPanel(${errIndex})" style="cursor:pointer;font-size:14px;opacity:0.7;">❌</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 🆕 v3.5 未识别项目的错误面板 -->
+                        <div id="fb-err-panel-${errIndex}" data-type="未识别" data-code="UK" style="display:none;background:rgba(244,67,54,0.1);padding:8px;margin:4px 0 8px 0;border-radius:6px;border:1px solid rgba(244,67,54,0.2);">
+                            <div style="font-size:10px;color:#f44336;margin-bottom:6px;font-weight:bold;">⚠️ 请选择正确的类型</div>
+                            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
+                                <span class="fb-err-tag" data-idx="${errIndex}" data-type="type" onclick="selectErrorType(${errIndex},'type','regex_service')" style="padding:4px 8px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);border-radius:3px;font-size:10px;color:#ccc;cursor:pointer;">类型错</span>
+                            </div>
+                            <div id="fb-hint-${errIndex}" style="display:none;font-size:10px;color:#ffc107;margin-bottom:4px;padding:4px 6px;background:rgba(255,193,7,0.1);border-radius:3px;"></div>
+                            <div id="fb-input-wrapper-${errIndex}" style="display:none;margin-bottom:6px;">
+                                <div id="fb-type-select-${errIndex}">
+                                    <select onchange="setCorrection(${errIndex}, this.value)" style="width:100%;padding:6px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;font-size:11px;">
+                                        <option value="">选择正确类型</option>
+                                        ${PLAY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
+                                    </select>
+                                </div>
+                            </div>
+                            <textarea id="fb-note-${errIndex}" placeholder="补充说明（可选）" style="width:100%;height:40px;padding:6px;background:#2a2a3e;color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;font-size:10px;resize:none;"></textarea>
                         </div>
                         `;
+                        return;
+                    }
+                    
+                    if (items.length === 0) {
+                        // 没有任何项目，跳过
                         return;
                     }
                     
