@@ -5343,10 +5343,11 @@
                         resultText += `💰 结算: ${settleAmount >= 0 ? '+' : ''}${settleAmount}元\n`;
                         resultText += `━━━━━━━━━━━━━━━━━━\n`;
                         
-                        // 按原文分组显示
+                        // 按原文分组显示（🆕 v3.7.2 优先使用 originalLine 作为聚合 key）
                         const byOriginal = {};
                         calcResults.forEach(r => {
-                            const key = r.raw || r.originalLine || r.type;
+                            // 优先使用 originalLine（用户原始输入），而不是 raw（后端展开后的单条数据）
+                            const key = r.originalLine || r.raw || r.type;
                             if (!byOriginal[key]) {
                                 byOriginal[key] = { type: r.type, originalLine: key, items: [], odds: r.odds || 1 };
                             }
@@ -5446,10 +5447,11 @@
             resultText += `💰 结算: ${settleAmount >= 0 ? '+' : ''}${settleAmount}元\n`;
             resultText += `━━━━━━━━━━━━━━━━━━\n`;
             
-            // 按原文分组显示
+            // 按原文分组显示（🆕 v3.7.2 优先使用 originalLine 作为聚合 key）
             const byOriginal = {};
             calcResults.forEach(r => {
-                const key = r.raw || r.originalLine || r.type;
+                // 优先使用 originalLine（用户原始输入），而不是 raw（后端展开后的单条数据）
+                const key = r.originalLine || r.raw || r.type;
                 if (!byOriginal[key]) {
                     byOriginal[key] = { type: r.type, originalLine: key, items: [], odds: r.odds || 1 };
                 }
@@ -9349,12 +9351,13 @@
             // 🆕 v2.4.5 修复：使用 AI 返回的原文 (raw) 作为分组依据，避免行匹配错误
             // ═══════════════════════════════════════════════════════════════════════
             // v3.2 初始化反馈数据，包含完整系统识别值
+            // 🆕 v3.7.2 修复：优先使用 originalLine（用户原始输入）进行聚合
             feedbackData.items = calcResults.map((r, index) => ({
                 index: index,
                 groupId: r.groupId || 1,
                 lineId: r.lineId || `1-0`,
-                // 优先使用 raw（AI返回的original），其次使用 originalLine（行匹配结果）
-                originalLine: r.raw || r.originalLine || '',
+                // 🆕 v3.7.2 优先使用 originalLine（用户原始输入），而不是 raw（后端展开后的单条数据）
+                originalLine: r.originalLine || r.raw || '',
                 type: r.type || '未识别',
                 value: r.value || '',
                 number: r.number || r.value || '',  // 单独保存号码
