@@ -1684,16 +1684,16 @@
             
             <!-- 自定义格式页面 -->
             <div class="page" id="page-format">
-                <div class="page-header">
+                <div class="page-header" style="margin-bottom:8px;">
                     <button class="btn-back" onclick="showPage('page-main')">←</button>
                     <div class="page-title">自定义格式</div>
                 </div>
                 
-                <!-- 🆕 v3.6 自定义识别规则（优先级最高，直接传计算跳过识别） -->
-                <div class="setting-group" style="background:linear-gradient(135deg,rgba(251,191,36,0.1),rgba(245,158,11,0.1));border:1px solid rgba(251,191,36,0.3);">
+                <!-- 🆕 v3.6 自定义识别规则 -->
+                <div class="setting-group" style="background:linear-gradient(135deg,rgba(251,191,36,0.1),rgba(245,158,11,0.1));border:1px solid rgba(251,191,36,0.3);margin-top:0;">
                     <div class="setting-group-title" style="color:#fbbf24;">🎯 自定义识别规则</div>
-                    <div style="font-size:12px;color:#888;margin-bottom:12px;">
-                        设置关键词→类型映射，<b style="color:#f59e0b;">优先级最高</b>，直接计算无需AI
+                    <div style="font-size:12px;color:#888;margin-bottom:10px;">
+                        设置关键词让系统<b style="color:#f59e0b;">自动识别</b>对应的玩法类型
                     </div>
                     
                     <!-- 规则列表 -->
@@ -1768,10 +1768,69 @@
                         </button>
                     </div>
                     
-                    <div style="font-size:10px;color:#666;padding:8px;background:rgba(0,0,0,0.2);border-radius:6px;">
-                        ⚠️ <b>关键词只填名称</b>，不要带金额！如：填"小码"而非"小码 100"<br>
-                        💡 选<b>特码(展开)</b>会弹出设置窗口，可快捷选择号码范围<br>
-                        💡 <b>优先级</b>：自定义规则 > 正则识别 > AI识别
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="flex:1;font-size:10px;color:#666;padding:8px;background:rgba(0,0,0,0.2);border-radius:6px;">
+                            ⚠️ 关键词只填名称，不带金额<br>
+                            💡 识别顺序：自定义规则 → 系统规则 → AI智能识别
+                        </div>
+                        <button onclick="showCustomRuleHelp()" style="padding:8px 12px;background:rgba(102,126,234,0.3);border:1px solid rgba(102,126,234,0.5);border-radius:6px;color:#a78bfa;font-size:11px;cursor:pointer;white-space:nowrap;">
+                            ❓帮助
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 🆕 v3.7 自定义规则帮助弹窗 -->
+                <div id="custom-rule-help-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:10000;overflow-y:auto;">
+                    <div style="max-width:400px;margin:30px auto;background:#1a1a2e;border-radius:12px;overflow:hidden;">
+                        <div style="background:linear-gradient(90deg,#667eea,#764ba2);padding:15px;display:flex;justify-content:space-between;align-items:center;">
+                            <span style="font-weight:bold;color:#fff;font-size:16px;">❓ 自定义规则使用说明</span>
+                            <button onclick="closeCustomRuleHelp()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;">×</button>
+                        </div>
+                        <div style="padding:16px;font-size:13px;color:#ccc;line-height:1.6;">
+                            <div style="margin-bottom:16px;">
+                                <div style="color:#fbbf24;font-weight:bold;margin-bottom:8px;">📌 功能说明</div>
+                                <div style="color:#999;">当系统无法识别您输入的词语时，您可以在这里添加规则，告诉系统这个词语代表什么玩法类型。</div>
+                            </div>
+                            
+                            <div style="margin-bottom:16px;">
+                                <div style="color:#4ade80;font-weight:bold;margin-bottom:8px;">✅ 正确示例</div>
+                                <div style="background:rgba(0,0,0,0.3);padding:10px;border-radius:6px;font-size:12px;">
+                                    • 关键词填：<b style="color:#fff;">小球</b>，类型选：<b style="color:#fff;">特码(展开多号)</b><br>
+                                    • 关键词填：<b style="color:#fff;">红</b>，类型选：<b style="color:#fff;">红波</b><br>
+                                    • 关键词填：<b style="color:#fff;">猪猪</b>，类型选：<b style="color:#fff;">生肖</b>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom:16px;">
+                                <div style="color:#f87171;font-weight:bold;margin-bottom:8px;">❌ 错误示例</div>
+                                <div style="background:rgba(0,0,0,0.3);padding:10px;border-radius:6px;font-size:12px;">
+                                    • <s style="color:#888;">小球 100</s> ← 不要带金额<br>
+                                    • <s style="color:#888;">小球各20</s> ← 不要带"各"字
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom:16px;">
+                                <div style="color:#60a5fa;font-weight:bold;margin-bottom:8px;">💡 使用流程</div>
+                                <div style="background:rgba(0,0,0,0.3);padding:10px;border-radius:6px;font-size:12px;">
+                                    1. 在左边输入框填写<b style="color:#fff;">关键词</b><br>
+                                    2. 在右边下拉框选择<b style="color:#fff;">对应类型</b><br>
+                                    3. 点击<b style="color:#f59e0b;">添加规则</b>按钮<br>
+                                    4. 点击<b style="color:#e94560;">保存设置</b>即可生效
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom:12px;">
+                                <div style="color:#c084fc;font-weight:bold;margin-bottom:8px;">🔄 识别顺序</div>
+                                <div style="background:rgba(0,0,0,0.3);padding:10px;border-radius:6px;font-size:12px;">
+                                    系统会按以下顺序识别您的输入：<br>
+                                    <b style="color:#fbbf24;">① 您设置的规则</b> → <b style="color:#60a5fa;">② 系统内置规则</b> → <b style="color:#4ade80;">③ AI智能识别</b>
+                                </div>
+                            </div>
+                            
+                            <button onclick="closeCustomRuleHelp()" style="width:100%;padding:12px;background:linear-gradient(90deg,#667eea,#764ba2);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;margin-top:8px;">
+                                我知道了
+                            </button>
+                        </div>
                     </div>
                 </div>
                 
@@ -5858,6 +5917,16 @@
             document.getElementById('expand-modal').style.display = 'none';
             document.getElementById('new-rule-type').value = '';
             window.editingRuleIndex = undefined; // 清除编辑状态
+        }
+        
+        // 🆕 v3.7 显示自定义规则帮助弹窗
+        function showCustomRuleHelp() {
+            document.getElementById('custom-rule-help-modal').style.display = 'block';
+        }
+        
+        // 🆕 v3.7 关闭自定义规则帮助弹窗
+        function closeCustomRuleHelp() {
+            document.getElementById('custom-rule-help-modal').style.display = 'none';
         }
         
         // 🆕 v3.6 填充预设号码
