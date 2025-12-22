@@ -1762,14 +1762,14 @@
                             <input type="text" id="new-rule-keyword" placeholder="关键词（如：小数）" style="flex:1;min-width:80px;padding:8px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;">
                             <select id="new-rule-type" style="flex:1;min-width:100px;padding:8px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;">
                                 <option value="">选择类型</option>
-                                <option value="T01">T01 (号码)</option>
-                                <option value="XS">XS (小)</option>
-                                <option value="DS">DS (大)</option>
-                                <option value="ODD">ODD (单)</option>
-                                <option value="EVEN">EVEN (双)</option>
-                                <option value="BS">BS (颜色)</option>
-                                <option value="PT1">PT1 (PT一)</option>
-                                <option value="SX">SX (肖类)</option>
+                                <option value="T01">特码（号码）</option>
+                                <option value="XS">小数</option>
+                                <option value="DS">大数</option>
+                                <option value="ODD">单数</option>
+                                <option value="EVEN">双数</option>
+                                <option value="BS">波色</option>
+                                <option value="PT1">平特一肖</option>
+                                <option value="SX">生肖</option>
                             </select>
                             <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888;">
                                 <input type="checkbox" id="new-rule-expand" style="width:16px;height:16px;">
@@ -1785,7 +1785,8 @@
                     </div>
                     
                     <div style="font-size:10px;color:#666;padding:8px;background:rgba(0,0,0,0.2);border-radius:6px;">
-                        💡 <b>展开</b>：勾选后关键词会展开为多个号码分别计算<br>
+                        ⚠️ <b>关键词只填名称</b>，不要带金额！如：填"小数"而非"小数 100"<br>
+                        💡 <b>展开</b>：选"特码"类型时可勾选，填写号码后展开为多注<br>
                         💡 <b>优先级</b>：自定义规则 > 正则识别 > AI识别
                     </div>
                 </div>
@@ -5631,8 +5632,8 @@
             }
             
             const typeNames = {
-                'T01': '号码', 'XS': '小', 'DS': '大', 'ODD': '单', 'EVEN': '双',
-                'BS': '颜色', 'PT1': 'PT一', 'SX': '肖类'
+                'T01': '特码', 'XS': '小数', 'DS': '大数', 'ODD': '单数', 'EVEN': '双数',
+                'BS': '波色', 'PT1': '平特', 'SX': '生肖'
             };
             
             listEl.innerHTML = customRules.map((rule, idx) => `
