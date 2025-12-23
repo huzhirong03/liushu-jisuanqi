@@ -4966,15 +4966,20 @@
         
         /**
          * 🆕 v3.4 获取赔率配置（转换为后端格式）
-         * @returns {Object} 赔率配置 {r1, r2, r3, r_dxds}
+         * 🆕 v3.11.2 添加 PT2-PT5 平特连肖赔率
+         * @returns {Object} 赔率配置
          */
         function getOddsConfig() {
             const savedOdds = JSON.parse(localStorage.getItem('lhc_odds') || '{}');
             return {
-                r1: parseFloat(savedOdds['odds-tema']) || 43,      // 特码倍率
-                r2: parseFloat(savedOdds['odds-shengxiao']) || 12, // 生肖倍率
-                r3: parseFloat(savedOdds['odds-pingte1']) || 11,   // 平特一肖倍率
-                r_dxds: parseFloat(savedOdds['odds-dxds']) || 1.98 // 🆕 v3.4 大小单双倍率
+                r1: parseFloat(savedOdds['odds-tema']) || 43,        // 特码倍率
+                r2: parseFloat(savedOdds['odds-shengxiao']) || 12,   // 生肖倍率
+                r3: parseFloat(savedOdds['odds-pingte1']) || 11,     // 平特一肖(PT1)倍率
+                r_pt2: parseFloat(savedOdds['odds-pingte2x']) || 26, // 平特二连肖(PT2)倍率
+                r_pt3: parseFloat(savedOdds['odds-pingte3x']) || 66, // 平特三连肖(PT3/三友)倍率
+                r_pt4: parseFloat(savedOdds['odds-pingte4x']) || 180,// 平特四连肖(PT4)倍率
+                r_pt5: parseFloat(savedOdds['odds-pingte5x']) || 500,// 平特五连肖(PT5)倍率
+                r_dxds: parseFloat(savedOdds['odds-dxds']) || 1.98   // 大小单双倍率
             };
         }
         
