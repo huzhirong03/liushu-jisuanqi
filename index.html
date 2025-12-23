@@ -2472,7 +2472,7 @@
         let debugInfo = {
             // 📌 第1-2步：输入阶段
             originalInput: '',     // 用户原始输入
-            sanitizedInput: '',    // 脱敏后的输入（暗号）
+            sanitizedInput: '',    // 代号转换后的输入（Z代号格式）
             normalizeInfo: '',     // 规范化信息
             
             // 📌 第3步：AI/正则阶段
@@ -4985,7 +4985,7 @@
         
         /**
          * 🆕 v3.0 调用后端计算接口（一站式：识别+计算）
-         * @param {string} sanitizedInput 脱敏后的输入文本
+         * @param {string} sanitizedInput 代号转换后的输入文本（Z代号格式）
          * @param {Array} dataArr 数据数组（7个数字）
          * @param {Object} config 配置参数 {r1, r2, r3}
          * @param {string} provider 服务商
@@ -4994,7 +4994,7 @@
          */
         async function callBackendCalc(sanitizedInput, dataArr, config, provider = 'deepseek', model = null) {
             const requestBody = {
-                t: sanitizedInput,   // 脱敏后的文本
+                t: sanitizedInput,   // 代号转换后的文本（Z代号格式）
                 d: dataArr,          // 数据数组（7个数字）
                 c: config,           // 配置参数
                 p: provider,         // 服务商
@@ -5264,10 +5264,10 @@
                 // 【AI调试显示】结束
                 
                 try {
-                    // 🆕 v3.0 对输入进行脱敏
+                    // 🆕 v3.11.4 生肖代号转换（后端正则匹配需要 Z1-Z12 格式）
                     const sanitizedInput = sanitizeText(input);
                     debugInfo.sanitizedInput = sanitizedInput;
-                    console.log('🔒 脱敏后输入:', sanitizedInput);
+                    console.log('🔄 代号转换后:', sanitizedInput);
                     
                     // 🆕 v3.0 调用后端一站式计算接口
                     const config = getOddsConfig();
@@ -5318,10 +5318,10 @@
                         const extractNumbers = (str) => (str.match(/\d+/g) || []).join('-');
                         
                         // 🆕 v3.1 构建行→分组映射
-                        const lineToGroupMap = {};  // 脱敏后的行 → {groupId, lineIndex}
+                        const lineToGroupMap = {};  // 代号转换后的行 → {groupId, lineIndex}
                         inputGroups.forEach((group, gIdx) => {
                             group.forEach((line, lIdx) => {
-                                // 对原始行进行脱敏，用于匹配后端返回的 raw
+                                // 对原始行进行代号转换，用于匹配后端返回的 raw
                                 const sanitizedLine = sanitizeText(line);
                                 
                                 // 🆕 v3.8.3 用多种分隔符拆分行为片段
@@ -5477,7 +5477,7 @@
                             const rawText = r.raw || '';
                             const originalText = r.originalLine || '';
                             
-                            // 检查 raw 是否在 originalLine 中能找到（允许脱敏后的匹配）
+                            // 检查 raw 是否在 originalLine 中能找到（允许代号转换后的匹配）
                             const isSliceType = originalText.length > rawText.length && (
                                 originalText.includes(rawText) || 
                                 originalText.replace(/\s+/g, '').includes(rawText.replace(/\s+/g, ''))
@@ -6603,34 +6603,39 @@
             return result;
         }
         
-        // ==================== 【代号转换系统 v2.0 香港服务器版】 ====================
-        // v3.11 简化：只保留正则匹配需要的转换，删除敏感词脱敏
-        // 香港服务器无内容审查，不需要敏感词脱敏
+        // ==================== 【生肖代号转换系统 v3.11.4】 ====================
+        // 🎯 目的：将中文生肖转换为 Z 代号，后端正则匹配依赖此格式
+        // 🔧 原理：后端正则使用 Z\d{1,2} 格式匹配（如 Z5x10、Z1Z2各20）
+        // ⚠️ 注意：这不是"敏感词脱敏"，而是"格式统一转换"
+        // 📝 示例：羊→Z8、牛→Z2、特牛各30→特Z2各30
         
-        // 代号映射表（中文 → 代号，用于正则匹配）
-        const SANITIZE_MAP = {
-            // === 生肖（必须保留，正则匹配依赖 Z1-Z12 格式）===
+        // 生肖代号映射表（中文生肖 → Z代号）
+        const ZODIAC_TO_CODE = {
             '鼠': 'Z1', '牛': 'Z2', '虎': 'Z3', '兔': 'Z4',
             '龙': 'Z5', '蛇': 'Z6', '马': 'Z7', '羊': 'Z8',
             '猴': 'Z9', '鸡': 'Z10', '狗': 'Z11', '猪': 'Z12'
         };
         
-        // 生成还原映射表（代号 → 敏感词）
-        const RESTORE_MAP = {};
-        for (const [key, value] of Object.entries(SANITIZE_MAP)) {
-            RESTORE_MAP[value] = key;
+        // 🔄 兼容旧代码（保留 SANITIZE_MAP 变量名，避免破坏其他引用）
+        const SANITIZE_MAP = ZODIAC_TO_CODE;
+        
+        // 还原映射表（Z代号 → 中文生肖）
+        const CODE_TO_ZODIAC = {};
+        for (const [zodiac, code] of Object.entries(ZODIAC_TO_CODE)) {
+            CODE_TO_ZODIAC[code] = zodiac;
         }
         
-        // 获取按长度降序排列的键（避免短词先替换导致问题）
-        const SANITIZE_KEYS_SORTED = Object.keys(SANITIZE_MAP).sort((a, b) => b.length - a.length);
-        const RESTORE_KEYS_SORTED = Object.keys(RESTORE_MAP).sort((a, b) => b.length - a.length);
+        // 兼容旧代码
+        const RESTORE_MAP = CODE_TO_ZODIAC;
         
-        /**
-         * 脱敏函数：将敏感词替换为代号
-         * 🆕 v3.4 优先应用自定义规则
-         * @param {string} text 原始文本
-         * @returns {string} 脱敏后的文本
-         */
+        // 获取按长度降序排列的键（避免 Z1 先于 Z10 匹配）
+        const ZODIAC_KEYS_SORTED = Object.keys(ZODIAC_TO_CODE).sort((a, b) => b.length - a.length);
+        const CODE_KEYS_SORTED = Object.keys(CODE_TO_ZODIAC).sort((a, b) => b.length - a.length);
+        
+        // 兼容旧代码
+        const SANITIZE_KEYS_SORTED = ZODIAC_KEYS_SORTED;
+        const RESTORE_KEYS_SORTED = CODE_KEYS_SORTED;
+        
         /**
          * 转义正则特殊字符
          */
@@ -6638,6 +6643,13 @@
             return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
         
+        /**
+         * 生肖代号转换函数
+         * 将中文生肖转换为 Z 代号（后端正则匹配需要）
+         * 🆕 v3.4 优先应用自定义规则
+         * @param {string} text 原始文本（含中文生肖）
+         * @returns {string} 转换后的文本（Z代号格式）
+         */
         function sanitizeText(text) {
             if (!text) return text;
             let result = text;
@@ -6669,32 +6681,32 @@
                 }
             }
             
-            // 🆕 v3.11 香港服务器版：只做生肖→代号转换（正则匹配需要）
+            // 🆕 v3.11.4 生肖→Z代号转换（后端正则匹配依赖 Z\d{1,2} 格式）
             // 按长度降序替换，避免 Z1 先于 Z10 匹配
-            for (const key of SANITIZE_KEYS_SORTED) {
-                result = result.split(key).join(SANITIZE_MAP[key]);
+            for (const zodiac of ZODIAC_KEYS_SORTED) {
+                result = result.split(zodiac).join(ZODIAC_TO_CODE[zodiac]);
             }
             
             if (text !== result) {
-                console.log('🔄 代号转换:', text, '→', result);
+                console.log('🔄 生肖→代号:', text.substring(0, 50) + (text.length > 50 ? '...' : ''));
             }
             return result;
         }
         
         /**
-         * 还原函数：将代号还原为敏感词
-         * @param {string} text 脱敏后的文本
-         * @returns {string} 还原后的文本
+         * 代号还原函数
+         * 将 Z 代号还原为中文生肖（用于显示）
+         * @param {string} text Z代号格式的文本
+         * @returns {string} 还原后的中文文本
          */
         function restoreText(text) {
             if (!text) return text;
             let result = text;
             
-            for (const key of RESTORE_KEYS_SORTED) {
-                result = result.split(key).join(RESTORE_MAP[key]);
+            for (const code of CODE_KEYS_SORTED) {
+                result = result.split(code).join(CODE_TO_ZODIAC[code]);
             }
             
-            // v3.11.3 移除还原日志（不再需要）
             return result;
         }
         
@@ -8305,7 +8317,7 @@
             return result;
         }
         
-        // AI解析下注信息（优化版：完整脱敏 + JSON修复 + 重试机制）
+        // AI解析下注信息（优化版：Z代号格式 + JSON修复 + 重试机制）
         async function parseWithAI(userInput) {
             // 使用 getFormatSettings() 获取带默认值的设置（API Key 已在后端）
             const settings = getFormatSettings();
@@ -8328,17 +8340,17 @@
                 debugInfo.normalizeInfo = '';
             }
             
-            // 【步骤2】🔒 脱敏处理：敏感词→代号（关键！）
+            // 【步骤2】🔄 生肖代号转换（后端正则匹配需要 Z 代号格式）
             const sanitizedInput = sanitizeText(userInput);
-            console.log('🔒 脱敏完成:', userInput, '→', sanitizedInput);
+            console.log('🔄 代号转换:', userInput.substring(0, 30), '→', sanitizedInput.substring(0, 30));
             
-            // 保存脱敏前后的对应关系（用于调试）
+            // 保存转换前后的对应关系（用于调试）
             debugInfo.originalInput = userInput;
             debugInfo.sanitizedInput = sanitizedInput;
             
             // ╔════════════════════════════════════════════════════════════════╗
-            // ║     【AI提示词 v3.0】完全脱敏版 - 发送给AI的全是代号            ║
-            // ║  所有敏感词已替换为代号，AI只看到代号，不知道具体含义            ║
+            // ║     【AI提示词 v3.0】Z代号格式 - 后端正则匹配需要              ║
+            // ║  中文生肖已转换为Z代号（如 羊→Z8），便于正则匹配               ║
             // ╚════════════════════════════════════════════════════════════════╝
             const prompt = `你是数据分类器。判断每条数据的类型代号。
 
@@ -8411,12 +8423,12 @@
     【输出】只输出JSON数组：`;
 
             // 保存输入到调试信息
-            debugInfo.aiInput = sanitizedInput;  // 记录脱敏后的输入
+            debugInfo.aiInput = sanitizedInput;  // 记录代号转换后的输入
             debugInfo.lastError = '';
             
             try {
-                console.log('🤖 开始调用AI API（脱敏数据）...');
-                console.log('🔒 发送给AI的内容:', sanitizedInput);
+                console.log('🤖 开始调用AI API（Z代号格式）...');
+                console.log('🔄 发送给AI的内容:', sanitizedInput);
                 
                 const result = await callAIAPI(prompt, settings.aiProvider);
                 console.log('🤖 AI返回原始结果:', result);
@@ -8445,9 +8457,9 @@
                         console.warn('⚠️ AI结果校验警告:', validation.error);
                     }
                     
-                    console.log('🤖 AI识别结果（脱敏）:', aiResult);
+                    console.log('🤖 AI识别结果（Z代号）:', aiResult);
                     
-                    // 【步骤5】还原脱敏数据：代号→敏感词
+                    // 【步骤5】还原代号：Z代号→中文生肖
                     const restoredResult = restoreAIResult(aiResult);
                     // v3.11.3 移除冗余的还原日志
                     
