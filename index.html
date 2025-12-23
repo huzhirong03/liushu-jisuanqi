@@ -1965,7 +1965,10 @@
                     <div style="margin-top:12px;">
                         <div style="font-size:12px;color:#888;margin-bottom:8px;">选择AI模型：</div>
                         <div id="ai-model-buttons" style="display:flex;gap:8px;flex-wrap:wrap;">
-                            <button type="button" class="ai-model-btn active" data-provider="deepseek" onclick="switchAIModel('deepseek')">
+                            <button type="button" class="ai-model-btn active" data-provider="openrouter" onclick="switchAIModel('openrouter')">
+                                🌐 谷歌
+                            </button>
+                            <button type="button" class="ai-model-btn" data-provider="deepseek" onclick="switchAIModel('deepseek')">
                                 🚀 DS
                             </button>
                             <button type="button" class="ai-model-btn" data-provider="zhipu" onclick="switchAIModel('zhipu')">
@@ -1974,9 +1977,6 @@
                             <button type="button" class="ai-model-btn" data-provider="qwen" onclick="switchAIModel('qwen')">
                                 ☁️ 千问
                             </button>
-                            <button type="button" class="ai-model-btn" data-provider="tuzi" onclick="switchAIModel('tuzi')">
-                                🌐 谷歌
-                            </button>
                             <button type="button" class="ai-model-btn" data-provider="claude" onclick="switchAIModel('claude')">
                                 🤖 Claude
                             </button>
@@ -1984,15 +1984,16 @@
                                 💡 GPT
                             </button>
                         </div>
-                        <div id="ai-model-status" style="margin-top:8px;padding:8px;background:rgba(76,175,80,0.1);border-radius:6px;font-size:11px;color:#81c784;">
-                            ✅ 当前：DeepSeek（阿里云代理）
+                        <div id="ai-model-status" style="margin-top:8px;padding:8px;background:rgba(139,92,246,0.1);border-radius:6px;font-size:11px;color:#a78bfa;">
+                            ✅ 当前：Gemini 3 Flash（OpenRouter · 香港服务器）
                         </div>
                     </div>
                     
                     <!-- 隐藏的配置 -->
                     <div style="display:none;">
                         <select id="ai-provider">
-                            <option value="deepseek" selected>DeepSeek</option>
+                            <option value="openrouter" selected>Gemini 3 Flash (OpenRouter)</option>
+                            <option value="deepseek">DeepSeek</option>
                             <option value="zhipu">智谱GLM</option>
                             <option value="qwen">通义千问</option>
                             <option value="claude">Claude Opus</option>
@@ -2243,17 +2244,17 @@
                 
                 <!-- 模型标签切换 -->
                 <div id="model-tabs" style="display:flex;gap:0;margin-bottom:0;border-bottom:1px solid rgba(255,255,255,0.1);">
-                    <button class="model-tab active" data-model="deepseek" onclick="switchModelTab('deepseek')">
+                    <button class="model-tab active" data-model="openrouter" onclick="switchModelTab('openrouter')">
+                        <div class="model-tab-name">Gemini</div>
+                        <div class="model-tab-time" id="tab-time-openrouter">等待中...</div>
+                    </button>
+                    <button class="model-tab" data-model="deepseek" onclick="switchModelTab('deepseek')">
                         <div class="model-tab-name">DeepSeek</div>
                         <div class="model-tab-time" id="tab-time-deepseek">等待中...</div>
                     </button>
                     <button class="model-tab" data-model="qwen" onclick="switchModelTab('qwen')">
                         <div class="model-tab-name">通义千问</div>
                         <div class="model-tab-time" id="tab-time-qwen">等待中...</div>
-                    </button>
-                    <button class="model-tab" data-model="tuzi" onclick="switchModelTab('tuzi')">
-                        <div class="model-tab-name">Gemini</div>
-                        <div class="model-tab-time" id="tab-time-tuzi">等待中...</div>
                     </button>
                     <button class="model-tab" data-model="claude" onclick="switchModelTab('claude')">
                         <div class="model-tab-name">Claude</div>
@@ -2666,7 +2667,7 @@
                 console.log('✅ [init] 配置加载完成');
                 
                 // 恢复AI模型选择
-                const savedAIProvider = localStorage.getItem('ai_provider') || 'tuzi';
+                const savedAIProvider = localStorage.getItem('ai_provider') || 'openrouter';
                 switchAIModel(savedAIProvider);
                 console.log('🤖 [init] AI模型:', savedAIProvider);
                 
@@ -4635,7 +4636,7 @@
                 const saved = JSON.parse(localStorage.getItem('lhc_format_settings') || '{}');
                 // AI配置：Key在后端，前端只需要知道是否启用和使用哪个模型
                 // 【修复】优先从 ai_provider 读取用户切换的模型选择
-                saved.aiProvider = localStorage.getItem('ai_provider') || saved.aiProvider || 'tuzi';
+                saved.aiProvider = localStorage.getItem('ai_provider') || saved.aiProvider || 'openrouter';
                 if (saved.aiEnabled === undefined) {
                     saved.aiEnabled = true; // 默认启用
                 }
@@ -4643,7 +4644,7 @@
             } catch(e) {
                 return {
                     aiEnabled: true,
-                    aiProvider: localStorage.getItem('ai_provider') || 'tuzi'
+                    aiProvider: localStorage.getItem('ai_provider') || 'openrouter'
                 };
             }
         }
@@ -5208,7 +5209,7 @@
                         sanitizedInput,
                         appState.lotteryNumbers,
                         config,
-                        settings.aiProvider || 'tuzi',
+                        settings.aiProvider || 'openrouter',
                         null
                     );
                     
@@ -6279,7 +6280,7 @@
             const settings = {
                 // AI设置（默认启用，API Key在后端环境变量）
                 aiEnabled: document.getElementById('ai-parse-enabled')?.checked !== false,
-                aiProvider: localStorage.getItem('ai_provider') || 'tuzi'
+                aiProvider: localStorage.getItem('ai_provider') || 'openrouter'
             };
             localStorage.setItem('lhc_format_settings', JSON.stringify(settings));
             showAutoCloseToast('✅ 设置已保存！');
@@ -6334,6 +6335,14 @@
         // region: 'cn' = 国内模型（走阿里云代理），'overseas' = 海外模型（走Cloudflare代理），'direct' = 直连（第三方中转API）
         const AI_PROVIDERS = {
             // ⚠️ API Key 已移至阿里云函数环境变量，不再在前端存储
+            // 🌐 OpenRouter - 默认推荐，聚合多家AI模型
+            openrouter: {
+                name: 'Gemini 3 Flash',
+                shortName: 'Gemini',
+                url: 'https://openrouter.ai/api/v1/chat/completions',
+                model: 'google/gemini-3-flash-preview',  // OpenRouter - Gemini 3 Flash Preview（最新版）
+                region: 'foreign'  // 国外服务，走香港服务器
+            },
             deepseek: {
                 name: 'DeepSeek',
                 shortName: 'DS',
@@ -6481,8 +6490,12 @@
                     regionText = '第三方中转直连';
                     bgColor = 'rgba(33,150,243,0.1)';
                     textColor = '#64b5f6';
+                } else if (config.region === 'foreign') {
+                    regionText = 'OpenRouter · 香港服务器';
+                    bgColor = 'rgba(139,92,246,0.1)';
+                    textColor = '#a78bfa';
                 } else {
-                    regionText = '阿里云代理（Key在后端）';
+                    regionText = '香港服务器';
                     bgColor = 'rgba(76,175,80,0.1)';
                     textColor = '#81c784';
                 }
@@ -8707,7 +8720,7 @@
             const settings = {
                 // AI设置
                 aiEnabled: document.getElementById('ai-parse-enabled')?.checked !== false,
-                aiProvider: localStorage.getItem('ai_provider') || 'tuzi'
+                aiProvider: localStorage.getItem('ai_provider') || 'openrouter'
             };
             localStorage.setItem('lhc_format_settings', JSON.stringify(settings));
             showAutoCloseToast('✅ 参数设置已保存！');
