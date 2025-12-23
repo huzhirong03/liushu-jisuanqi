@@ -5467,37 +5467,61 @@
                         resultText += `💰 结算: ${settleAmount >= 0 ? '+' : ''}${settleAmount}元\n`;
                         resultText += `━━━━━━━━━━━━━━━━━━\n`;
                         
-                        // 按原文分组显示（🆕 v3.8.3 使用 fragmentOrder 排序）
+                        // 🆕 v3.11.4 按原文分组显示（优化合并策略）
                         const byOriginal = {};
                         
+                        // 🆕 v3.11.4 构建用户原始输入行映射（用于正确合并拆分结果）
+                        const userInputLines = input.split('\n').filter(l => l.trim());
+                        
                         calcResults.forEach((r, idx) => {
-                            // 判断是拆分型还是展开型：
-                            // - 拆分型：raw 是 originalLine 的一部分（如 "羊X4" 在 "羊X4  23.35.47X3  牛X10" 中）
-                            // - 展开型：raw 是后端生成的（如 "T01 1 10" 不在 "小码 10元" 中）
                             const rawText = r.raw || '';
                             const originalText = r.originalLine || '';
                             
-                            // 检查 raw 是否在 originalLine 中能找到（允许代号转换后的匹配）
-                            const isSliceType = originalText.length > rawText.length && (
-                                originalText.includes(rawText) || 
-                                originalText.replace(/\s+/g, '').includes(rawText.replace(/\s+/g, ''))
-                            );
+                            // 🆕 v3.11.4 智能判断分组 key：
+                            // 1. 如果 originalLine 与某个用户原始输入行匹配，使用用户输入行
+                            // 2. 否则判断是拆分型还是展开型
                             
-                            // 拆分型用 raw 聚合，展开型用 originalLine 聚合
-                            const key = isSliceType ? rawText : (originalText || rawText || r.type);
-                            const displayText = isSliceType ? rawText : (originalText || rawText);
+                            let groupKey = '';
+                            let displayText = '';
                             
-                            if (!byOriginal[key]) {
-                                byOriginal[key] = { 
+                            // 尝试匹配用户原始输入行（中文版本或代号版本）
+                            const originalTextSanitized = sanitizeText(originalText);
+                            let matchedUserLine = null;
+                            for (const userLine of userInputLines) {
+                                const userLineSanitized = sanitizeText(userLine);
+                                // 精确匹配 或 子串匹配（处理多生肖拆分情况）
+                                if (userLineSanitized === originalTextSanitized || 
+                                    userLineSanitized.includes(originalTextSanitized) ||
+                                    originalTextSanitized.includes(userLineSanitized)) {
+                                    matchedUserLine = userLine;
+                                    break;
+                                }
+                            }
+                            
+                            if (matchedUserLine) {
+                                // 找到匹配的用户输入行，使用它作为分组 key
+                                groupKey = matchedUserLine;
+                                displayText = matchedUserLine;
+                            } else {
+                                // 回退到原有逻辑
+                                const isSliceType = originalText.length > rawText.length && (
+                                    originalText.includes(rawText) || 
+                                    originalText.replace(/\s+/g, '').includes(rawText.replace(/\s+/g, ''))
+                                );
+                                groupKey = isSliceType ? rawText : (originalText || rawText || r.type);
+                                displayText = isSliceType ? rawText : (originalText || rawText);
+                            }
+                            
+                            if (!byOriginal[groupKey]) {
+                                byOriginal[groupKey] = { 
                                     type: r.type, 
                                     originalLine: displayText, 
                                     items: [], 
                                     odds: r.odds || 1, 
-                                    // 🆕 v3.8.3 使用 fragmentOrder（预处理时分配的全局顺序）
                                     fragmentOrder: r.fragmentOrder !== undefined ? r.fragmentOrder : 9999
                                 };
                             }
-                            byOriginal[key].items.push(r);
+                            byOriginal[groupKey].items.push(r);
                         });
                         
                         // 🆕 v3.8.3 按 fragmentOrder 排序（保持用户输入顺序）
