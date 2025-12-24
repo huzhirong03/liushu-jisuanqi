@@ -3,8 +3,8 @@
     ╔═══════════════════════════════════════════════════════════════════════════╗
     ║                      六叔火箭计算器 - 版本信息                              ║
     ╠═══════════════════════════════════════════════════════════════════════════╣
-    ║  版本号: v2.4.9                                                            ║
-    ║  更新日期: 2025-12-21                                                      ║
+    ║  版本号: v2.5.0                                                            ║
+    ║  更新日期: 2025-12-25                                                      ║
     ║  提示词版本: v2.1                                                          ║
     ║  测试用例版本: v1.1 (35个用例)                                             ║
     ╠═══════════════════════════════════════════════════════════════════════════╣
@@ -6773,6 +6773,17 @@
                 return;
             }
             
+            // 🆕 v3.11.49 关键词验证：警告关键词以数字结尾可能导致金额识别问题
+            if (/\d$/.test(keyword)) {
+                const confirmAdd = confirm(
+                    '⚠️ 关键词以数字结尾，可能导致金额识别错误！\n\n' +
+                    '例如：关键词"小码1"遇到输入"小码100"时，可能误将金额识别为"00"=0\n\n' +
+                    '建议：关键词不要包含数字，如使用"小码"而非"小码1"\n\n' +
+                    '是否继续添加此规则？'
+                );
+                if (!confirmAdd) return;
+            }
+            
             // 🆕 v3.6.1 编辑模式：更新现有规则
             const editingIdx = window.editingRuleIndex;
             if (typeof editingIdx === 'number' && editingIdx >= 0) {
@@ -6838,6 +6849,11 @@
             if (type === 'T01_EXPAND') {
                 showExpandModal(keyword);
                 return;
+            }
+            
+            // 🆕 v3.11.49 关键词验证：警告关键词以数字结尾（非展开类型通常问题不大，但仍提示）
+            if (/\d$/.test(keyword)) {
+                console.warn(`⚠️ 关键词"${keyword}"以数字结尾，可能影响识别准确性`);
             }
             
             // 🆕 v3.6.1 冲突检测
@@ -7422,29 +7438,93 @@
             
             // 🆕 v3.4 第2步：应用自定义规则（关键词→代号映射）
             // 🆕 v3.11.48 修复：展开时添加 #CUSTOM:原始输入# 标记，确保显示时还原用户原始输入
+            // 🆕 v3.11.49 修复：改进金额提取逻辑，解决关键词后紧跟金额时提取错误的问题
             const rules = getCustomRules();
             if (rules && rules.length > 0) {
                 const sortedRules = [...rules].sort((a, b) => b.keyword.length - a.keyword.length);
                 for (const rule of sortedRules) {
                     if (result.includes(rule.keyword)) {
                         if (rule.expand && rule.numbers && rule.numbers.length > 0) {
-                            // 展开类型：将关键词展开为多行，每行带原始输入标记
-                            const expandRegex = new RegExp(
-                                escapeRegex(rule.keyword) + '\\s*[各每统]?\\s*(\\d+)',
-                                'gi'
-                            );
-                            result = result.replace(expandRegex, (match, amountStr) => {
-                                let amount = parseInt(amountStr);
-                                if (rule.amountMode === 'total') {
-                                    amount = Math.floor(amount / rule.numbers.length);
+                            // 🆕 v3.11.49 改进的金额提取逻辑
+                            // 问题：原正则当关键词紧跟金额时（如"小码100"），如果用户误将金额的一部分
+                            //       包含在关键词中（如配置"小码1"而非"小码"），会导致金额提取错误
+                            // 解决方案：
+                            //   1. 按行处理，使用行尾锚点确保金额提取完整
+                            //   2. 添加金额验证和智能修正
+                            //   3. 支持多种格式：小码100、小码 100、小码各100、小码100元
+                            
+                            const keywordEscaped = escapeRegex(rule.keyword);
+                            
+                            // 按行处理，确保每行的金额提取正确
+                            const lines = result.split('\n');
+                            const processedLines = lines.map(line => {
+                                if (!line.includes(rule.keyword)) return line;
+                                
+                                // 🆕 v3.11.49 改进的正则：匹配关键词 + 可选分隔符 + 金额 + 可选单位
+                                // 使用行尾锚点 $ 确保金额是该行最后的数字串
+                                const expandRegex = new RegExp(
+                                    keywordEscaped + '\\s*[各每统]?\\s*(\\d+)(?:元|块|钱)?\\s*$',
+                                    'i'
+                                );
+                                
+                                let matched = false;
+                                const newLine = line.replace(expandRegex, (match, amountStr) => {
+                                    matched = true;
+                                    let amount = parseInt(amountStr);
+                                    
+                                    // 🆕 v3.11.49 金额验证：如果金额异常小，尝试智能修正
+                                    if (isNaN(amount) || amount <= 0) {
+                                        console.warn(`⚠️ 自定义规则金额异常: 关键词="${rule.keyword}", 提取="${amountStr}"`);
+                                        // 从整个匹配中提取最后一个完整数字作为金额
+                                        const allDigits = match.match(/\d+/g);
+                                        if (allDigits && allDigits.length > 0) {
+                                            amount = parseInt(allDigits[allDigits.length - 1]);
+                                            console.log(`🔄 金额修正: 0 → ${amount}`);
+                                        }
+                                    }
+                                    
+                                    if (rule.amountMode === 'total') {
+                                        amount = Math.floor(amount / rule.numbers.length);
+                                    }
+                                    
+                                    const originalMatch = match.trim();
+                                    console.log(`🎯 自定义规则展开: "${rule.keyword}" → ${rule.numbers.length}条, 金额=${amount} (原始: "${originalMatch}")`);
+                                    
+                                    // 每行都带标记，格式: #CUSTOM:原始输入#T01 1 100
+                                    return rule.numbers.map(num => `#CUSTOM:${originalMatch}#${rule.type} ${num} ${amount}`).join('\n');
+                                });
+                                
+                                // 如果行尾模式没匹配到，尝试更宽松的模式（兼容旧格式）
+                                if (!matched && line.includes(rule.keyword)) {
+                                    const fallbackRegex = new RegExp(
+                                        keywordEscaped + '\\s*[各每统]?\\s*(\\d+)',
+                                        'i'
+                                    );
+                                    return line.replace(fallbackRegex, (match, amountStr) => {
+                                        let amount = parseInt(amountStr);
+                                        
+                                        // 金额异常时尝试从原始行提取
+                                        if (isNaN(amount) || amount <= 0) {
+                                            const lineDigits = line.match(/\d+/g);
+                                            if (lineDigits && lineDigits.length > 0) {
+                                                amount = parseInt(lineDigits[lineDigits.length - 1]);
+                                            }
+                                        }
+                                        
+                                        if (rule.amountMode === 'total') {
+                                            amount = Math.floor(amount / rule.numbers.length);
+                                        }
+                                        
+                                        const originalMatch = match.trim();
+                                        console.log(`🎯 自定义规则展开(fallback): "${rule.keyword}" → ${rule.numbers.length}条, 金额=${amount}`);
+                                        return rule.numbers.map(num => `#CUSTOM:${originalMatch}#${rule.type} ${num} ${amount}`).join('\n');
+                                    });
                                 }
-                                // 🆕 v3.11.48 保留原始输入作为标记，格式: #CUSTOM:原始输入#T01 1 100
-                                // 后端识别标记后，将其设置为 original_line，用于结果显示
-                                const originalMatch = match.trim();
-                                console.log(`🎯 自定义规则展开: "${rule.keyword}" → ${rule.numbers.length}条 (原始: "${originalMatch}")`);
-                                // 每行都带标记（同一自定义规则展开的所有行）
-                                return rule.numbers.map(num => `#CUSTOM:${originalMatch}#${rule.type} ${num} ${amount}`).join('\n');
+                                
+                                return newLine;
                             });
+                            
+                            result = processedLines.join('\n');
                         } else {
                             // 非展开类型：简单替换关键词为类型代号（保持原有逻辑）
                             result = result.split(rule.keyword).join(rule.type);
