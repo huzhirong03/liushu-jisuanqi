@@ -690,25 +690,27 @@
                 cursor: not-allowed;
             }
             
-            /* 🆕 v3.11.48 统一工具栏按钮样式 - 50px高度，flexbox居中 */
+            /* 🆕 v3.11.48 统一工具栏按钮样式 - 50px高度，内容居中不溢出 */
             .toolbar-btn {
                 display: flex;
                 flex-direction: row;
                 align-items: center;
                 justify-content: center;
-                gap: 3px;
+                gap: 2px;
                 flex: 1;
                 min-width: 0;
                 height: 50px;
-                padding: 0 6px;
+                padding: 0 4px;
                 border: none;
                 border-radius: 10px;
                 color: white;
-                font-size: 18px;
+                font-size: 16px;
                 font-weight: 500;
                 cursor: pointer;
                 transition: all 0.2s ease;
                 white-space: nowrap;
+                overflow: hidden;
+                box-sizing: border-box;
             }
             .toolbar-btn:hover {
                 filter: brightness(1.15);
@@ -718,8 +720,9 @@
                 transform: scale(0.98);
             }
             .toolbar-btn .btn-text {
-                font-size: 14px;
+                font-size: 13px;
                 line-height: 1;
+                flex-shrink: 0;
             }
             .toolbar-btn-secondary {
                 background: linear-gradient(135deg,#4a5568,#2d3748) !important;
