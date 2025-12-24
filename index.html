@@ -5380,31 +5380,6 @@
                                 }
                             }
                             
-                            // 🆕 v3.11.12 改进匹配：处理"各/每"关键词拆分的情况
-                            // 例如：用户输入 "平特Z9Z10各200"，后端拆分为 "平特Z9各200" 和 "平特Z10各200"
-                            if (!groupInfo) {
-                                const itemZodiacs = (itemRaw.match(/Z\d{1,2}/g) || []);
-                                const itemAmountMatch = itemRaw.match(/(\d+)(?:元)?$/);
-                                const itemAmount = itemAmountMatch ? itemAmountMatch[1] : '';
-                                
-                                for (const [key, info] of Object.entries(lineToGroupMap)) {
-                                    // 检查 key 是否包含"各"或"每"关键词
-                                    if (key.includes('各') || key.includes('每')) {
-                                        const keyZodiacs = (key.match(/Z\d{1,2}/g) || []);
-                                        const keyAmountMatch = key.match(/(\d+)(?:元)?$/);
-                                        const keyAmount = keyAmountMatch ? keyAmountMatch[1] : '';
-                                        
-                                        // 如果 key 包含 itemRaw 的所有生肖代号，且金额相同
-                                        if (itemZodiacs.length > 0 && 
-                                            itemZodiacs.every(z => keyZodiacs.includes(z)) && 
-                                            itemAmount === keyAmount) {
-                                            groupInfo = info;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            
                             // 默认分组
                             if (!groupInfo) {
                                 groupInfo = { groupId: 1, lineIndex: 0, originalLine: itemRaw };
@@ -5507,23 +5482,27 @@
                             return orderA - orderB;
                         });
                         
-                        // 🆕 v3.11.11 按 originalLine + type + amount 预分组
-                        // 确保同一用户输入的同类型同金额能合并（如"平特猴鸡各200"）
+                        // 🆕 v3.11.12 使用 lineId + type + amount 预分组
+                        // 核心修复：后端可能把 "平特猴鸡各200" 拆分成两条记录，各有不同的 originalLine
+                        // 使用 lineId（行号）来确保同一行输入的同类型同金额能合并
                         const calcPreGroupMap = {};
                         
                         sortedResults.forEach((r) => {
+                            const lineId = r.lineId !== undefined ? r.lineId : '';
                             const originalLine = r.originalLine || '';
                             const itemType = r.type || '未知';
                             const itemAmount = r.amount || 0;
-                            const groupKey = `${originalLine}|||${itemType}|||${itemAmount}`;
+                            // 🆕 v3.11.12 使用 lineId 替代 originalLine 作为分组依据
+                            const groupKey = `${lineId}|||${itemType}|||${itemAmount}`;
                             
                             if (!calcPreGroupMap[groupKey]) {
                                 calcPreGroupMap[groupKey] = {
-                                    originalLine: originalLine,
+                                    originalLine: originalLine,  // 保留第一条的 originalLine
                                     type: itemType,
                                     amount: itemAmount,
                                     items: [],
                                     odds: r.odds || 1,
+                                    lineId: lineId,
                                     minOrder: r.fragmentOrder !== undefined ? r.fragmentOrder : 9999
                                 };
                             }
@@ -5538,7 +5517,6 @@
                         const sortedGroups = Object.values(calcPreGroupMap).sort((a, b) => a.minOrder - b.minOrder);
                         
                         // 转换格式：收集显示文本
-                        // 🆕 v3.11.12 修复：保留用户输入的原始行作为显示文本（而不是拆分后的片段组合）
                         sortedGroups.forEach((pg) => {
                             const displayTexts = [];
                             pg.items.forEach(r => {
@@ -5548,13 +5526,9 @@
                                 }
                             });
                             pg.displayTexts = displayTexts;
-                            // 🆕 v3.11.12 如果原始 originalLine 包含"各/每"且有多个生肖，保留原始文本
-                            // 例如：用户输入 "平特猴鸡各200"，显示 "平特猴鸡各200" 而不是 "平特猴各200 平特鸡各200"
-                            const firstItemOriginal = pg.items[0]?.originalLine || '';
-                            if ((firstItemOriginal.includes('各') || firstItemOriginal.includes('每')) && 
-                                pg.items.length > 1 && firstItemOriginal.length > 0) {
-                                pg.originalLine = firstItemOriginal;
-                            } else {
+                            // 🆕 v3.11.12 保留原始的 originalLine，只在其为空时才用 displayTexts
+                            // 这样可以正确显示用户输入（如 "平特猴鸡各200"）
+                            if (!pg.originalLine || pg.originalLine.trim() === '') {
                                 pg.originalLine = displayTexts.join(' ');
                             }
                             pg.perAmount = pg.amount;
@@ -5562,7 +5536,7 @@
                         });
                         
                         // 调试日志
-                        console.log('📊 v3.11.11 分组结果:');
+                        console.log('📊 v3.11.12 分组结果:');
                         sortedGroups.forEach((g, i) => {
                             console.log(`  [${i}] type=${g.type} | amt=${g.perAmount} | items=${g.items.length} | "${g.originalLine?.substring(0,30)}..."`);
                         });
@@ -9746,22 +9720,27 @@
             const sortedLines = [];
             let fbCurrentLine = null;
             
-            // 🆕 v3.11.11 先按 originalLine + type + amount 预分组（确保同一用户输入的同类型同金额能合并）
-            const preGroupMap = {};  // key: originalLine|||type|||amount → items[]
+            // 🆕 v3.11.12 使用 lineId + type + amount 预分组
+            // 核心修复：后端可能把 "平特猴鸡各200" 拆分成两条记录，各有不同的 originalLine
+            // 使用 lineId（行号）来确保同一行输入的同类型同金额能合并
+            const preGroupMap = {};  // key: lineId|||type|||amount → items[]
             
             sortedItems.forEach((item) => {
+                const lineId = item.lineId !== undefined ? item.lineId : '';
                 const originalLine = item.originalLine || '';
                 const itemType = item.type || '未知';
                 const itemAmount = item.amount || 0;
-                const groupKey = `${originalLine}|||${itemType}|||${itemAmount}`;
+                // 🆕 v3.11.12 使用 lineId 替代 originalLine 作为分组依据
+                const groupKey = `${lineId}|||${itemType}|||${itemAmount}`;
                 
                 if (!preGroupMap[groupKey]) {
                     preGroupMap[groupKey] = {
-                        originalLine: originalLine,
+                        originalLine: originalLine,  // 保留第一条的 originalLine
                         type: itemType,
                         amount: itemAmount,
                         items: [],
                         groupId: item.groupId,
+                        lineId: lineId,
                         minOrder: item.fragmentOrder !== undefined ? item.fragmentOrder : 9999
                     };
                 }
@@ -9795,25 +9774,22 @@
                     items: pg.items,
                     perAmount: pg.amount,
                     fragmentOrder: pg.minOrder,
-                    lastFragmentOrder: pg.items[pg.items.length - 1]?.fragmentOrder || pg.minOrder
+                    lastFragmentOrder: pg.items[pg.items.length - 1]?.fragmentOrder || pg.minOrder,
+                    // 🆕 v3.11.12 保留原始的 originalLine
+                    originalLineRaw: pg.originalLine || ''
                 });
             });
             
             // 第3步：生成每组的显示文本
-            // 🆕 v3.11.12 修复：保留用户输入的原始行作为显示文本
             sortedLines.forEach(line => {
-                const firstItemOriginal = line.items[0]?.originalLine || '';
-                // 如果原始行包含"各/每"且有多个生肖，保留原始文本
-                if ((firstItemOriginal.includes('各') || firstItemOriginal.includes('每')) && 
-                    line.items.length > 1 && firstItemOriginal.length > 0) {
-                    line.displayText = firstItemOriginal;
-                } else {
-                    line.displayText = line.displayTexts.join(' ');
-                }
+                // 🆕 v3.11.12 优先使用 originalLineRaw（用户原始输入），为空时才用 displayTexts
+                line.displayText = (line.originalLineRaw && line.originalLineRaw.trim()) 
+                    ? line.originalLineRaw 
+                    : line.displayTexts.join(' ');
             });
             
             // 调试日志
-            console.log('📋 v3.11.10 反馈分组结果:');
+            console.log('📋 v3.11.12 反馈分组结果:');
             sortedLines.forEach((line, i) => {
                 console.log(`  [${i}] type=${line.type} | amt=${line.perAmount} | items=${line.items.length} | "${line.displayText?.substring(0,30)}..."`);
             });
