@@ -5281,11 +5281,18 @@
                     
                     if (backendResult.success && backendResult.items && backendResult.items.length > 0) {
                         // 🆕 v3.0 转换后端结果为前端格式
+                        // 🆕 v3.11.13 完善类型映射（添加六肖、特肖等）
                         const TYPE_NAME_MAP = {
                             'T01': '特码', 'SXTM': '生肖特码', 'SX': '生肖',
                             'BS': '波色', 'BB': '半波', 'PT1': '平特一肖',
-                            'PT2': '平特二连肖', 'PT3': '平特三连肖',
-                            'XS': '小数', 'DS': '大数', 'ODD': '单数', 'EVEN': '双数',
+                            'PT2': '平特二连肖', 'PT3': '平特三连肖', 'PT4': '平特四连肖', 'PT5': '平特五连肖',
+                            'PTW': '平特尾数', 'DP': '单平',
+                            'XS': '小数', 'DS': '大数', 'ODD': '单数', 'EVEN': '双数', 'DXDS': '大小单双',
+                            // 🆕 v3.11.13 六肖的所有可能代码
+                            'SX6': '六肖', 'LX6': '六肖', 'LX': '六肖', '6X': '六肖', 'LIUXIAO': '六肖',
+                            'TX': '特肖', 'HX': '合肖', 'ZX': '正肖',
+                            'E2': '二中二', 'S3': '三中三', 'BZ': '不中',
+                            'WX': '五行', 'JY': '家野', 'ZH': '总和',
                             'UK': '未知'
                         };
                         
@@ -5374,6 +5381,24 @@
                             if (!groupInfo) {
                                 for (const [key, info] of Object.entries(lineToGroupMap)) {
                                     if (itemRaw.includes(key) || key.includes(itemRaw)) {
+                                        groupInfo = info;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            // 🆕 v3.11.13 如果还是找不到，尝试基于类型关键词+生肖代号的智能匹配
+                            // 解决：后端把 "平特Z9Z10各200" 拆分成 "平特Z9各200" 和 "平特Z10各200"，导致匹配失败
+                            if (!groupInfo) {
+                                const typeKeywords = ['平特', '六肖', '二友', '三友', '一友', '特肖', '正肖', '合肖', '波', '不中'];
+                                const itemZodiacs = itemRaw.match(/Z\d{1,2}/g) || [];
+                                const itemTypeKw = typeKeywords.find(kw => itemRaw.includes(kw)) || '';
+                                
+                                for (const [key, info] of Object.entries(lineToGroupMap)) {
+                                    // 检查：完整行包含 raw 中的类型关键词 AND 至少一个生肖代号
+                                    const hasTypeMatch = itemTypeKw && key.includes(itemTypeKw);
+                                    const hasZodiacMatch = itemZodiacs.length > 0 && itemZodiacs.some(z => key.includes(z));
+                                    if (hasTypeMatch && hasZodiacMatch) {
                                         groupInfo = info;
                                         break;
                                     }
@@ -5512,7 +5537,10 @@
                         // 按 minOrder 排序
                         const sortedGroups = Object.values(calcPreGroupMap).sort((a, b) => a.minOrder - b.minOrder);
                         
-                        // 转换格式：收集显示文本
+                        // 🆕 v3.11.13 转换格式：优先从用户输入行提取原始片段
+                        const userInputText = document.getElementById('bet-input')?.value || '';
+                        const userInputFragments = userInputText.split(/[,，\n]+/).map(s => s.trim()).filter(Boolean);
+                        
                         sortedGroups.forEach((pg) => {
                             const displayTexts = [];
                             pg.items.forEach(r => {
@@ -5522,7 +5550,39 @@
                                 }
                             });
                             pg.displayTexts = displayTexts;
-                            pg.originalLine = displayTexts.join(' ');
+                            
+                            // 🆕 v3.11.13 如果有多个 raw 文本，尝试从用户输入中提取原始片段
+                            // 解决：后端把 "平特猴鸡各200" 拆分成 "平特猴各200" 和 "平特鸡各200"
+                            let bestDisplayText = displayTexts.join(' ');
+                            if (displayTexts.length > 1) {
+                                // 类型关键词映射
+                                const typeKeywords = {
+                                    '平特一肖': ['平特'], 'PT1': ['平特'],
+                                    '平特二连肖': ['二友'], 'PT2': ['二友'],
+                                    '平特三连肖': ['三友'], 'PT3': ['三友'],
+                                    '六肖': ['六肖', '6肖'], 'SX6': ['六肖', '6肖'],
+                                    '特码': ['特'], 'T01': ['特'],
+                                };
+                                const keywords = typeKeywords[pg.type] || [];
+                                
+                                // 在用户输入片段中查找匹配的原始文本
+                                for (const fragment of userInputFragments) {
+                                    const hasKeyword = keywords.some(kw => fragment.includes(kw));
+                                    // 检查片段中是否包含所有 items 的生肖
+                                    const itemZodiacs = pg.items.map(it => it.zodiac).filter(Boolean);
+                                    const allZodiacsInFragment = itemZodiacs.every(z => {
+                                        const zodiacName = CODE_TO_ZODIAC[z] || z;
+                                        return fragment.includes(zodiacName);
+                                    });
+                                    
+                                    if (hasKeyword && (itemZodiacs.length === 0 || allZodiacsInFragment)) {
+                                        bestDisplayText = fragment;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            pg.originalLine = bestDisplayText;
                             pg.perAmount = pg.amount;
                             pg.fragmentOrder = pg.minOrder;
                         });
@@ -9795,9 +9855,42 @@
                 });
             });
             
-            // 第3步：生成每组的显示文本
+            // 🆕 v3.11.13 第3步：生成每组的显示文本（优先从用户输入提取原始片段）
+            const fbUserInputText = document.getElementById('bet-input')?.value || '';
+            const fbUserInputFragments = fbUserInputText.split(/[,，\n]+/).map(s => s.trim()).filter(Boolean);
+            
             sortedLines.forEach(line => {
-                line.displayText = line.displayTexts.join(' ');
+                let bestDisplayText = line.displayTexts.join(' ');
+                
+                // 如果有多个 raw 文本，尝试从用户输入中提取原始片段
+                if (line.displayTexts.length > 1) {
+                    const typeKeywords = {
+                        '平特一肖': ['平特'], 'PT1': ['平特'],
+                        '平特二连肖': ['二友'], 'PT2': ['二友'],
+                        '平特三连肖': ['三友'], 'PT3': ['三友'],
+                        '六肖': ['六肖', '6肖'], 'SX6': ['六肖', '6肖'],
+                        '特码': ['特'], 'T01': ['特'],
+                    };
+                    const keywords = typeKeywords[line.type] || [];
+                    
+                    // 在用户输入片段中查找匹配的原始文本
+                    for (const fragment of fbUserInputFragments) {
+                        const hasKeyword = keywords.some(kw => fragment.includes(kw));
+                        // 检查片段中是否包含所有 items 的生肖
+                        const itemZodiacs = line.items.map(it => it.zodiac).filter(Boolean);
+                        const allZodiacsInFragment = itemZodiacs.every(z => {
+                            const zodiacName = CODE_TO_ZODIAC[z] || z;
+                            return fragment.includes(zodiacName);
+                        });
+                        
+                        if (hasKeyword && (itemZodiacs.length === 0 || allZodiacsInFragment)) {
+                            bestDisplayText = fragment;
+                            break;
+                        }
+                    }
+                }
+                
+                line.displayText = bestDisplayText;
             });
             
             // 调试日志
