@@ -5414,17 +5414,33 @@
                             const itemNumKey = extractNumbers(itemRaw);
                             let fragmentInfo = fragmentOrderMap[itemNumKey];
                             
-                            // 如果精确匹配失败，尝试模糊匹配
+                            // 🆕 v3.11.16 如果精确匹配失败，使用最长匹配优先策略
+                            // 解决：模糊匹配可能错误地匹配到短的 numKey（如 "20" 匹配到 "小数各数20"）
                             if (!fragmentInfo) {
+                                let bestMatch = null;
+                                let bestMatchLength = 0;
+                                
                                 for (const [numKey, info] of Object.entries(fragmentOrderMap)) {
-                                    if (itemNumKey.includes(numKey) || numKey.includes(itemNumKey)) {
-                                        fragmentInfo = info;
-                                        break;
+                                    // 检查是否包含关系
+                                    const isMatch = itemNumKey.includes(numKey) || numKey.includes(itemNumKey);
+                                    if (isMatch) {
+                                        // 优先选择匹配长度最长的（更精确）
+                                        const matchLength = Math.min(numKey.length, itemNumKey.length);
+                                        if (matchLength > bestMatchLength) {
+                                            bestMatchLength = matchLength;
+                                            bestMatch = info;
+                                        }
                                     }
                                 }
+                                fragmentInfo = bestMatch;
                             }
                             
                             const fragmentOrder = fragmentInfo ? fragmentInfo.order : 9999;
+                            
+                            // 🆕 v3.11.16 优先使用 fragmentInfo 的 groupId（基于数字序列精确匹配）
+                            // fragmentInfo 是基于提取数字序列匹配的，比 groupInfo 的文本模糊匹配更精确
+                            const finalGroupId = fragmentInfo?.groupId || groupInfo.groupId;
+                            const finalLineIndex = fragmentInfo?.lineIndex !== undefined ? fragmentInfo.lineIndex : groupInfo.lineIndex;
                             
                             return {
                                 type: TYPE_NAME_MAP[item.code] || item.code,
@@ -5432,11 +5448,11 @@
                                 numbers: item.n || [],
                                 amount: item.a || 0,
                                 raw: restoreText(item.raw || ''),
-                                originalLine: restoreText(groupInfo.originalLine || item.raw || ''),
+                                originalLine: restoreText(fragmentInfo?.originalLine || groupInfo.originalLine || item.raw || ''),
                                 zodiac: item.z || null,
                                 fromAI: true,
-                                groupId: groupInfo.groupId,
-                                lineId: `${groupInfo.groupId}-${groupInfo.lineIndex}`,
+                                groupId: finalGroupId,
+                                lineId: `${finalGroupId}-${finalLineIndex}`,
                                 globalLineIndex: idx,
                                 betIndexInLine: item.idx || 0,
                                 // 🆕 v3.8.3 片段顺序（用于排序）
