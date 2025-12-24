@@ -5473,23 +5473,45 @@
                         // 🆕 v3.11.4 构建用户原始输入行映射（用于正确合并拆分结果）
                         const userInputLines = input.split('\n').filter(l => l.trim());
                         
+                        // 🆕 v3.11.9 类型关键词映射（用于从用户输入中提取对应片段）
+                        const CALC_TYPE_KEYWORDS = {
+                            '特码': ['特', '买', 'x', 'X', '各'],
+                            '生肖特码': ['特', '买', 'x', 'X', '各'],
+                            '平特一肖': ['平特', 'PT1', '一友', '1友'],
+                            '平特二连肖': ['二友', '2友', '二连肖', 'PT2'],
+                            '平特三连肖': ['三友', '3友', '三连肖', 'PT3'],
+                            '六肖': ['六肖', '6肖', 'LX', 'SX6'],
+                            '波色': ['红', '蓝', '绿', '波'],
+                            '半波': ['红单', '红双', '红大', '红小', '蓝单', '蓝双', '绿单', '绿双'],
+                            '大小单双': ['大数', '小数', '单数', '双数', '大小', '单双']
+                        };
+                        
+                        // 🆕 v3.11.9 从用户输入行中提取该类型对应的片段
+                        function calcExtractTypeFragment(userLine, typeName) {
+                            if (!userLine) return null;
+                            const keywords = CALC_TYPE_KEYWORDS[typeName] || [];
+                            const fragments = userLine.split(/[,，]/);
+                            for (const fragment of fragments) {
+                                const trimmed = fragment.trim();
+                                for (const kw of keywords) {
+                                    if (trimmed.includes(kw)) {
+                                        return trimmed;
+                                    }
+                                }
+                            }
+                            return null;
+                        }
+                        
                         calcResults.forEach((r, idx) => {
                             const rawText = r.raw || '';
                             const originalText = r.originalLine || '';
+                            const itemType = r.type || '未知';
                             
-                            // 🆕 v3.11.4 智能判断分组 key：
-                            // 1. 如果 originalLine 与某个用户原始输入行匹配，使用用户输入行
-                            // 2. 否则判断是拆分型还是展开型
-                            
-                            let groupKey = '';
-                            let displayText = '';
-                            
-                            // 尝试匹配用户原始输入行（中文版本或代号版本）
+                            // 🆕 v3.11.9 尝试匹配用户原始输入行
                             const originalTextSanitized = sanitizeText(originalText);
                             let matchedUserLine = null;
                             for (const userLine of userInputLines) {
                                 const userLineSanitized = sanitizeText(userLine);
-                                // 精确匹配 或 子串匹配（处理多生肖拆分情况）
                                 if (userLineSanitized === originalTextSanitized || 
                                     userLineSanitized.includes(originalTextSanitized) ||
                                     originalTextSanitized.includes(userLineSanitized)) {
@@ -5498,23 +5520,25 @@
                                 }
                             }
                             
-                            if (matchedUserLine) {
-                                // 找到匹配的用户输入行，使用它作为分组 key
-                                groupKey = matchedUserLine;
-                                displayText = matchedUserLine;
-                            } else {
-                                // 回退到原有逻辑
-                                const isSliceType = originalText.length > rawText.length && (
-                                    originalText.includes(rawText) || 
-                                    originalText.replace(/\s+/g, '').includes(rawText.replace(/\s+/g, ''))
-                                );
-                                groupKey = isSliceType ? rawText : (originalText || rawText || r.type);
-                                displayText = isSliceType ? rawText : (originalText || rawText);
-                            }
+                            // 🆕 v3.11.9 使用 类型+用户输入行 作为聚合 key
+                            // 这样同一用户输入行的同类型会合并（如平特猴和平特鸡合并）
+                            const groupLine = matchedUserLine || originalText || rawText;
+                            const groupKey = `${itemType}|||${groupLine}`;
                             
                             if (!byOriginal[groupKey]) {
+                                // 🆕 v3.11.9 从用户输入行中提取该类型对应的片段作为显示文本
+                                let displayText = rawText;
+                                const extractedFragment = calcExtractTypeFragment(groupLine, itemType);
+                                if (extractedFragment) {
+                                    displayText = extractedFragment;
+                                } else if (rawText && rawText !== originalText) {
+                                    displayText = rawText;
+                                } else {
+                                    displayText = groupLine;
+                                }
+                                
                                 byOriginal[groupKey] = { 
-                                    type: r.type, 
+                                    type: itemType, 
                                     originalLine: displayText, 
                                     items: [], 
                                     odds: r.odds || 1, 
