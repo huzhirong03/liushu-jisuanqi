@@ -5467,94 +5467,71 @@
                         resultText += `💰 结算: ${settleAmount >= 0 ? '+' : ''}${settleAmount}元\n`;
                         resultText += `━━━━━━━━━━━━━━━━━━\n`;
                         
-                        // 🆕 v3.11.4 按原文分组显示（优化合并策略）
-                        const byOriginal = {};
+                        // ═══════════════════════════════════════════════════════════════════════
+                        // 🆕 v3.11.10 全新分组逻辑：按用户输入顺序 + 相邻同类型同金额合并
+                        // 核心规则：
+                        // 1. 按 fragmentOrder 顺序遍历每条记录
+                        // 2. 相邻 + 同类型 + 同金额 → 合并
+                        // 3. 否则 → 新建一组
+                        // ═══════════════════════════════════════════════════════════════════════
                         
-                        // 🆕 v3.11.4 构建用户原始输入行映射（用于正确合并拆分结果）
-                        const userInputLines = input.split('\n').filter(l => l.trim());
-                        
-                        // 🆕 v3.11.9 类型关键词映射（用于从用户输入中提取对应片段）
-                        const CALC_TYPE_KEYWORDS = {
-                            '特码': ['特', '买', 'x', 'X', '各'],
-                            '生肖特码': ['特', '买', 'x', 'X', '各'],
-                            '平特一肖': ['平特', 'PT1', '一友', '1友'],
-                            '平特二连肖': ['二友', '2友', '二连肖', 'PT2'],
-                            '平特三连肖': ['三友', '3友', '三连肖', 'PT3'],
-                            '六肖': ['六肖', '6肖', 'LX', 'SX6'],
-                            '波色': ['红', '蓝', '绿', '波'],
-                            '半波': ['红单', '红双', '红大', '红小', '蓝单', '蓝双', '绿单', '绿双'],
-                            '大小单双': ['大数', '小数', '单数', '双数', '大小', '单双']
-                        };
-                        
-                        // 🆕 v3.11.9 从用户输入行中提取该类型对应的片段
-                        function calcExtractTypeFragment(userLine, typeName) {
-                            if (!userLine) return null;
-                            const keywords = CALC_TYPE_KEYWORDS[typeName] || [];
-                            const fragments = userLine.split(/[,，]/);
-                            for (const fragment of fragments) {
-                                const trimmed = fragment.trim();
-                                for (const kw of keywords) {
-                                    if (trimmed.includes(kw)) {
-                                        return trimmed;
-                                    }
-                                }
-                            }
-                            return null;
-                        }
-                        
-                        calcResults.forEach((r, idx) => {
-                            const rawText = r.raw || '';
-                            const originalText = r.originalLine || '';
-                            const itemType = r.type || '未知';
-                            
-                            // 🆕 v3.11.9 尝试匹配用户原始输入行
-                            const originalTextSanitized = sanitizeText(originalText);
-                            let matchedUserLine = null;
-                            for (const userLine of userInputLines) {
-                                const userLineSanitized = sanitizeText(userLine);
-                                if (userLineSanitized === originalTextSanitized || 
-                                    userLineSanitized.includes(originalTextSanitized) ||
-                                    originalTextSanitized.includes(userLineSanitized)) {
-                                    matchedUserLine = userLine;
-                                    break;
-                                }
-                            }
-                            
-                            // 🆕 v3.11.9 使用 类型+用户输入行 作为聚合 key
-                            // 这样同一用户输入行的同类型会合并（如平特猴和平特鸡合并）
-                            const groupLine = matchedUserLine || originalText || rawText;
-                            const groupKey = `${itemType}|||${groupLine}`;
-                            
-                            if (!byOriginal[groupKey]) {
-                                // 🆕 v3.11.9 从用户输入行中提取该类型对应的片段作为显示文本
-                                let displayText = rawText;
-                                const extractedFragment = calcExtractTypeFragment(groupLine, itemType);
-                                if (extractedFragment) {
-                                    displayText = extractedFragment;
-                                } else if (rawText && rawText !== originalText) {
-                                    displayText = rawText;
-                                } else {
-                                    displayText = groupLine;
-                                }
-                                
-                                byOriginal[groupKey] = { 
-                                    type: itemType, 
-                                    originalLine: displayText, 
-                                    items: [], 
-                                    odds: r.odds || 1, 
-                                    fragmentOrder: r.fragmentOrder !== undefined ? r.fragmentOrder : 9999
-                                };
-                            }
-                            byOriginal[groupKey].items.push(r);
+                        // 第1步：按 fragmentOrder 排序所有结果
+                        const sortedResults = [...calcResults].sort((a, b) => {
+                            const orderA = a.fragmentOrder !== undefined ? a.fragmentOrder : 9999;
+                            const orderB = b.fragmentOrder !== undefined ? b.fragmentOrder : 9999;
+                            return orderA - orderB;
                         });
                         
-                        // 🆕 v3.8.3 按 fragmentOrder 排序（保持用户输入顺序）
-                        const sortedGroups = Object.values(byOriginal).sort((a, b) => a.fragmentOrder - b.fragmentOrder);
+                        // 第2步：按"相邻+同类型+同金额"规则分组
+                        const sortedGroups = [];
+                        let calcCurrentGroup = null;
                         
-                        // 调试日志：显示排序结果
-                        console.log('📊 排序结果:');
+                        sortedResults.forEach((r, idx) => {
+                            const rawText = r.raw || '';
+                            const itemType = r.type || '未知';
+                            const itemAmount = r.amount || 0;
+                            const fragmentOrder = r.fragmentOrder !== undefined ? r.fragmentOrder : 9999;
+                            
+                            // 判断是否与前一组"相邻+同类型+同金额"
+                            const canMerge = calcCurrentGroup && 
+                                calcCurrentGroup.type === itemType && 
+                                calcCurrentGroup.perAmount === itemAmount &&
+                                // 相邻判断：fragmentOrder差值小于等于1（允许同一片段内的多条记录）
+                                (fragmentOrder - calcCurrentGroup.lastFragmentOrder <= 1);
+                            
+                            if (canMerge) {
+                                // 合并到当前组
+                                calcCurrentGroup.items.push(r);
+                                calcCurrentGroup.lastFragmentOrder = fragmentOrder;
+                                // 更新显示文本：追加新的raw（用逗号分隔）
+                                if (rawText && !calcCurrentGroup.displayTexts.includes(rawText)) {
+                                    calcCurrentGroup.displayTexts.push(rawText);
+                                }
+                            } else {
+                                // 新建一组
+                                calcCurrentGroup = {
+                                    type: itemType,
+                                    displayTexts: rawText ? [rawText] : [],
+                                    items: [r],
+                                    odds: r.odds || 1,
+                                    perAmount: itemAmount,
+                                    fragmentOrder: fragmentOrder,
+                                    lastFragmentOrder: fragmentOrder
+                                };
+                                sortedGroups.push(calcCurrentGroup);
+                            }
+                        });
+                        
+                        // 第3步：生成每组的显示文本
+                        sortedGroups.forEach(group => {
+                            // 合并显示文本（去重后用空格连接）
+                            group.originalLine = group.displayTexts.join(' ');
+                        });
+                        
+                        // 调试日志
+                        console.log('📊 v3.11.10 分组结果:');
                         sortedGroups.forEach((g, i) => {
-                            console.log(`  [${i}] order=${g.fragmentOrder} | "${g.originalLine?.substring(0,25)}..."`);
+                            console.log(`  [${i}] type=${g.type} | amt=${g.perAmount} | items=${g.items.length} | "${g.originalLine?.substring(0,30)}..."`);
                         });
                         
                         // 🆕 v3.11.9 复合类型定义（这些类型虽然展开多条，但实际是1注）
@@ -5574,10 +5551,12 @@
                             const type = group.type;
                             const originalLine = group.originalLine;
                             
-                            // 🆕 v3.11.9 复合类型注数固定为1注
+                            // 🆕 v3.11.10 复合类型注数固定为1注
                             const isCompositeType = COMPOSITE_TYPES.includes(type);
+                            // 🆕 v3.11.10 使用分组时已计算好的 perAmount
+                            const perAmount = group.perAmount || items[0]?.amount || 0;
+                            // 🆕 v3.11.10 复合类型：按组数计算；普通类型：按items数量计算
                             const betCount = isCompositeType ? 1 : items.length;
-                            const perAmount = items[0]?.amount || 0;
                             const typeTotal = isCompositeType ? perAmount : items.reduce((s, it) => s + it.amount, 0);
                             
                             const hasWin = items.some(r => r.isWin);
@@ -9719,88 +9698,73 @@
             // 🆕 v3.11.8 修复：从用户输入行中提取该类型对应的片段作为显示文本
             // 聚合规则：同一类型 + 同一用户输入行 → 合并显示
             // ═══════════════════════════════════════════════════════════════════════
-            const lineMap = {};  // groupKey → { displayText, items: [], groupId, type }
+            // 🆕 v3.11.10 全新分组逻辑：按用户输入顺序 + 相邻同类型同金额合并
+            // 核心规则：相邻 + 同类型 + 同金额 → 合并；否则 → 新建一组
+            // ═══════════════════════════════════════════════════════════════════════
             
-            // 🆕 v3.11.8 获取用户原始输入（用于提取片段）
-            const userInputText = document.getElementById('bet-input')?.value || '';
+            // 第1步：按 fragmentOrder 排序所有 items
+            const sortedItems = [...feedbackData.items].sort((a, b) => {
+                const orderA = a.fragmentOrder !== undefined ? a.fragmentOrder : 9999;
+                const orderB = b.fragmentOrder !== undefined ? b.fragmentOrder : 9999;
+                return orderA - orderB;
+            });
             
-            // 🆕 v3.11.9 类型关键词映射（用于从用户输入中提取对应片段）
-            // ★★★ 一友=平特一肖(PT1)，二友=平特二连肖(PT2) ★★★
-            const TYPE_KEYWORDS = {
-                '特码': ['特', '买', 'x', 'X', '各'],
-                '生肖特码': ['特', '买', 'x', 'X', '各'],
-                '平特一肖': ['平特', 'PT1', '一友', '1友'],  // 一友=平特一肖
-                '平特二连肖': ['二友', '2友', '二连肖', 'PT2'],  // 二友=平特二连肖
-                '平特三连肖': ['三友', '3友', '三连肖', 'PT3'],
-                '六肖': ['六肖', '6肖', 'LX', 'SX6'],  // 六肖关键词
-                '波色': ['红', '蓝', '绿', '波'],
-                '半波': ['红单', '红双', '红大', '红小', '蓝单', '蓝双', '绿单', '绿双'],
-                '大小单双': ['大数', '小数', '单数', '双数', '大小', '单双']
-            };
+            // 第2步：按"相邻+同类型+同金额"规则分组
+            const sortedLines = [];
+            let fbCurrentLine = null;
             
-            // 🆕 v3.11.8 从用户输入行中提取该类型对应的片段
-            function extractTypeFragment(userLine, typeName) {
-                if (!userLine) return null;
-                const keywords = TYPE_KEYWORDS[typeName] || [];
-                // 按逗号分割用户输入行
-                const fragments = userLine.split(/[,，]/);
-                for (const fragment of fragments) {
-                    const trimmed = fragment.trim();
-                    // 检查片段是否包含该类型的关键词
-                    for (const kw of keywords) {
-                        if (trimmed.includes(kw)) {
-                            return trimmed;
-                        }
-                    }
-                }
-                return null;
-            }
-            
-            feedbackData.items.forEach((item, idx) => {
+            sortedItems.forEach((item, idx) => {
                 const rawText = item.raw || '';
-                const originalLine = item.originalLine || '';
                 const itemType = item.type || '未知';
+                const itemAmount = item.amount || 0;
+                const fragmentOrder = item.fragmentOrder !== undefined ? item.fragmentOrder : 9999;
+                const groupId = item.groupId;
                 
-                // 🆕 v3.11.8 使用 类型+originalLine 作为聚合 key
-                // 这样同一用户输入行的同类型会合并（如平特猴和平特鸡合并）
-                const groupKey = `${itemType}|||${originalLine}`;
+                // 判断是否与前一组"相邻+同类型+同金额"
+                const canMerge = fbCurrentLine && 
+                    fbCurrentLine.type === itemType && 
+                    fbCurrentLine.perAmount === itemAmount &&
+                    fbCurrentLine.groupId === groupId &&
+                    // 相邻判断：fragmentOrder差值小于等于1
+                    (fragmentOrder - fbCurrentLine.lastFragmentOrder <= 1);
                 
-                if (!lineMap[groupKey]) {
-                    // 🆕 v3.11.8 从用户输入行中提取该类型对应的片段作为显示文本
-                    let displayText = rawText;
-                    const extractedFragment = extractTypeFragment(originalLine, itemType);
-                    if (extractedFragment) {
-                        displayText = extractedFragment;
-                    } else if (rawText && rawText !== originalLine) {
-                        // 如果无法提取，使用 raw（AI 返回的片段原文）
-                        displayText = rawText;
+                if (canMerge) {
+                    // 合并到当前组
+                    fbCurrentLine.items.push(item);
+                    fbCurrentLine.lastFragmentOrder = fragmentOrder;
+                    // 更新显示文本：追加新的raw（去重）
+                    if (rawText && !fbCurrentLine.displayTexts.includes(rawText)) {
+                        fbCurrentLine.displayTexts.push(rawText);
                     }
-                    
-                    lineMap[groupKey] = {
+                } else {
+                    // 新建一组
+                    fbCurrentLine = {
                         lineId: item.lineId,
-                        groupId: item.groupId,
-                        // 🆕 v3.11.8 使用提取的片段或 raw 作为显示文本
-                        displayText: displayText,
-                        originalLine: originalLine,
+                        groupId: groupId,
                         type: itemType,
-                        items: [],
-                        // 🆕 v3.8.3 使用 fragmentOrder（预处理时分配的全局顺序）
-                        fragmentOrder: item.fragmentOrder !== undefined ? item.fragmentOrder : 9999
+                        displayTexts: rawText ? [rawText] : [],
+                        items: [item],
+                        perAmount: itemAmount,
+                        fragmentOrder: fragmentOrder,
+                        lastFragmentOrder: fragmentOrder
                     };
+                    sortedLines.push(fbCurrentLine);
                 }
-                lineMap[groupKey].items.push(item);
             });
             
-            // 🆕 调试日志：显示聚合结果
-            console.log('📋 按行聚合结果:');
-            Object.values(lineMap).forEach(line => {
-                console.log(`  [${line.lineId}] [${line.type}] "${line.displayText?.substring(0,30)}..." → ${line.items.length}项 | order=${line.fragmentOrder}`);
+            // 第3步：生成每组的显示文本
+            sortedLines.forEach(line => {
+                line.displayText = line.displayTexts.join(' ');
             });
             
-            // 按 groupId 分组，组内按 fragmentOrder 排序
+            // 调试日志
+            console.log('📋 v3.11.10 反馈分组结果:');
+            sortedLines.forEach((line, i) => {
+                console.log(`  [${i}] type=${line.type} | amt=${line.perAmount} | items=${line.items.length} | "${line.displayText?.substring(0,30)}..."`);
+            });
+            
+            // 按 groupId 分组
             const groupMap = {};
-            // 🆕 v3.8.3 按 fragmentOrder 排序（保持用户输入顺序）
-            const sortedLines = Object.values(lineMap).sort((a, b) => a.fragmentOrder - b.fragmentOrder);
             sortedLines.forEach(line => {
                 const gid = line.groupId;
                 if (!groupMap[gid]) {
@@ -9915,10 +9879,11 @@
                         '平特四连肖', 'PT4', '平特五连肖', 'PT5', '合肖', 'HX', '二中二', 'E2', '三中三', 'S3'];
                     const isCompositeType = COMPOSITE_TYPES.includes(rawTypeName) || COMPOSITE_TYPES.includes(typeName);
                     
+                    // 🆕 v3.11.10 使用分组时已计算好的 perAmount
+                    const unitAmount = line.perAmount || items[0]?.amount || 0;
                     // 复合类型：1注；其他类型：按展开的items数量计算
                     const betCount = isCompositeType ? 1 : items.length;
-                    const unitAmount = items[0]?.amount || 0;
-                    // 🆕 v3.11.7 复合类型：总金额 = 单注金额（不是累加）
+                    // 🆕 v3.11.10 复合类型：总金额 = 单注金额（不是累加）
                     const totalAmount = isCompositeType ? unitAmount : items.reduce((s, it) => s + it.amount, 0);
                     const lineProfit = items.reduce((s, it) => {
                         return s + (it.isWin ? it.winAmount - it.amount : -it.amount);
