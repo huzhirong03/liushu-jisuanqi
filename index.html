@@ -9423,7 +9423,7 @@
             'T01': {
                 name: '特码',
                 subTypes: null,  // 无子类型，只需要号码+金额
-                winRule: '下注的号码与开奖的特码（第7个球）相同即中奖',
+                winRule: '投注的号码与开奖特码相同即中奖',
                 needFields: ['numbers', 'amount'],
                 defaultOdds: 46
             },
@@ -9451,7 +9451,7 @@
             'BS': {
                 name: '波色',
                 subTypes: ['红波', '蓝波', '绿波'],
-                winRule: '特码的颜色与所选颜色相同即中奖',
+                winRule: '开奖特码的颜色与所选颜色相同即中奖',
                 colorNums: {
                     '红波': [1,2,7,8,12,13,18,19,23,24,29,30,34,35,40,45,46],
                     '蓝波': [3,4,9,10,14,15,20,25,26,31,36,37,41,42,47,48],
@@ -9465,7 +9465,7 @@
             'BB': {
                 name: '半波',
                 subTypes: ['红单', '红双', '红大', '红小', '蓝单', '蓝双', '蓝大', '蓝小', '绿单', '绿双', '绿大', '绿小'],
-                winRule: '特码同时满足颜色和大小/单双条件即中奖',
+                winRule: '开奖特码同时满足颜色和大小/单双条件即中奖',
                 needFields: ['subType', 'amount'],
                 defaultOdds: 3.2
             },
@@ -9483,7 +9483,7 @@
             'TX': {
                 name: '特肖',
                 subTypes: ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'],
-                winRule: '特码的生肖与所选生肖相同即中奖',
+                winRule: '开奖特码的生肖与所选生肖相同即中奖',
                 needFields: ['zodiac', 'amount'],
                 defaultOdds: 12
             },
@@ -9492,7 +9492,7 @@
             'SX': {
                 name: '生肖',
                 subTypes: ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'],
-                winRule: '特码的生肖与所选生肖相同即中奖',
+                winRule: '开奖特码的生肖与所选生肖相同即中奖',
                 needFields: ['zodiac', 'amount'],
                 defaultOdds: 12
             },
@@ -9848,7 +9848,10 @@
                 correction: '',       // 用户填写的修正值
                 errorBlame: '',       // regex_service/calc_service
                 systemValue: null,    // 🆕 v3.2 系统识别值（选择错误类型时填充）
-                note: ''              // 🆕 v3.2 备注
+                note: '',             // 🆕 v3.2 备注
+                // 🆕 v3.11.17 按错误类型独立存储修正值和备注
+                correctionsByType: {},  // { type: '', amount: '', num: '', count: '', win: '' }
+                notesByType: {}         // { type: '', amount: '', num: '', count: '', win: '' }
             };});
             
             // 🆕 调试日志：显示解析结果详情
@@ -10356,6 +10359,20 @@
             const currentType = panel?.dataset?.type || item.type;
             const currentCode = panel?.dataset?.code || item.code || 'T01';
             
+            // 🆕 v3.11.17 保存当前（旧）错误类型的修正值和备注
+            const oldErrType = item.errorType;
+            const oldCorrectionInput = document.getElementById(`fb-correction-${index}`);
+            const oldNoteInput = document.getElementById(`fb-note-${index}`);
+            
+            if (oldErrType && oldCorrectionInput) {
+                item.correctionsByType = item.correctionsByType || {};
+                item.correctionsByType[oldErrType] = oldCorrectionInput.value || '';
+            }
+            if (oldErrType && oldNoteInput) {
+                item.notesByType = item.notesByType || {};
+                item.notesByType[oldErrType] = oldNoteInput.value || '';
+            }
+            
             item.errorType = errType;
             
             // 🆕 v3.4 更新归因映射
@@ -10400,18 +10417,12 @@
             const winSelect = document.getElementById(`fb-win-select-${index}`);
             const correctionInput = document.getElementById(`fb-correction-${index}`);
             
-            // 隐藏所有输入区域
+            // 隐藏所有输入区域（不清空值，后面会根据错误类型恢复）
             if (typeSelect) typeSelect.style.display = 'none';
             if (subtypeSelect) subtypeSelect.style.display = 'none';
             if (winSelect) winSelect.style.display = 'none';
-            if (correctionInput) { correctionInput.style.display = 'none'; correctionInput.value = ''; }
+            if (correctionInput) correctionInput.style.display = 'none';
             if (ruleEl) ruleEl.style.display = 'none';
-            
-            // 🆕 v3.11.16 切换错误类型时清空备注和修正值
-            const noteInput = document.getElementById(`fb-note-${index}`);
-            if (noteInput) noteInput.value = '';
-            item.note = '';
-            item.correction = '';
             
             // 🆕 v3.4 根据玩法类型获取配置
             const typeConfig = PLAY_TYPE_CONFIG[currentCode] || {};
@@ -10477,11 +10488,34 @@
                 hintEl.style.display = 'block';
             }
             
-            // 🆕 v3.4 显示命中规则说明
+            // 🆕 v3.4 显示命中规则说明（更通俗易懂的文字）
             if (showRule && ruleEl && winRuleText) {
-                ruleEl.innerHTML = `📋 命中规则: ${winRuleText}`;
+                ruleEl.innerHTML = `📋 判断规则: ${winRuleText}`;
                 ruleEl.style.display = 'block';
             }
+            
+            // 🆕 v3.11.17 恢复新错误类型之前保存的修正值和备注
+            item.correctionsByType = item.correctionsByType || {};
+            item.notesByType = item.notesByType || {};
+            
+            const savedCorrection = item.correctionsByType[errType] || '';
+            const savedNote = item.notesByType[errType] || '';
+            
+            // 恢复修正值输入框
+            const correctionEl = document.getElementById(`fb-correction-${index}`);
+            if (correctionEl) {
+                correctionEl.value = savedCorrection;
+            }
+            
+            // 恢复备注输入框
+            const noteEl = document.getElementById(`fb-note-${index}`);
+            if (noteEl) {
+                noteEl.value = savedNote;
+            }
+            
+            // 同步到 item 对象
+            item.correction = savedCorrection;
+            item.note = savedNote;
             
             if (inputWrapper) inputWrapper.style.display = 'block';
         }
