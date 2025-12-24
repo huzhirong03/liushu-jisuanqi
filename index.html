@@ -690,20 +690,20 @@
                 cursor: not-allowed;
             }
             
-            /* 🆕 v3.11.45 统一工具栏按钮样式 - 占满整行均匀分布 */
+            /* 🆕 v3.11.46 统一工具栏按钮样式 - 增大高度更易点击 */
             .toolbar-btn {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                gap: 2px;
+                gap: 4px;
                 flex: 1;
                 min-width: 0;
-                height: 30px;
-                padding: 0 6px;
+                height: 40px;
+                padding: 0 8px;
                 border: none;
-                border-radius: 6px;
+                border-radius: 8px;
                 color: white;
-                font-size: 12px;
+                font-size: 14px;
                 font-weight: 500;
                 cursor: pointer;
                 transition: all 0.2s ease;
@@ -715,9 +715,10 @@
             }
             .toolbar-btn:active {
                 filter: brightness(0.95);
+                transform: scale(0.98);
             }
             .toolbar-btn .btn-text {
-                font-size: 12px;
+                font-size: 13px;
             }
             .toolbar-btn-secondary {
                 background: linear-gradient(135deg,#4a5568,#2d3748) !important;
@@ -1243,22 +1244,23 @@
                         <!-- 计算 -->
                         <button onclick="calculateBets()" class="toolbar-btn toolbar-btn-primary" title="开始计算">💰<span class="btn-text">计算</span></button>
                     </div>
-                    <textarea class="input-textarea" id="bet-input" style="flex:1;min-height:280px;" placeholder="粘贴下注信息，支持智能分组计算盈亏
+                    <textarea class="input-textarea" id="bet-input" style="flex:1;min-height:280px;" placeholder="粘贴下注信息，支持新澳/香港双彩种
 
-📌 分组规则：空一行 = 分隔不同组
+📌 彩种切换：香/港=香港，澳/奥=新澳
 ━━━━━━━━━━━━━━━━━━━━
-买猪各10
-特43 20元
-                    ← 空行分隔
-39x200
-31.34各二十
+澳门03-24-07各15
+龙虎马各20
+香港          ← 单独一行切换彩种
+牛鸡各15
 ━━━━━━━━━━━━━━━━━━━━
-💡 也可点击「📦分组」按钮手动编辑分组
-
 📝 支持格式：
-• 生肖：买猪各10、龙x10、猴鸡x50
-• 特码：特43 20元、31.34各二十
-• 多号：10 12 20 22各20"></textarea>
+• 生肖特码：买猪各10、龙x10、猴鸡x50
+• 特码号码：特43 20元、31.34各二十
+• 平特：一友狗800、二友猴鸡200、平特猴鸡各200
+• 六肖：六肖鼠猴羊鸡牛马200
+• 连肖：三友羊鸡猴100
+
+💡 空一行=分隔不同组"></textarea>
                 </div>
                 
                 <!-- 结果显示 -->
