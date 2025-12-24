@@ -2719,6 +2719,9 @@
         // ==================== 开奖时段自动刷新（直播效果） ====================
         let liveRefreshInterval = null;
         let checkLiveInterval = null;
+        // 🆕 v3.11.22 记录上次开奖号码，用于判断号码是否变化
+        let lastLotteryNumbersStr = '';
+        let liveAnimationStopped = false;  // 标记动画是否已停止（号码完整后）
         
         // 检查是否在开奖时段（21:29 - 21:40）
         function isLiveTime() {
@@ -2732,6 +2735,21 @@
             return false;
         }
         
+        // 🆕 v3.11.22 检查号码是否完整（7个有效号码）
+        function isLotteryNumbersComplete(numbers) {
+            if (!numbers || numbers.length !== 7) return false;
+            // 检查所有号码都是有效的（1-49）
+            return numbers.every(n => n >= 1 && n <= 49);
+        }
+        
+        // 🆕 v3.11.22 检查号码是否有变化
+        function hasLotteryNumbersChanged(numbers) {
+            const currentStr = numbers ? numbers.join(',') : '';
+            const changed = currentStr !== lastLotteryNumbersStr;
+            lastLotteryNumbersStr = currentStr;
+            return changed;
+        }
+        
         // 启动开奖时段自动刷新（参考 index2.html：开奖时段每5秒刷新）
         function startLiveRefresh() {
             // 每分钟检查是否进入开奖时段
@@ -2741,14 +2759,11 @@
                     if (!liveRefreshInterval) {
                         console.log('📡 进入开奖时段，开始每5秒自动刷新...');
                         showLiveToast('📡 开奖直播模式已开启');
+                        // 🆕 重置状态
+                        lastLotteryNumbersStr = '';
+                        liveAnimationStopped = false;
                         liveRefreshInterval = setInterval(async () => {
-                            try {
-                                // 启用直播动画
-                                window.isLiveAnimationEnabled = true;
-                                await fetchAllLotteryData();
-                            } catch (e) {
-                                console.log('直播刷新失败', e);
-                            }
+                            await doLiveRefresh();
                         }, 5000); // 每5秒刷新一次（与index2.html一致）
                     }
                 } else {
@@ -2757,6 +2772,9 @@
                         console.log('⏹️ 开奖时段结束，停止自动刷新');
                         clearInterval(liveRefreshInterval);
                         liveRefreshInterval = null;
+                        // 🆕 重置状态
+                        lastLotteryNumbersStr = '';
+                        liveAnimationStopped = false;
                     }
                 }
             }, 60000); // 每分钟检查一次
@@ -2765,15 +2783,57 @@
             if (isLiveTime() && !liveRefreshInterval) {
                 console.log('📡 当前在开奖时段，开始自动刷新...');
                 showLiveToast('📡 开奖直播模式已开启');
+                // 🆕 重置状态
+                lastLotteryNumbersStr = '';
+                liveAnimationStopped = false;
                 liveRefreshInterval = setInterval(async () => {
-                    try {
-                        // 启用直播动画
-                        window.isLiveAnimationEnabled = true;
-                        await fetchAllLotteryData();
-                    } catch (e) {
-                        console.log('直播刷新失败', e);
-                    }
+                    await doLiveRefresh();
                 }, 5000); // 每5秒刷新一次
+            }
+        }
+        
+        // 🆕 v3.11.22 直播刷新核心逻辑
+        async function doLiveRefresh() {
+            try {
+                // 先记录当前号码字符串（用于比较）
+                const oldNumbersStr = (appState.lotteryNumbers || []).join(',');
+                
+                // 获取前先禁用动画，让 fetchAllLotteryData 内部的渲染不带动画
+                window.isLiveAnimationEnabled = false;
+                
+                // 获取最新数据（内部会渲染一次，但不带动画）
+                await fetchAllLotteryData();
+                
+                const newNumbers = appState.lotteryNumbers;
+                const newNumbersStr = (newNumbers || []).join(',');
+                const isComplete = isLotteryNumbersComplete(newNumbers);
+                const hasChanged = newNumbersStr !== oldNumbersStr;
+                
+                // 更新记录
+                lastLotteryNumbersStr = newNumbersStr;
+                
+                // 判断是否应该播放动画
+                if (isComplete && !hasChanged && lastLotteryNumbersStr === newNumbersStr) {
+                    // 号码完整且未变化 → 已经开完，停止动画
+                    if (!liveAnimationStopped) {
+                        console.log('✅ 开奖号码已全部开出，停止动画效果');
+                        showLiveToast('✅ 开奖完成');
+                        liveAnimationStopped = true;
+                    }
+                    // 不需要重新渲染，已经在 fetchAllLotteryData 中渲染过了
+                } else if (hasChanged) {
+                    // 号码有变化 → 播放动画
+                    console.log('🔄 号码有更新，播放动画', oldNumbersStr, '→', newNumbersStr);
+                    window.isLiveAnimationEnabled = true;
+                    liveAnimationStopped = false;
+                    // 重新渲染以显示动画
+                    renderLotteryBalls();
+                    // 渲染完后重置标志
+                    window.isLiveAnimationEnabled = false;
+                }
+                // else: 号码未变化但不完整（等待中）→ 已经渲染过了，不需要额外操作
+            } catch (e) {
+                console.log('直播刷新失败', e);
             }
         }
         
@@ -2868,58 +2928,64 @@
             }
         }
         
-        // 首次自动获取数据（优先从 data.json 读取）
+        // 🆕 v3.11.23 每次打开页面都自动获取最新开奖数据
         async function tryAutoFetchOnce() {
-            // 检查新澳门是否有数据
-            const xamData = appState.lotteryData['xam'];
-            const hkData = appState.lotteryData['hk'];
+            console.log('🔄 [tryAutoFetchOnce] 自动获取最新开奖数据...');
+            showAutoFetchStatus('🔄 正在加载最新开奖数据...');
             
-            // 如果都没有数据，尝试获取
-            if ((!xamData || !xamData.numbers || xamData.numbers.length < 7) &&
-                (!hkData || !hkData.numbers || hkData.numbers.length < 7)) {
-                
-                console.log('首次加载，尝试获取开奖数据...');
-                showAutoFetchStatus('🔄 正在加载开奖数据...');
-                
-                // 方案1：优先从 data.json 读取（GitHub Actions 预获取的数据）
+            // 方案1：优先从 data.json 读取（GitHub Actions 预获取的数据，更新频率高）
+            try {
                 const jsonLoaded = await loadDataFromJSON();
                 if (jsonLoaded) {
-                    showAutoFetchStatus('✅ 开奖数据已加载', 'success');
+                    console.log('✅ [tryAutoFetchOnce] 从 data.json 加载成功');
+                    showAutoFetchStatus('✅ 开奖数据已更新', 'success');
                     setTimeout(hideAutoFetchStatus, 2000);
                     return;
                 }
-                
-                // 方案2：data.json 失败，尝试直接调用 API（备选方案）
-                console.log('data.json 加载失败，尝试调用 API...');
-                showAutoFetchStatus('🔄 正在获取最新数据...');
-                
-                let success = false;
-                for (let retry = 0; retry < 2 && !success; retry++) {
-                    try {
-                        if (retry > 0) {
-                            showAutoFetchStatus(`🔄 重试获取中...(${retry}/2)`);
-                            await new Promise(r => setTimeout(r, 1000));
-                        }
-                        await fetchAllLotteryData();
-                        
-                        const newXamData = appState.lotteryData['xam'];
-                        const newHkData = appState.lotteryData['hk'];
-                        if ((newXamData && newXamData.numbers && newXamData.numbers.length === 7) ||
-                            (newHkData && newHkData.numbers && newHkData.numbers.length === 7)) {
-                            success = true;
-                            showAutoFetchStatus('✅ 开奖数据已更新', 'success');
-                        }
-                    } catch (e) {
-                        console.log(`API获取失败(尝试${retry + 1}):`, e.message);
+            } catch (e) {
+                console.log('⚠️ [tryAutoFetchOnce] data.json 加载失败:', e.message);
+            }
+            
+            // 方案2：data.json 失败，尝试直接调用 API（备选方案）
+            console.log('🔄 [tryAutoFetchOnce] data.json 失败，尝试调用 API...');
+            showAutoFetchStatus('🔄 正在获取最新数据...');
+            
+            let success = false;
+            for (let retry = 0; retry < 2 && !success; retry++) {
+                try {
+                    if (retry > 0) {
+                        showAutoFetchStatus(`🔄 重试获取中...(${retry}/2)`);
+                        await new Promise(r => setTimeout(r, 1000));
                     }
+                    await fetchAllLotteryData();
+                    
+                    const newXamData = appState.lotteryData['xam'];
+                    const newHkData = appState.lotteryData['hk'];
+                    if ((newXamData && newXamData.numbers && newXamData.numbers.length === 7) ||
+                        (newHkData && newHkData.numbers && newHkData.numbers.length === 7)) {
+                        success = true;
+                        console.log('✅ [tryAutoFetchOnce] API 获取成功');
+                        showAutoFetchStatus('✅ 开奖数据已更新', 'success');
+                    }
+                } catch (e) {
+                    console.log(`⚠️ [tryAutoFetchOnce] API获取失败(尝试${retry + 1}):`, e.message);
                 }
-                
-                if (!success) {
+            }
+            
+            if (!success) {
+                // 方案3：API也失败，使用本地缓存（如果有）
+                const xamData = appState.lotteryData['xam'];
+                const hkData = appState.lotteryData['hk'];
+                if ((xamData && xamData.numbers && xamData.numbers.length === 7) ||
+                    (hkData && hkData.numbers && hkData.numbers.length === 7)) {
+                    console.log('⚠️ [tryAutoFetchOnce] 使用本地缓存数据');
+                    showAutoFetchStatus('⚠️ 网络异常，使用缓存数据', 'warning');
+                } else {
                     showAutoFetchStatus('⚠️ 获取失败，请手动获取', 'warning');
                 }
-                
-                setTimeout(hideAutoFetchStatus, 3000);
             }
+            
+            setTimeout(hideAutoFetchStatus, 3000);
         }
         
         // 显示自动获取状态
