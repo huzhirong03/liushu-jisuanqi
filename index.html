@@ -5057,20 +5057,26 @@
          * @param {string} model 模型
          * @returns {Object} 计算结果 {success, items, s1, s2, s3, s4, error}
          */
-        async function callBackendCalc(sanitizedInput, dataArr, config, provider = 'deepseek', model = null) {
+        async function callBackendCalc(sanitizedInput, dataArr, config, provider = 'deepseek', model = null, hkDataArr = null) {
             const requestBody = {
                 t: sanitizedInput,   // 代号转换后的文本（Z代号格式）
-                d: dataArr,          // 数据数组（7个数字）
+                d: dataArr,          // 数据数组（7个数字）- 澳门开奖
                 c: config,           // 配置参数
                 p: provider,         // 服务商
                 m: model             // 模型
             };
             
+            // 🆕 v3.11.30 如果有香港开奖数据，传递给后端
+            if (hkDataArr && hkDataArr.length === 7) {
+                requestBody.hk_d = hkDataArr;
+            }
+            
             console.log('%c════════════════════════════════════════════════════════════════', 'color: #2196f3');
             console.log('%c📤 【发送到后端】', 'color: #2196f3; font-weight: bold; font-size: 14px');
             console.log('%c════════════════════════════════════════════════════════════════', 'color: #2196f3');
             console.log('   📝 输入文本:', sanitizedInput);
-            console.log('   🎲 开奖数据:', dataArr.slice(0,6).join(', '), '+ 特码', dataArr[6]);
+            console.log('   🎲 澳门开奖:', dataArr.slice(0,6).join(', '), '+ 特码', dataArr[6]);
+            if (hkDataArr) console.log('   🎲 香港开奖:', hkDataArr.slice(0,6).join(', '), '+ 特码', hkDataArr[6]);
             console.log('   ⚙️ 赔率配置:', config);
             console.log('   🤖 AI服务商:', provider);
             
@@ -5351,12 +5357,18 @@
                     
                     // 🆕 v3.0 调用后端一站式计算接口
                     const config = getOddsConfig();
+                    
+                    // 🆕 v3.11.30 获取香港开奖数据（用于香港类型的计算）
+                    const hkData = appState.lotteryData['hk'];
+                    const hkNums = hkData?.numbers || null;
+                    
                     const backendResult = await callBackendCalc(
                         sanitizedInput,
-                        appState.lotteryNumbers,
+                        appState.lotteryNumbers,  // 澳门开奖数据
                         config,
                         settings.aiProvider || 'openrouter',
-                        null
+                        null,
+                        hkNums  // 香港开奖数据
                     );
                     
                     // 🆕 v3.11.29 检测旧澳门错误
