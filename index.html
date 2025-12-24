@@ -690,21 +690,21 @@
                 cursor: not-allowed;
             }
             
-            /* 🆕 v3.11.45 统一工具栏按钮样式 - 均匀分布 */
+            /* 🆕 v3.11.45 统一工具栏按钮样式 - 均匀分布、紧凑 */
             .toolbar-btn {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                gap: 3px;
+                gap: 4px;
                 flex: 1;
                 min-width: 0;
-                height: 32px;
-                padding: 0 10px;
+                height: 36px;
+                padding: 0 8px;
                 border: none;
-                border-radius: 20px;
+                border-radius: 8px;
                 color: white;
-                font-size: 12px;
-                font-weight: 500;
+                font-size: 13px;
+                font-weight: 600;
                 cursor: pointer;
                 transition: all 0.2s ease;
                 white-space: nowrap;
@@ -718,7 +718,7 @@
                 transform: translateY(0);
             }
             .toolbar-btn .btn-text {
-                font-size: 11px;
+                font-size: 12px;
             }
             .toolbar-btn-secondary {
                 background: linear-gradient(135deg,#4a5568,#2d3748) !important;
@@ -1230,8 +1230,8 @@
                 
                 <!-- 输入框区域 -->
                 <div class="input-section" style="flex:1;display:flex;flex-direction:column;">
-                    <!-- 🆕 v3.11.45 按钮栏（删除标题，输入框placeholder已有说明） -->
-                    <div style="display:flex;gap:6px;margin-bottom:10px;">
+                    <!-- 🆕 v3.11.45 按钮栏：均匀分布、间距更小 -->
+                    <div style="display:flex;gap:4px;margin-bottom:8px;">
                         <!-- 详情按钮（合并AI+程序，内部Tab切换） -->
                         <button onclick="showDebugPanel()" class="toolbar-btn" style="background:linear-gradient(135deg,#9b59b6,#8e44ad);" title="查看识别详情">🤖<span class="btn-text">详情</span></button>
                         <!-- 对比测试 -->
