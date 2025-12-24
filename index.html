@@ -5554,9 +5554,23 @@
                             const isCompositeType = COMPOSITE_TYPES.includes(type);
                             // 🆕 v3.11.10 使用分组时已计算好的 perAmount
                             const perAmount = group.perAmount || items[0]?.amount || 0;
-                            // 🆕 v3.11.10 复合类型：按组数计算；普通类型：按items数量计算
-                            const betCount = isCompositeType ? 1 : items.length;
-                            const typeTotal = isCompositeType ? perAmount : items.reduce((s, it) => s + it.amount, 0);
+                            
+                            // 🆕 v3.11.12 检测"各"/"每"关键词，计算生肖数量作为注数
+                            // 规则：平特一肖（PT1）中，"平特猴鸡各200" = 2注（每个生肖=1注）
+                            const hasEachKeyword = /各|每/.test(originalLine);
+                            const zodiacCount = hasEachKeyword ? countZodiacsInText(originalLine) : 0;
+                            
+                            // 🆕 v3.11.12 注数计算：复合类型=1注；有"各"关键词时用生肖数；否则用items数
+                            let betCount;
+                            if (isCompositeType) {
+                                betCount = 1;
+                            } else if (hasEachKeyword && zodiacCount > 0) {
+                                betCount = Math.max(items.length, zodiacCount);
+                            } else {
+                                betCount = items.length;
+                            }
+                            // 🆕 v3.11.12 总金额：复合类型=单注金额；其他=注数×单注金额
+                            const typeTotal = isCompositeType ? perAmount : (betCount * perAmount);
                             
                             const hasWin = items.some(r => r.isWin);
                             const typeOdds = items[0]?.odds || 1;
@@ -6744,6 +6758,22 @@
          */
         function escapeRegex(str) {
             return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+        
+        /**
+         * 🆕 v3.11.12 计算文本中的生肖数量
+         * 用于 "平特猴鸡各200" 这类输入，正确识别注数（每个生肖=1注）
+         * @param {string} text 显示文本
+         * @returns {number} 生肖数量
+         */
+        function countZodiacsInText(text) {
+            if (!text) return 0;
+            const zodiacs = ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'];
+            let count = 0;
+            for (const z of zodiacs) {
+                if (text.includes(z)) count++;
+            }
+            return count;
         }
         
         /**
@@ -9900,10 +9930,23 @@
                     
                     // 🆕 v3.11.10 使用分组时已计算好的 perAmount
                     const unitAmount = line.perAmount || items[0]?.amount || 0;
-                    // 复合类型：1注；其他类型：按展开的items数量计算
-                    const betCount = isCompositeType ? 1 : items.length;
-                    // 🆕 v3.11.10 复合类型：总金额 = 单注金额（不是累加）
-                    const totalAmount = isCompositeType ? unitAmount : items.reduce((s, it) => s + it.amount, 0);
+                    
+                    // 🆕 v3.11.12 检测"各"/"每"关键词，计算生肖数量作为注数
+                    // 规则：平特一肖（PT1）中，"平特猴鸡各200" = 2注（每个生肖=1注）
+                    const fbHasEachKeyword = /各|每/.test(displayText);
+                    const fbZodiacCount = fbHasEachKeyword ? countZodiacsInText(displayText) : 0;
+                    
+                    // 🆕 v3.11.12 注数计算：复合类型=1注；有"各"关键词时用生肖数；否则用items数
+                    let betCount;
+                    if (isCompositeType) {
+                        betCount = 1;
+                    } else if (fbHasEachKeyword && fbZodiacCount > 0) {
+                        betCount = Math.max(items.length, fbZodiacCount);
+                    } else {
+                        betCount = items.length;
+                    }
+                    // 🆕 v3.11.12 总金额：复合类型=单注金额；其他=注数×单注金额
+                    const totalAmount = isCompositeType ? unitAmount : (betCount * unitAmount);
                     const lineProfit = items.reduce((s, it) => {
                         return s + (it.isWin ? it.winAmount - it.amount : -it.amount);
                     }, 0);
