@@ -5489,6 +5489,10 @@
                         debugInfo.calcS2 = totalWin;
                         debugInfo.calcS3 = totalWinAmount;
                         debugInfo.calcS4 = settleAmount;
+                        // 🆕 v3.11.22 增强调试信息（精准定位问题）
+                        debugInfo.skipRegexReason = backendResult.skip_regex_reason || '';  // 跳过正则的原因
+                        debugInfo.aiItemsCount = backendResult.ai_items_count || 0;        // AI识别的原始记录数
+                        debugInfo.preprocessLog = backendResult.preprocess_log || [];       // 预处理日志
                         
                         console.log(`✅ 后端计算完成: 识别${debugInfo.calcInputCount}条→展开${debugInfo.calcOutputCount}条, 总投${totalBet}, 中${totalWin}注, 派彩${totalWinAmount}, 结算${settleAmount}`);
                         showAutoCloseToast(`✅ 计算完成 ${calcResults.length} 注`, 2000);
@@ -10994,6 +10998,10 @@ ${winDetailText}║    ───────────────────
                     calc_s3: debugInfo.calcS3 || 0,   // 命中金额
                     calc_s4: debugInfo.calcS4 || 0,   // 结算
                     calc_latency_ms: debugInfo.latencyMs || 0,
+                    // 🆕 v3.11.22 增强调试信息（精准定位问题）
+                    skip_regex_reason: debugInfo.skipRegexReason || null,         // 跳过正则的原因
+                    ai_items_count: debugInfo.aiItemsCount || 0,                  // AI识别的原始记录数（预处理前）
+                    preprocess_log: JSON.stringify(debugInfo.preprocessLog || []), // 预处理日志
                     
                     // 📌 第5步：前端显示
                     display_items: JSON.stringify((calcResults || []).slice(0, 50).map(r => ({
