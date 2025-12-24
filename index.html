@@ -5359,6 +5359,12 @@
                         null
                     );
                     
+                    // 🆕 v3.11.29 检测旧澳门错误
+                    if (!backendResult.success && backendResult.error === 'old_mc_not_supported') {
+                        alert('⚠️ 暂不支持旧澳门\n请使用新澳或香港');
+                        return;
+                    }
+                    
                     if (backendResult.success && backendResult.items && backendResult.items.length > 0) {
                         // 🆕 v3.0 转换后端结果为前端格式
                         // 🆕 v3.11.13 完善类型映射（添加六肖、特肖等）
@@ -5537,6 +5543,8 @@
                                 betIndexInLine: item.idx || 0,
                                 // 🆕 v3.8.3 片段顺序（用于排序）
                                 fragmentOrder: fragmentOrder,
+                                // 🆕 v3.11.29 彩种标识
+                                lt: item.lt || 'mc',
                                 // 🆕 v3.0 后端计算的结果
                                 isWin: item.w || false,
                                 winAmount: item.v || 0,
@@ -5582,26 +5590,40 @@
                         const tema = appState.lotteryNumbers[6];
                         const lotteryStr = appState.lotteryNumbers.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') + ' + 特码' + String(tema).padStart(2,'0');
                         
-                        // 🆕 v3.11.24 生成双开奖结果（如果包含香港下注）
+                        // 🆕 v3.11.29 根据后端返回的hk/mc汇总判断开奖显示
+                        // 规则：只有hk→只显示香港；只有mc→只显示新澳；混合→显示两个
+                        const hasHK = backendResult.hk_summary && backendResult.hk_summary.s1 > 0;
+                        const hasMC = backendResult.mc_summary && backendResult.mc_summary.s1 > 0;
+                        const isMixed = hasHK && hasMC;
+                        
                         let lotteryResultText = '';
-                        if (window.showBothLotteryResults) {
-                            // 获取新澳和香港的开奖号码
-                            const xamData = appState.lotteryData['xam'];
-                            const hkData = appState.lotteryData['hk'];
-                            const xamNums = xamData?.numbers || appState.lotteryNumbers;
-                            const hkNums = hkData?.numbers || [];
-                            
-                            const xamStr = xamNums.length === 7 
-                                ? xamNums.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') + ' + 特码' + String(xamNums[6]).padStart(2,'0')
-                                : '未设置';
-                            const hkStr = hkNums.length === 7
-                                ? hkNums.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') + ' + 特码' + String(hkNums[6]).padStart(2,'0')
-                                : '未设置';
-                            
+                        const xamData = appState.lotteryData['xam'];
+                        const hkData = appState.lotteryData['hk'];
+                        const xamNums = xamData?.numbers || appState.lotteryNumbers;
+                        const hkNums = hkData?.numbers || [];
+                        
+                        const xamStr = xamNums.length === 7 
+                            ? xamNums.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') + ' + 特码' + String(xamNums[6]).padStart(2,'0')
+                            : '未设置';
+                        const hkStr = hkNums.length === 7
+                            ? hkNums.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') + ' + 特码' + String(hkNums[6]).padStart(2,'0')
+                            : '未设置';
+                        
+                        if (isMixed) {
+                            // 混合下注：显示两个开奖结果
                             lotteryResultText = `🎰 新澳开奖: ${xamStr}\n🎰 香港开奖: ${hkStr}\n`;
+                        } else if (hasHK) {
+                            // 纯香港：只显示香港
+                            lotteryResultText = `🎰 香港开奖: ${hkStr}\n`;
                         } else {
-                            lotteryResultText = `🎰 开奖: ${lotteryStr}\n`;
+                            // 纯澳门或默认：只显示新澳
+                            lotteryResultText = `🎰 新澳开奖: ${xamStr}\n`;
                         }
+                        
+                        // 🆕 v3.11.29 保存混合状态供后续使用
+                        window.currentCalcHasHK = hasHK;
+                        window.currentCalcHasMC = hasMC;
+                        window.currentCalcIsMixed = isMixed;
                         
                         // 生成结果文本
                         let resultText = `📊 计算结果\n`;
@@ -5857,8 +5879,17 @@
                             
                             const icon = hasWin ? '✓' : '✗';
                             const profitStr = hasWin ? ` 盈+${winPayout - typeTotal}元` : '';
+                            
+                            // 🆕 v3.11.29 混合下注时添加[香]/[澳]前缀
+                            let ltPrefix = '';
+                            if (window.currentCalcIsMixed) {
+                                // 获取该组的彩种标识（取第一条记录的lt）
+                                const groupLt = items[0]?.lt || 'mc';
+                                ltPrefix = groupLt === 'hk' ? '[香] ' : '[澳] ';
+                            }
+                            
                             // 🆕 v3.8.4 删除"各"字，格式：类型(倍率): 原文 (号码列表) 金额*注数=总额
-                            resultText += `${icon} ${type} (${typeOdds}倍): ${originalLine}${numsDisplay} ${perAmount}元*${betCount}注=${typeTotal}元${profitStr}\n`;
+                            resultText += `${ltPrefix}${icon} ${type} (${typeOdds}倍): ${originalLine}${numsDisplay} ${perAmount}元*${betCount}注=${typeTotal}元${profitStr}\n`;
                         }
                         
                         resultText += `━━━━━━━━━━━━━━━━━━\n`;
@@ -5908,24 +5939,31 @@
             const tema = appState.lotteryNumbers[6];
             const lotteryStr = appState.lotteryNumbers.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') + ' + 特码' + String(tema).padStart(2,'0');
             
-            // 🆕 v3.11.24 生成双开奖结果（如果包含香港下注）
+            // 🆕 v3.11.29 生成开奖结果（与后端模式保持一致）
+            // 本地回退模式目前没有hk/mc信息，使用window变量（从前端检测得到）
+            const hasHK2 = window.currentCalcHasHK || false;
+            const hasMC2 = window.currentCalcHasMC !== false;
+            const isMixed2 = window.currentCalcIsMixed || false;
+            
             let lotteryResultText2 = '';
-            if (window.showBothLotteryResults) {
-                const xamData = appState.lotteryData['xam'];
-                const hkData = appState.lotteryData['hk'];
-                const xamNums = xamData?.numbers || appState.lotteryNumbers;
-                const hkNums = hkData?.numbers || [];
-                
-                const xamStr = xamNums.length === 7 
-                    ? xamNums.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') + ' + 特码' + String(xamNums[6]).padStart(2,'0')
-                    : '未设置';
-                const hkStr = hkNums.length === 7
-                    ? hkNums.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') + ' + 特码' + String(hkNums[6]).padStart(2,'0')
-                    : '未设置';
-                
-                lotteryResultText2 = `🎰 新澳开奖: ${xamStr}\n🎰 香港开奖: ${hkStr}\n`;
+            const xamData2 = appState.lotteryData['xam'];
+            const hkData2 = appState.lotteryData['hk'];
+            const xamNums2 = xamData2?.numbers || appState.lotteryNumbers;
+            const hkNums2 = hkData2?.numbers || [];
+            
+            const xamStr2 = xamNums2.length === 7 
+                ? xamNums2.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') + ' + 特码' + String(xamNums2[6]).padStart(2,'0')
+                : '未设置';
+            const hkStr2 = hkNums2.length === 7
+                ? hkNums2.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') + ' + 特码' + String(hkNums2[6]).padStart(2,'0')
+                : '未设置';
+            
+            if (isMixed2) {
+                lotteryResultText2 = `🎰 新澳开奖: ${xamStr2}\n🎰 香港开奖: ${hkStr2}\n`;
+            } else if (hasHK2 && !hasMC2) {
+                lotteryResultText2 = `🎰 香港开奖: ${hkStr2}\n`;
             } else {
-                lotteryResultText2 = `🎰 开奖: ${lotteryStr}\n`;
+                lotteryResultText2 = `🎰 新澳开奖: ${xamStr2}\n`;
             }
             
             // 生成结果文本（更清晰的格式）
@@ -9921,13 +9959,15 @@
             const typeNames = { xam: '新澳', hk: '香港', am: '澳门' };
             const currentType = appState.currentLotteryType || 'xam';
             
-            // 判断是否需要显示双开奖
-            const showBoth = window.showBothLotteryResults || false;
+            // 🆕 v3.11.29 使用更准确的彩种判断变量
+            const hasHK = window.currentCalcHasHK || false;
+            const hasMC = window.currentCalcHasMC !== false;  // 默认true
+            const isMixed = window.currentCalcIsMixed || false;
             
             let html = '';
             
-            if (showBoth) {
-                // 显示两个开奖结果
+            if (isMixed) {
+                // 混合下注：显示两个开奖结果
                 const xamData = appState.lotteryData['xam'];
                 const hkData = appState.lotteryData['hk'];
                 
@@ -9935,12 +9975,16 @@
                 html += renderSingleLotteryRow('新澳', xamData?.issue || '未知', xamData?.numbers || []);
                 // 香港开奖
                 html += renderSingleLotteryRow('香港', hkData?.issue || '未知', hkData?.numbers || []);
+            } else if (hasHK && !hasMC) {
+                // 纯香港：只显示香港
+                const hkData = appState.lotteryData['hk'];
+                html += renderSingleLotteryRow('香港', hkData?.issue || '未知', hkData?.numbers || []);
             } else {
-                // 只显示当前彩种
-                const currentData = appState.lotteryData[currentType];
-                const issue = currentData?.issue || '未知';
-                const nums = appState.lotteryNumbers || [];
-                html += renderSingleLotteryRow(typeNames[currentType], issue, nums);
+                // 纯澳门或默认：只显示新澳
+                const xamData = appState.lotteryData['xam'];
+                const issue = xamData?.issue || '未知';
+                const nums = xamData?.numbers || appState.lotteryNumbers || [];
+                html += renderSingleLotteryRow('新澳', issue, nums);
             }
             
             container.innerHTML = html;
