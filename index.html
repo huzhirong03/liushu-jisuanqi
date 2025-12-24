@@ -5482,27 +5482,23 @@
                             return orderA - orderB;
                         });
                         
-                        // 🆕 v3.11.12 使用 lineId + type + amount 预分组
-                        // 核心修复：后端可能把 "平特猴鸡各200" 拆分成两条记录，各有不同的 originalLine
-                        // 使用 lineId（行号）来确保同一行输入的同类型同金额能合并
+                        // 🆕 v3.11.11 按 originalLine + type + amount 预分组
+                        // 确保同一用户输入的同类型同金额能合并（如"平特猴鸡各200"）
                         const calcPreGroupMap = {};
                         
                         sortedResults.forEach((r) => {
-                            const lineId = r.lineId !== undefined ? r.lineId : '';
                             const originalLine = r.originalLine || '';
                             const itemType = r.type || '未知';
                             const itemAmount = r.amount || 0;
-                            // 🆕 v3.11.12 使用 lineId 替代 originalLine 作为分组依据
-                            const groupKey = `${lineId}|||${itemType}|||${itemAmount}`;
+                            const groupKey = `${originalLine}|||${itemType}|||${itemAmount}`;
                             
                             if (!calcPreGroupMap[groupKey]) {
                                 calcPreGroupMap[groupKey] = {
-                                    originalLine: originalLine,  // 保留第一条的 originalLine
+                                    originalLine: originalLine,
                                     type: itemType,
                                     amount: itemAmount,
                                     items: [],
                                     odds: r.odds || 1,
-                                    lineId: lineId,
                                     minOrder: r.fragmentOrder !== undefined ? r.fragmentOrder : 9999
                                 };
                             }
@@ -5526,17 +5522,13 @@
                                 }
                             });
                             pg.displayTexts = displayTexts;
-                            // 🆕 v3.11.12 保留原始的 originalLine，只在其为空时才用 displayTexts
-                            // 这样可以正确显示用户输入（如 "平特猴鸡各200"）
-                            if (!pg.originalLine || pg.originalLine.trim() === '') {
-                                pg.originalLine = displayTexts.join(' ');
-                            }
+                            pg.originalLine = displayTexts.join(' ');
                             pg.perAmount = pg.amount;
                             pg.fragmentOrder = pg.minOrder;
                         });
                         
                         // 调试日志
-                        console.log('📊 v3.11.12 分组结果:');
+                        console.log('📊 v3.11.11 分组结果:');
                         sortedGroups.forEach((g, i) => {
                             console.log(`  [${i}] type=${g.type} | amt=${g.perAmount} | items=${g.items.length} | "${g.originalLine?.substring(0,30)}..."`);
                         });
@@ -9720,27 +9712,22 @@
             const sortedLines = [];
             let fbCurrentLine = null;
             
-            // 🆕 v3.11.12 使用 lineId + type + amount 预分组
-            // 核心修复：后端可能把 "平特猴鸡各200" 拆分成两条记录，各有不同的 originalLine
-            // 使用 lineId（行号）来确保同一行输入的同类型同金额能合并
-            const preGroupMap = {};  // key: lineId|||type|||amount → items[]
+            // 🆕 v3.11.11 先按 originalLine + type + amount 预分组（确保同一用户输入的同类型同金额能合并）
+            const preGroupMap = {};  // key: originalLine|||type|||amount → items[]
             
             sortedItems.forEach((item) => {
-                const lineId = item.lineId !== undefined ? item.lineId : '';
                 const originalLine = item.originalLine || '';
                 const itemType = item.type || '未知';
                 const itemAmount = item.amount || 0;
-                // 🆕 v3.11.12 使用 lineId 替代 originalLine 作为分组依据
-                const groupKey = `${lineId}|||${itemType}|||${itemAmount}`;
+                const groupKey = `${originalLine}|||${itemType}|||${itemAmount}`;
                 
                 if (!preGroupMap[groupKey]) {
                     preGroupMap[groupKey] = {
-                        originalLine: originalLine,  // 保留第一条的 originalLine
+                        originalLine: originalLine,
                         type: itemType,
                         amount: itemAmount,
                         items: [],
                         groupId: item.groupId,
-                        lineId: lineId,
                         minOrder: item.fragmentOrder !== undefined ? item.fragmentOrder : 9999
                     };
                 }
@@ -9774,22 +9761,17 @@
                     items: pg.items,
                     perAmount: pg.amount,
                     fragmentOrder: pg.minOrder,
-                    lastFragmentOrder: pg.items[pg.items.length - 1]?.fragmentOrder || pg.minOrder,
-                    // 🆕 v3.11.12 保留原始的 originalLine
-                    originalLineRaw: pg.originalLine || ''
+                    lastFragmentOrder: pg.items[pg.items.length - 1]?.fragmentOrder || pg.minOrder
                 });
             });
             
             // 第3步：生成每组的显示文本
             sortedLines.forEach(line => {
-                // 🆕 v3.11.12 优先使用 originalLineRaw（用户原始输入），为空时才用 displayTexts
-                line.displayText = (line.originalLineRaw && line.originalLineRaw.trim()) 
-                    ? line.originalLineRaw 
-                    : line.displayTexts.join(' ');
+                line.displayText = line.displayTexts.join(' ');
             });
             
             // 调试日志
-            console.log('📋 v3.11.12 反馈分组结果:');
+            console.log('📋 v3.11.10 反馈分组结果:');
             sortedLines.forEach((line, i) => {
                 console.log(`  [${i}] type=${line.type} | amt=${line.perAmount} | items=${line.items.length} | "${line.displayText?.substring(0,30)}..."`);
             });
