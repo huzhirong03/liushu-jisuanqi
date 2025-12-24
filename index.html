@@ -9673,28 +9673,72 @@
             console.log('═══════════════════════════════════════════════════════');
             
             // ═══════════════════════════════════════════════════════════════════════
-            // 【步骤2】按类型+raw聚合数据
-            // 🆕 v3.11.7 修复：使用 raw 作为聚合 key，确保一行多类型时按类型分行显示
-            // 聚合规则：同一类型 + 同一 raw → 合并显示
+            // 【步骤2】按类型+用户输入行聚合数据
+            // 🆕 v3.11.8 修复：从用户输入行中提取该类型对应的片段作为显示文本
+            // 聚合规则：同一类型 + 同一用户输入行 → 合并显示
             // ═══════════════════════════════════════════════════════════════════════
             const lineMap = {};  // groupKey → { displayText, items: [], groupId, type }
             
+            // 🆕 v3.11.8 获取用户原始输入（用于提取片段）
+            const userInputText = document.getElementById('bet-input')?.value || '';
+            
+            // 🆕 v3.11.8 类型关键词映射（用于从用户输入中提取对应片段）
+            const TYPE_KEYWORDS = {
+                '特码': ['特', '买', 'x', 'X', '各'],
+                '生肖特码': ['特', '买', 'x', 'X', '各'],
+                '平特一肖': ['平特', 'PT1'],
+                '平特二连肖': ['二友', '二连肖', 'PT2', '一友'],
+                '平特三连肖': ['三友', '三连肖', 'PT3'],
+                '六肖': ['六肖', '6肖', 'LX', 'SX6'],
+                '波色': ['红', '蓝', '绿', '波'],
+                '半波': ['红单', '红双', '红大', '红小', '蓝单', '蓝双', '绿单', '绿双'],
+                '大小单双': ['大数', '小数', '单数', '双数', '大小', '单双']
+            };
+            
+            // 🆕 v3.11.8 从用户输入行中提取该类型对应的片段
+            function extractTypeFragment(userLine, typeName) {
+                if (!userLine) return null;
+                const keywords = TYPE_KEYWORDS[typeName] || [];
+                // 按逗号分割用户输入行
+                const fragments = userLine.split(/[,，]/);
+                for (const fragment of fragments) {
+                    const trimmed = fragment.trim();
+                    // 检查片段是否包含该类型的关键词
+                    for (const kw of keywords) {
+                        if (trimmed.includes(kw)) {
+                            return trimmed;
+                        }
+                    }
+                }
+                return null;
+            }
+            
             feedbackData.items.forEach((item, idx) => {
-                // 🆕 v3.11.7 使用 raw 作为显示文本（精确对应该类型的内容）
-                const rawText = item.raw || item.originalLine || '';
+                const rawText = item.raw || '';
+                const originalLine = item.originalLine || '';
                 const itemType = item.type || '未知';
                 
-                // 🆕 v3.11.7 使用 类型+raw 作为聚合 key
-                // 这样一行多类型时，每种类型会单独显示其对应的 raw 内容
-                const groupKey = `${itemType}|||${rawText}`;
+                // 🆕 v3.11.8 使用 类型+originalLine 作为聚合 key
+                // 这样同一用户输入行的同类型会合并（如平特猴和平特鸡合并）
+                const groupKey = `${itemType}|||${originalLine}`;
                 
                 if (!lineMap[groupKey]) {
+                    // 🆕 v3.11.8 从用户输入行中提取该类型对应的片段作为显示文本
+                    let displayText = rawText;
+                    const extractedFragment = extractTypeFragment(originalLine, itemType);
+                    if (extractedFragment) {
+                        displayText = extractedFragment;
+                    } else if (rawText && rawText !== originalLine) {
+                        // 如果无法提取，使用 raw（AI 返回的片段原文）
+                        displayText = rawText;
+                    }
+                    
                     lineMap[groupKey] = {
                         lineId: item.lineId,
                         groupId: item.groupId,
-                        // 🆕 v3.11.7 使用 raw 作为显示文本
-                        displayText: rawText,
-                        originalLine: item.originalLine,
+                        // 🆕 v3.11.8 使用提取的片段或 raw 作为显示文本
+                        displayText: displayText,
+                        originalLine: originalLine,
                         type: itemType,
                         items: [],
                         // 🆕 v3.8.3 使用 fragmentOrder（预处理时分配的全局顺序）
