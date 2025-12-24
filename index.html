@@ -2370,11 +2370,10 @@
             <div id="feedback-fixed-header" style="position:sticky;top:0;z-index:100;background:linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.1);">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                     <button class="btn-back" onclick="showPage('page-main')" style="padding:5px 10px;background:rgba(255,255,255,0.1);border:none;border-radius:5px;color:#fff;font-size:14px;cursor:pointer;">← 返回</button>
-                    <span id="fb-issue" style="font-size:13px;color:#a78bfa;font-weight:bold;">第--期</span>
                 </div>
                 
-                <!-- 🆕 开奖号码球显示 -->
-                <div id="fb-lottery-balls" class="lottery-balls" style="gap:4px;justify-content:center;margin-bottom:8px;min-height:40px;">
+                <!-- 🆕 v3.11.24 开奖号码区域（期号在左，号码球在右）支持双开奖 -->
+                <div id="fb-lottery-section" style="margin-bottom:8px;">
                     <!-- 动态渲染 -->
                 </div>
                 
@@ -5298,6 +5297,21 @@
             }
             
             // ════════════════════════════════════════════════════════════════
+            // 🆕 v3.11.24 【彩种检测】检查是否包含不支持的"旧澳"
+            // ════════════════════════════════════════════════════════════════
+            const lotteryTypes = analyzeLotteryTypes(input);
+            console.log('🎯 [彩种检测]', lotteryTypes);
+            
+            if (lotteryTypes.hasOldAM) {
+                alert(`⚠️ 暂不支持"${lotteryTypes.oldAmKeyword}"计算\n目前只支持：新澳门、香港`);
+                return;
+            }
+            
+            // 🆕 v3.11.24 记录是否需要显示双开奖结果
+            window.showBothLotteryResults = lotteryTypes.hasHK;
+            console.log('🎯 [双开奖显示]', window.showBothLotteryResults ? '是（包含香港下注）' : '否');
+            
+            // ════════════════════════════════════════════════════════════════
             // 🆕 【孤儿行检测】在正式解析前检测可能的断行
             // ════════════════════════════════════════════════════════════════
             const orphans = detectOrphanLines(input);
@@ -5568,10 +5582,31 @@
                         const tema = appState.lotteryNumbers[6];
                         const lotteryStr = appState.lotteryNumbers.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') + ' + 特码' + String(tema).padStart(2,'0');
                         
+                        // 🆕 v3.11.24 生成双开奖结果（如果包含香港下注）
+                        let lotteryResultText = '';
+                        if (window.showBothLotteryResults) {
+                            // 获取新澳和香港的开奖号码
+                            const xamData = appState.lotteryData['xam'];
+                            const hkData = appState.lotteryData['hk'];
+                            const xamNums = xamData?.numbers || appState.lotteryNumbers;
+                            const hkNums = hkData?.numbers || [];
+                            
+                            const xamStr = xamNums.length === 7 
+                                ? xamNums.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') + ' + 特码' + String(xamNums[6]).padStart(2,'0')
+                                : '未设置';
+                            const hkStr = hkNums.length === 7
+                                ? hkNums.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') + ' + 特码' + String(hkNums[6]).padStart(2,'0')
+                                : '未设置';
+                            
+                            lotteryResultText = `🎰 新澳开奖: ${xamStr}\n🎰 香港开奖: ${hkStr}\n`;
+                        } else {
+                            lotteryResultText = `🎰 开奖: ${lotteryStr}\n`;
+                        }
+                        
                         // 生成结果文本
                         let resultText = `📊 计算结果\n`;
                         resultText += `━━━━━━━━━━━━━━━━━━\n`;
-                        resultText += `🎰 开奖: ${lotteryStr}\n`;
+                        resultText += lotteryResultText;
                         resultText += `━━━━━━━━━━━━━━━━━━\n`;
                         resultText += `📋 识别 ${calcResults.length} 注 | 总投 ${totalBet}元\n`;
                         resultText += `中${totalWin}注 | 派彩 ${totalWinAmount}元\n`;
@@ -5873,10 +5908,30 @@
             const tema = appState.lotteryNumbers[6];
             const lotteryStr = appState.lotteryNumbers.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') + ' + 特码' + String(tema).padStart(2,'0');
             
+            // 🆕 v3.11.24 生成双开奖结果（如果包含香港下注）
+            let lotteryResultText2 = '';
+            if (window.showBothLotteryResults) {
+                const xamData = appState.lotteryData['xam'];
+                const hkData = appState.lotteryData['hk'];
+                const xamNums = xamData?.numbers || appState.lotteryNumbers;
+                const hkNums = hkData?.numbers || [];
+                
+                const xamStr = xamNums.length === 7 
+                    ? xamNums.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') + ' + 特码' + String(xamNums[6]).padStart(2,'0')
+                    : '未设置';
+                const hkStr = hkNums.length === 7
+                    ? hkNums.slice(0,6).map(n => String(n).padStart(2,'0')).join(' ') + ' + 特码' + String(hkNums[6]).padStart(2,'0')
+                    : '未设置';
+                
+                lotteryResultText2 = `🎰 新澳开奖: ${xamStr}\n🎰 香港开奖: ${hkStr}\n`;
+            } else {
+                lotteryResultText2 = `🎰 开奖: ${lotteryStr}\n`;
+            }
+            
             // 生成结果文本（更清晰的格式）
             let resultText = `📊 计算结果\n`;
             resultText += `━━━━━━━━━━━━━━━━━━\n`;
-            resultText += `🎰 开奖: ${lotteryStr}\n`;
+            resultText += lotteryResultText2;
             resultText += `━━━━━━━━━━━━━━━━━━\n`;
             // 🆕 v2.4.8 统计信息：识别注数 | 总投 | 中奖注数 | 派彩
             resultText += `📋 识别 ${calcResults.length} 注 | 总投 ${totalBet}元\n`;
@@ -6864,6 +6919,85 @@
             
             console.log('🔄 AI预处理:', text, '→', result);
             return result;
+        }
+        
+        // ==================== 【彩种识别系统 v3.11.24】 ====================
+        // 🎯 识别用户输入中的彩种标识（香港/新澳/旧澳）
+        // 📝 规则：
+        //   - 香港/香/港 → 香港
+        //   - 新奥/澳/奥/新澳/澳门 → 新澳门
+        //   - 无标识 → 默认新澳门
+        //   - 旧澳/旧澳门/旧奥 → 不支持，弹窗提醒
+        
+        /**
+         * 检测输入文本中的彩种类型
+         * @param {string} line 单行文本
+         * @returns {object} { type: 'hk'|'xam'|'old_am'|'default', keyword: 匹配到的关键字 }
+         */
+        function detectLotteryType(line) {
+            if (!line) return { type: 'default', keyword: null };
+            
+            // 🚫 优先检测不支持的"旧澳"类型（必须最先检测）
+            const oldAmPatterns = [/旧澳门/g, /旧澳/g, /旧奥/g];
+            for (const pattern of oldAmPatterns) {
+                const match = line.match(pattern);
+                if (match) {
+                    return { type: 'old_am', keyword: match[0] };
+                }
+            }
+            
+            // 🇭🇰 检测香港
+            const hkPatterns = [/香港/g, /^香(?=[^港]|$)/gm, /(?<=[^香])港$/gm, /^港/gm];
+            // 更精确的香港检测：香港、行首的香、行尾的港
+            if (/香港/.test(line) || /^香/.test(line) || /港$/.test(line) || /^港/.test(line)) {
+                // 排除"新澳门"等
+                if (!/新澳|澳门|旧澳|旧奥/.test(line)) {
+                    const keyword = line.match(/香港|香|港/)?.[0];
+                    return { type: 'hk', keyword };
+                }
+            }
+            
+            // 🇲🇴 检测新澳门
+            const xamPatterns = [/新澳门/, /新澳/, /新奥/, /澳门/, /^澳/, /^奥/, /澳$/, /奥$/];
+            for (const pattern of xamPatterns) {
+                if (pattern.test(line)) {
+                    const keyword = line.match(/新澳门|新澳|新奥|澳门|澳|奥/)?.[0];
+                    return { type: 'xam', keyword };
+                }
+            }
+            
+            // 默认：新澳门
+            return { type: 'default', keyword: null };
+        }
+        
+        /**
+         * 分析整个输入文本，返回包含的彩种
+         * @param {string} input 完整输入文本
+         * @returns {object} { hasHK: bool, hasXAM: bool, hasOldAM: bool, oldAmKeyword: string }
+         */
+        function analyzeLotteryTypes(input) {
+            const lines = input.split('\n');
+            let hasHK = false;
+            let hasXAM = false;
+            let hasOldAM = false;
+            let oldAmKeyword = null;
+            
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+                
+                const result = detectLotteryType(trimmed);
+                if (result.type === 'hk') hasHK = true;
+                if (result.type === 'xam') hasXAM = true;
+                if (result.type === 'old_am') {
+                    hasOldAM = true;
+                    oldAmKeyword = result.keyword;
+                }
+                // default 类型计入新澳门
+                if (result.type === 'default') hasXAM = true;
+            }
+            
+            return { hasHK, hasXAM, hasOldAM, oldAmKeyword };
         }
         
         // ==================== 【输入标准化系统 v3.11.6】 ====================
@@ -9752,15 +9886,14 @@
             const profit = winAmount - totalBet;
             
             // 更新顶部固定栏
-            document.getElementById('fb-issue').textContent = `${typeNames[currentType]} 第${issue}期`;
             document.getElementById('fb-total-bet').textContent = totalBet;
             document.getElementById('fb-win-count').textContent = winCount;
             document.getElementById('fb-win-amount').textContent = winAmount;
             document.getElementById('fb-total-result').textContent = (profit >= 0 ? '+' : '') + profit;
             document.getElementById('fb-total-result').style.color = profit >= 0 ? '#4caf50' : '#f44336';
             
-            // 🆕 渲染开奖号码球
-            renderFeedbackLotteryBalls(lotteryNums);
+            // 🆕 v3.11.24 渲染开奖号码区域（支持双开奖）
+            renderFeedbackLotterySection();
             
             // 渲染卡片列表
             renderFeedbackCards();
@@ -9773,45 +9906,90 @@
         }
         
         // ════════════════════════════════════════════════════════════════════════════
-        // 🆕 渲染反馈页的开奖号码球
+        // 🆕 v3.11.24 渲染反馈页的开奖区域（期号在左，号码球在右，支持双开奖）
         // ════════════════════════════════════════════════════════════════════════════
-        function renderFeedbackLotteryBalls(lotteryNums) {
-            const container = document.getElementById('fb-lottery-balls');
+        function renderFeedbackLotterySection() {
+            const container = document.getElementById('fb-lottery-section');
             if (!container) return;
             
-            if (!lotteryNums || lotteryNums.length < 7) {
-                container.innerHTML = '<span style="color:#666;font-size:12px;">未设置开奖号码</span>';
-                return;
-            }
+            const typeNames = { xam: '新澳', hk: '香港', am: '澳门' };
+            const currentType = appState.currentLotteryType || 'xam';
+            
+            // 判断是否需要显示双开奖
+            const showBoth = window.showBothLotteryResults || false;
             
             let html = '';
-            // 前6个平码
-            for (let i = 0; i < 6; i++) {
-                const num = lotteryNums[i];
-                const color = getNumberColor(num);
-                const shengxiao = getNumberShengxiao(num);
-                html += `
-                    <div class="ball-wrapper" style="transform:scale(0.85);">
-                        <div class="ball ${color} no-anim">${String(num).padStart(2, '0')}</div>
-                        <div class="ball-info">${shengxiao}</div>
+            
+            if (showBoth) {
+                // 显示两个开奖结果
+                const xamData = appState.lotteryData['xam'];
+                const hkData = appState.lotteryData['hk'];
+                
+                // 新澳门开奖
+                html += renderSingleLotteryRow('新澳', xamData?.issue || '未知', xamData?.numbers || []);
+                // 香港开奖
+                html += renderSingleLotteryRow('香港', hkData?.issue || '未知', hkData?.numbers || []);
+            } else {
+                // 只显示当前彩种
+                const currentData = appState.lotteryData[currentType];
+                const issue = currentData?.issue || '未知';
+                const nums = appState.lotteryNumbers || [];
+                html += renderSingleLotteryRow(typeNames[currentType], issue, nums);
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        // 渲染单行开奖结果（期号在左，号码球在右）
+        function renderSingleLotteryRow(typeName, issue, lotteryNums) {
+            let ballsHtml = '';
+            
+            if (!lotteryNums || lotteryNums.length < 7) {
+                ballsHtml = '<span style="color:#666;font-size:12px;">未设置</span>';
+            } else {
+                // 前6个平码
+                for (let i = 0; i < 6; i++) {
+                    const num = lotteryNums[i];
+                    const color = getNumberColor(num);
+                    const shengxiao = getNumberShengxiao(num);
+                    ballsHtml += `
+                        <div class="ball-wrapper" style="transform:scale(0.75);">
+                            <div class="ball ${color} no-anim">${String(num).padStart(2, '0')}</div>
+                            <div class="ball-info">${shengxiao}</div>
+                        </div>
+                    `;
+                }
+                
+                ballsHtml += '<span class="ball-plus" style="font-size:12px;">+</span>';
+                
+                // 特码
+                const special = lotteryNums[6];
+                const specialColor = getNumberColor(special);
+                const specialShengxiao = getNumberShengxiao(special);
+                ballsHtml += `
+                    <div class="ball-wrapper" style="transform:scale(0.75);">
+                        <div class="ball ${specialColor} no-anim">${String(special).padStart(2, '0')}</div>
+                        <div class="ball-info">${specialShengxiao}</div>
                     </div>
                 `;
             }
             
-            html += '<span class="ball-plus">+</span>';
+            // 期号颜色：新澳用红色，香港用绿色
+            const typeColor = typeName === '香港' ? '#4CAF50' : '#e94560';
             
-            // 特码
-            const special = lotteryNums[6];
-            const specialColor = getNumberColor(special);
-            const specialShengxiao = getNumberShengxiao(special);
-            html += `
-                <div class="ball-wrapper" style="transform:scale(0.85);">
-                    <div class="ball ${specialColor} no-anim">${String(special).padStart(2, '0')}</div>
-                    <div class="ball-info">${specialShengxiao}</div>
+            return `
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                    <span style="font-size:11px;color:${typeColor};font-weight:bold;white-space:nowrap;min-width:80px;">${typeName} 第${issue}期</span>
+                    <div class="lottery-balls" style="gap:2px;justify-content:flex-start;flex:1;flex-wrap:nowrap;">
+                        ${ballsHtml}
+                    </div>
                 </div>
             `;
-            
-            container.innerHTML = html;
+        }
+        
+        // 兼容旧代码：保留原函数但内部调用新函数
+        function renderFeedbackLotteryBalls(lotteryNums) {
+            renderFeedbackLotterySection();
         }
         
         // ════════════════════════════════════════════════════════════════════════════
