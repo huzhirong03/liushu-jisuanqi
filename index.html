@@ -5533,16 +5533,32 @@
                             console.log(`  [${i}] order=${g.fragmentOrder} | "${g.originalLine?.substring(0,25)}..."`);
                         });
                         
+                        // 🆕 v3.11.9 复合类型定义（这些类型虽然展开多条，但实际是1注）
+                        const COMPOSITE_TYPES = [
+                            '六肖', 'LX', 'LX6', 'SX6',           // 六肖
+                            '平特二连肖', 'PT2',                   // 平特二连肖
+                            '平特三连肖', 'PT3',                   // 平特三连肖
+                            '平特四连肖', 'PT4',                   // 平特四连肖
+                            '平特五连肖', 'PT5',                   // 平特五连肖
+                            '合肖', 'HX',                          // 合肖
+                            '二中二', 'E2',                        // 二中二
+                            '三中三', 'S3'                         // 三中三
+                        ];
+                        
                         for (const group of sortedGroups) {
                             const items = group.items;
                             const type = group.type;
                             const originalLine = group.originalLine;
-                            const betCount = items.length;
-                            const typeTotal = items.reduce((s, it) => s + it.amount, 0);
+                            
+                            // 🆕 v3.11.9 复合类型注数固定为1注
+                            const isCompositeType = COMPOSITE_TYPES.includes(type);
+                            const betCount = isCompositeType ? 1 : items.length;
+                            const perAmount = items[0]?.amount || 0;
+                            const typeTotal = isCompositeType ? perAmount : items.reduce((s, it) => s + it.amount, 0);
+                            
                             const hasWin = items.some(r => r.isWin);
                             const typeOdds = items[0]?.odds || 1;
                             const winPayout = items.filter(r => r.isWin).reduce((s, r) => s + r.winAmount, 0);
-                            const perAmount = items[0]?.amount || 0;
                             
                             // 🆕 v3.6.1 优化展示：聚合号码列表
                             const allNums = items.map(it => it.number || (it.numbers && it.numbers[0])).filter(n => n);
@@ -6648,13 +6664,15 @@
             'PT': '平特',
             'pt': '平特',
             
-            // ===== 二友/二连肖变体 =====
-            '2友': '二友',
+            // ===== 一友变体（平特一肖）=====
+            '1友': '一友',  // 一友=平特一肖（选1个生肖）
+            
+            // ===== 二友/二连肖变体（平特二连肖）=====
+            '2友': '二友',  // 二友=平特二连肖（选2个生肖）
             '两友': '二友',
             '双友': '二友',
             '二连肖': '二友',
-            '2连肖': '二友',
-            '1友': '一友',  // 一友也是二连肖的口语说法
+            '2连肖': '二友'
             
             // ===== 三友/三连肖变体 =====
             '3友': '三友',
@@ -9682,14 +9700,15 @@
             // 🆕 v3.11.8 获取用户原始输入（用于提取片段）
             const userInputText = document.getElementById('bet-input')?.value || '';
             
-            // 🆕 v3.11.8 类型关键词映射（用于从用户输入中提取对应片段）
+            // 🆕 v3.11.9 类型关键词映射（用于从用户输入中提取对应片段）
+            // ★★★ 一友=平特一肖(PT1)，二友=平特二连肖(PT2) ★★★
             const TYPE_KEYWORDS = {
                 '特码': ['特', '买', 'x', 'X', '各'],
                 '生肖特码': ['特', '买', 'x', 'X', '各'],
-                '平特一肖': ['平特', 'PT1'],
-                '平特二连肖': ['二友', '二连肖', 'PT2', '一友'],
-                '平特三连肖': ['三友', '三连肖', 'PT3'],
-                '六肖': ['六肖', '6肖', 'LX', 'SX6'],
+                '平特一肖': ['平特', 'PT1', '一友', '1友'],  // 一友=平特一肖
+                '平特二连肖': ['二友', '2友', '二连肖', 'PT2'],  // 二友=平特二连肖
+                '平特三连肖': ['三友', '3友', '三连肖', 'PT3'],
+                '六肖': ['六肖', '6肖', 'LX', 'SX6'],  // 六肖关键词
                 '波色': ['红', '蓝', '绿', '波'],
                 '半波': ['红单', '红双', '红大', '红小', '蓝单', '蓝双', '绿单', '绿双'],
                 '大小单双': ['大数', '小数', '单数', '双数', '大小', '单双']
