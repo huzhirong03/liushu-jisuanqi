@@ -690,6 +690,67 @@
                 cursor: not-allowed;
             }
             
+            /* 🆕 v3.11.44 统一工具栏按钮样式 */
+            .toolbar-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 2px;
+                min-width: 42px;
+                height: 28px;
+                padding: 0 8px;
+                border: none;
+                border-radius: 6px;
+                color: white;
+                font-size: 11px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                white-space: nowrap;
+            }
+            .toolbar-btn:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+            }
+            .toolbar-btn:active {
+                transform: translateY(0);
+            }
+            .toolbar-btn .btn-text {
+                font-size: 10px;
+            }
+            .toolbar-btn-secondary {
+                background: rgba(255,255,255,0.1) !important;
+                border: 1px solid rgba(255,255,255,0.2);
+                color: #ccc;
+            }
+            .toolbar-btn-primary {
+                background: linear-gradient(135deg,#e94560,#c23a51) !important;
+                font-weight: bold;
+            }
+            
+            /* 调试面板Tab样式 */
+            .debug-tab {
+                flex: 1;
+                padding: 10px 12px;
+                background: transparent;
+                border: none;
+                border-bottom: 2px solid transparent;
+                color: #888;
+                cursor: pointer;
+                transition: all 0.3s;
+                text-align: center;
+                font-size: 13px;
+            }
+            .debug-tab:hover {
+                color: #aaa;
+                background: rgba(255,255,255,0.05);
+            }
+            .debug-tab.active {
+                color: #9b59b6;
+                border-bottom-color: #9b59b6;
+                background: rgba(155,89,182,0.1);
+            }
+            
             /* 多模型对比标签 */
             .model-tab {
                 flex: 1;
@@ -1170,18 +1231,20 @@
                 <div class="input-section" style="flex:1;display:flex;flex-direction:column;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                         <div class="input-section-title" style="margin-bottom:0;">粘贴下注信息</div>
-                        <div style="display:flex;gap:6px;align-items:center;">
-                            <!-- 调试按钮 -->
-                            <button onclick="showAIDebug()" style="padding:4px 8px;background:linear-gradient(90deg,#9b59b6,#8e44ad);color:white;border:none;border-radius:4px;font-size:10px;cursor:pointer;" title="查看AI识别详情">🤖AI</button>
-                            <button onclick="showLocalDebug()" style="padding:4px 8px;background:linear-gradient(90deg,#27ae60,#229954);color:white;border:none;border-radius:4px;font-size:10px;cursor:pointer;" title="查看程序识别详情">📋程序</button>
-                            <!-- 多模型对比按钮 - 直接打开弹窗，支持边缘测试 -->
-                            <button onclick="openMultiModelModal()" style="padding:4px 8px;background:linear-gradient(90deg,#f39c12,#e67e22);color:white;border:none;border-radius:4px;font-size:10px;cursor:pointer;" title="多模型对比测试">🔬对比</button>
-                            <!-- 分组编辑按钮 -->
-                            <button onclick="showGroupEditor()" style="padding:4px 8px;background:linear-gradient(90deg,#667eea,#764ba2);color:white;border:none;border-radius:4px;font-size:10px;cursor:pointer;" title="手动编辑分组">📦分组</button>
-                            <!-- 原有按钮 -->
-                            <button onclick="showCheckDetail()" style="padding:6px 12px;background:linear-gradient(90deg,#3498db,#2980b9);color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">🔍 核对</button>
-                            <button onclick="clearInput()" style="padding:6px 12px;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.2);border-radius:6px;font-size:12px;cursor:pointer;">清空</button>
-                            <button onclick="calculateBets()" style="padding:6px 12px;background:linear-gradient(90deg,#e94560,#c23a51);color:white;border:none;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;">📊 开始计算</button>
+                        <!-- 🆕 v3.11.44 统一按钮样式，合并AI+程序为详情按钮 -->
+                        <div style="display:flex;gap:4px;align-items:center;">
+                            <!-- 详情按钮（合并AI+程序，内部Tab切换） -->
+                            <button onclick="showDebugPanel()" class="toolbar-btn" style="background:linear-gradient(135deg,#9b59b6,#8e44ad);" title="查看识别详情">🤖<span class="btn-text">详情</span></button>
+                            <!-- 对比测试 -->
+                            <button onclick="openMultiModelModal()" class="toolbar-btn" style="background:linear-gradient(135deg,#f39c12,#e67e22);" title="多模型对比测试">📊<span class="btn-text">对比</span></button>
+                            <!-- 分组编辑 -->
+                            <button onclick="showGroupEditor()" class="toolbar-btn" style="background:linear-gradient(135deg,#667eea,#764ba2);" title="手动编辑分组">📦<span class="btn-text">分组</span></button>
+                            <!-- 核对 -->
+                            <button onclick="showCheckDetail()" class="toolbar-btn" style="background:linear-gradient(135deg,#3498db,#2980b9);" title="核对下注">🔍<span class="btn-text">核对</span></button>
+                            <!-- 清空 -->
+                            <button onclick="clearInput()" class="toolbar-btn toolbar-btn-secondary" title="清空输入">🗑️<span class="btn-text">清空</span></button>
+                            <!-- 结算（原开始计算） -->
+                            <button onclick="calculateBets()" class="toolbar-btn toolbar-btn-primary" title="开始计算">💰<span class="btn-text">结算</span></button>
                         </div>
                     </div>
                     <textarea class="input-textarea" id="bet-input" style="flex:1;min-height:200px;" placeholder="粘贴下注信息，支持智能分组计算盈亏
@@ -2623,7 +2686,148 @@
             showDebugModal('📋 程序识别详情', content);
         }
         
-        // 显示调试弹窗
+        // 🆕 v3.11.44 显示调试面板（合并AI+程序，支持Tab切换）
+        function showDebugPanel() {
+            // 移除已有弹窗
+            const existing = document.getElementById('debug-modal');
+            if (existing) existing.remove();
+            
+            const input = document.getElementById('bet-input').value.trim();
+            
+            // 重新执行本地解析
+            const localBets = parseBetInput(input);
+            debugInfo.localBets = localBets;
+            
+            const modal = document.createElement('div');
+            modal.id = 'debug-modal';
+            modal.innerHTML = `
+                <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;justify-content:center;align-items:center;padding:15px;">
+                    <div style="background:#1a1a2e;border-radius:12px;max-width:600px;width:100%;max-height:90vh;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.5);display:flex;flex-direction:column;">
+                        <!-- 标题栏 -->
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:rgba(0,0,0,0.3);border-bottom:1px solid rgba(255,255,255,0.1);">
+                            <span style="font-weight:bold;font-size:15px;">🔍 识别详情</span>
+                            <button onclick="document.getElementById('debug-modal').remove()" style="background:none;border:none;color:white;font-size:22px;cursor:pointer;padding:0 5px;line-height:1;">×</button>
+                        </div>
+                        
+                        <!-- Tab切换 -->
+                        <div style="display:flex;border-bottom:1px solid rgba(255,255,255,0.1);">
+                            <button class="debug-tab active" onclick="switchDebugTab('ai', this)" id="debug-tab-ai">🤖 AI识别</button>
+                            <button class="debug-tab" onclick="switchDebugTab('local', this)" id="debug-tab-local">📋 程序识别</button>
+                        </div>
+                        
+                        <!-- 内容区域 -->
+                        <div style="flex:1;overflow:auto;max-height:calc(90vh - 110px);">
+                            <!-- AI识别内容 -->
+                            <div id="debug-content-ai" style="padding:16px;font-size:13px;line-height:1.6;">
+                                ${generateAIDebugContent()}
+                            </div>
+                            <!-- 程序识别内容 -->
+                            <div id="debug-content-local" style="padding:16px;font-size:13px;line-height:1.6;display:none;">
+                                ${generateLocalDebugContent(input, localBets)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        
+        // Tab切换函数
+        function switchDebugTab(tab, btn) {
+            // 更新Tab样式
+            document.querySelectorAll('.debug-tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // 切换内容
+            document.getElementById('debug-content-ai').style.display = tab === 'ai' ? 'block' : 'none';
+            document.getElementById('debug-content-local').style.display = tab === 'local' ? 'block' : 'none';
+        }
+        
+        // 生成AI调试内容
+        function generateAIDebugContent() {
+            let content = '';
+            
+            if (debugInfo.lastError) {
+                content += `<div style="background:#c0392b;padding:10px;border-radius:6px;margin-bottom:10px;">
+                    <strong>❌ 错误信息：</strong><br>${debugInfo.lastError}
+                </div>`;
+            }
+            
+            content += `<div style="background:rgba(155,89,182,0.2);padding:10px;border-radius:6px;margin-bottom:10px;">
+                <strong>📤 输入（用户原文）：</strong><br>
+                <pre style="white-space:pre-wrap;margin:5px 0;background:rgba(0,0,0,0.3);padding:8px;border-radius:4px;max-height:120px;overflow:auto;">${debugInfo.sanitizedInput || '无'}</pre>
+            </div>`;
+            
+            content += `<div style="background:rgba(155,89,182,0.2);padding:10px;border-radius:6px;margin-bottom:10px;">
+                <strong>📥 AI原始输出：</strong><br>
+                <pre style="white-space:pre-wrap;margin:5px 0;background:rgba(0,0,0,0.3);padding:8px;border-radius:4px;max-height:120px;overflow:auto;">${debugInfo.aiRaw || '无'}</pre>
+            </div>`;
+            
+            content += `<div style="background:rgba(155,89,182,0.2);padding:10px;border-radius:6px;margin-bottom:10px;">
+                <strong>🔍 AI识别结果：</strong><br>`;
+            if (debugInfo.aiParsed && debugInfo.aiParsed.items) {
+                content += `<table style="width:100%;border-collapse:collapse;margin-top:8px;">
+                    <tr style="background:rgba(0,0,0,0.3);"><th style="padding:6px;border:1px solid #555;text-align:left;">原文</th><th style="padding:6px;border:1px solid #555;">类型</th></tr>`;
+                for (const item of debugInfo.aiParsed.items) {
+                    content += `<tr><td style="padding:6px;border:1px solid #555;font-size:12px;">${item.raw || ''}</td><td style="padding:6px;border:1px solid #555;color:#9b59b6;font-weight:bold;">${item.type || ''}</td></tr>`;
+                }
+                content += `</table>`;
+            } else {
+                content += `<span style="color:#888;">无识别结果</span>`;
+            }
+            content += `</div>`;
+            
+            content += `<div style="background:rgba(155,89,182,0.2);padding:10px;border-radius:6px;">
+                <strong>📊 最终下注（${debugInfo.aiBets?.length || 0}条）：</strong><br>`;
+            if (debugInfo.aiBets && debugInfo.aiBets.length > 0) {
+                content += `<pre style="white-space:pre-wrap;margin:5px 0;background:rgba(0,0,0,0.3);padding:8px;border-radius:4px;max-height:150px;overflow:auto;font-size:11px;">${JSON.stringify(debugInfo.aiBets, null, 2)}</pre>`;
+            } else {
+                content += `<span style="color:#888;">无</span>`;
+            }
+            content += `</div>`;
+            
+            return content;
+        }
+        
+        // 生成程序调试内容
+        function generateLocalDebugContent(input, localBets) {
+            let content = '';
+            
+            content += `<div style="background:rgba(39,174,96,0.2);padding:10px;border-radius:6px;margin-bottom:10px;">
+                <strong>📤 输入（用户原文）：</strong><br>
+                <pre style="white-space:pre-wrap;margin:5px 0;background:rgba(0,0,0,0.3);padding:8px;border-radius:4px;max-height:120px;overflow:auto;">${input || '无'}</pre>
+            </div>`;
+            
+            content += `<div style="background:rgba(39,174,96,0.2);padding:10px;border-radius:6px;margin-bottom:10px;">
+                <strong>🔍 逐行识别结果：</strong><br>`;
+            const lines = input.split('\n').filter(l => l.trim());
+            if (lines.length > 0) {
+                content += `<table style="width:100%;border-collapse:collapse;margin-top:8px;">
+                    <tr style="background:rgba(0,0,0,0.3);"><th style="padding:6px;border:1px solid #555;text-align:left;">原文</th><th style="padding:6px;border:1px solid #555;">类型</th></tr>`;
+                for (const line of lines) {
+                    const lineBets = parseBetLine(line.trim());
+                    const types = lineBets.map(b => b.type).join(', ') || '未识别';
+                    content += `<tr><td style="padding:6px;border:1px solid #555;font-size:12px;">${line}</td><td style="padding:6px;border:1px solid #555;color:#27ae60;font-weight:bold;">${types}</td></tr>`;
+                }
+                content += `</table>`;
+            } else {
+                content += `<span style="color:#888;">无输入</span>`;
+            }
+            content += `</div>`;
+            
+            content += `<div style="background:rgba(39,174,96,0.2);padding:10px;border-radius:6px;">
+                <strong>📊 最终下注（${localBets.length}条）：</strong><br>`;
+            if (localBets.length > 0) {
+                content += `<pre style="white-space:pre-wrap;margin:5px 0;background:rgba(0,0,0,0.3);padding:8px;border-radius:4px;max-height:150px;overflow:auto;font-size:11px;">${JSON.stringify(localBets, null, 2)}</pre>`;
+            } else {
+                content += `<span style="color:#888;">无</span>`;
+            }
+            content += `</div>`;
+            
+            return content;
+        }
+        
+        // 显示调试弹窗（保留原函数用于兼容）
         function showDebugModal(title, content) {
             // 移除已有弹窗
             const existing = document.getElementById('debug-modal');
