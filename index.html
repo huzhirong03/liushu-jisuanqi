@@ -5380,6 +5380,31 @@
                                 }
                             }
                             
+                            // 🆕 v3.11.12 改进匹配：处理"各/每"关键词拆分的情况
+                            // 例如：用户输入 "平特Z9Z10各200"，后端拆分为 "平特Z9各200" 和 "平特Z10各200"
+                            if (!groupInfo) {
+                                const itemZodiacs = (itemRaw.match(/Z\d{1,2}/g) || []);
+                                const itemAmountMatch = itemRaw.match(/(\d+)(?:元)?$/);
+                                const itemAmount = itemAmountMatch ? itemAmountMatch[1] : '';
+                                
+                                for (const [key, info] of Object.entries(lineToGroupMap)) {
+                                    // 检查 key 是否包含"各"或"每"关键词
+                                    if (key.includes('各') || key.includes('每')) {
+                                        const keyZodiacs = (key.match(/Z\d{1,2}/g) || []);
+                                        const keyAmountMatch = key.match(/(\d+)(?:元)?$/);
+                                        const keyAmount = keyAmountMatch ? keyAmountMatch[1] : '';
+                                        
+                                        // 如果 key 包含 itemRaw 的所有生肖代号，且金额相同
+                                        if (itemZodiacs.length > 0 && 
+                                            itemZodiacs.every(z => keyZodiacs.includes(z)) && 
+                                            itemAmount === keyAmount) {
+                                            groupInfo = info;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            
                             // 默认分组
                             if (!groupInfo) {
                                 groupInfo = { groupId: 1, lineIndex: 0, originalLine: itemRaw };
@@ -5513,6 +5538,7 @@
                         const sortedGroups = Object.values(calcPreGroupMap).sort((a, b) => a.minOrder - b.minOrder);
                         
                         // 转换格式：收集显示文本
+                        // 🆕 v3.11.12 修复：保留用户输入的原始行作为显示文本（而不是拆分后的片段组合）
                         sortedGroups.forEach((pg) => {
                             const displayTexts = [];
                             pg.items.forEach(r => {
@@ -5522,7 +5548,15 @@
                                 }
                             });
                             pg.displayTexts = displayTexts;
-                            pg.originalLine = displayTexts.join(' ');
+                            // 🆕 v3.11.12 如果原始 originalLine 包含"各/每"且有多个生肖，保留原始文本
+                            // 例如：用户输入 "平特猴鸡各200"，显示 "平特猴鸡各200" 而不是 "平特猴各200 平特鸡各200"
+                            const firstItemOriginal = pg.items[0]?.originalLine || '';
+                            if ((firstItemOriginal.includes('各') || firstItemOriginal.includes('每')) && 
+                                pg.items.length > 1 && firstItemOriginal.length > 0) {
+                                pg.originalLine = firstItemOriginal;
+                            } else {
+                                pg.originalLine = displayTexts.join(' ');
+                            }
                             pg.perAmount = pg.amount;
                             pg.fragmentOrder = pg.minOrder;
                         });
@@ -9766,8 +9800,16 @@
             });
             
             // 第3步：生成每组的显示文本
+            // 🆕 v3.11.12 修复：保留用户输入的原始行作为显示文本
             sortedLines.forEach(line => {
-                line.displayText = line.displayTexts.join(' ');
+                const firstItemOriginal = line.items[0]?.originalLine || '';
+                // 如果原始行包含"各/每"且有多个生肖，保留原始文本
+                if ((firstItemOriginal.includes('各') || firstItemOriginal.includes('每')) && 
+                    line.items.length > 1 && firstItemOriginal.length > 0) {
+                    line.displayText = firstItemOriginal;
+                } else {
+                    line.displayText = line.displayTexts.join(' ');
+                }
             });
             
             // 调试日志
