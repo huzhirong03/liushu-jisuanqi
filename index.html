@@ -5553,8 +5553,10 @@
                                 lineId: `${finalGroupId}-${finalLineIndex}`,
                                 globalLineIndex: idx,
                                 betIndexInLine: item.idx || 0,
-                                // 🆕 v3.8.3 片段顺序（用于排序）
-                                fragmentOrder: fragmentOrder,
+                                // 🆕 v3.11.37 优先使用后端返回的input_order（保证按用户输入顺序）
+                                // 如果后端没有返回，则使用前端计算的fragmentOrder
+                                fragmentOrder: item.input_order !== undefined && item.input_order !== 9999 
+                                    ? item.input_order : fragmentOrder,
                                 // 🆕 v3.11.29 彩种标识
                                 lt: item.lt || 'mc',
                                 // 🆕 v3.0 后端计算的结果
@@ -5671,13 +5673,16 @@
                             const itemType = r.type || '未知';
                             const itemAmount = r.amount || 0;
                             const itemGroupId = r.groupId || 1;  // 🆕 v3.11.15 获取用户输入行的组ID
-                            const groupKey = `${originalLine}|||${itemType}|||${itemAmount}`;
+                            const itemLt = r.lt || 'mc';  // 🆕 v3.11.37 获取彩种标识
+                            // 🆕 v3.11.37 groupKey 加入 lt 字段，防止香港/澳门的同类型项目被错误合并
+                            const groupKey = `${originalLine}|||${itemType}|||${itemAmount}|||${itemLt}`;
                             
                             if (!calcPreGroupMap[groupKey]) {
                                 calcPreGroupMap[groupKey] = {
                                     originalLine: originalLine,
                                     type: itemType,
                                     amount: itemAmount,
+                                    lt: itemLt,  // 🆕 v3.11.37 保存彩种标识
                                     items: [],
                                     odds: r.odds || 1,
                                     minOrder: r.fragmentOrder !== undefined ? r.fragmentOrder : 9999,
@@ -10200,13 +10205,16 @@
                 const originalLine = item.originalLine || '';
                 const itemType = item.type || '未知';
                 const itemAmount = item.amount || 0;
-                const groupKey = `${originalLine}|||${itemType}|||${itemAmount}`;
+                const itemLt = item.lt || 'mc';  // 🆕 v3.11.37 获取彩种标识
+                // 🆕 v3.11.37 groupKey 加入 lt 字段，防止香港/澳门的同类型项目被错误合并
+                const groupKey = `${originalLine}|||${itemType}|||${itemAmount}|||${itemLt}`;
                 
                 if (!preGroupMap[groupKey]) {
                     preGroupMap[groupKey] = {
                         originalLine: originalLine,
                         type: itemType,
                         amount: itemAmount,
+                        lt: itemLt,  // 🆕 v3.11.37 保存彩种标识
                         items: [],
                         groupId: item.groupId,
                         minOrder: item.fragmentOrder !== undefined ? item.fragmentOrder : 9999
