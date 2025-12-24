@@ -5607,11 +5607,30 @@
                         
                         for (const group of sortedGroups) {
                             const items = group.items;
-                            const type = group.type;
+                            const rawType = group.type;
                             const originalLine = group.originalLine;
                             
+                            // 🆕 v3.11.14 类型代码→中文名称转换 + 智能识别
+                            const CALC_TYPE_CODE_TO_NAME = {
+                                'T01': '特码', 'SXTM': '特码', '特码': '特码',
+                                'PT1': '平特一肖', 'PT2': '平特二连肖', 'PT3': '平特三连肖',
+                                'PT4': '平特四连肖', 'PT5': '平特五连肖', 'PTW': '平特尾数',
+                                'SX6': '六肖', 'LX6': '六肖', 'LX': '六肖', '6X': '六肖', 'LIUXIAO': '六肖',
+                                'TX': '特肖', 'HX': '合肖', 'ZX': '正肖', 'SX': '生肖',
+                                'BS': '波色', 'BB': '半波', 'DP': '单平', 'DXDS': '大小单双',
+                                'E2': '二中二', 'S3': '三中三', 'BZ': '不中',
+                                'WX': '五行', 'JY': '家野', 'ZH': '总和',
+                                'UK': '未知', '未知': '未知'
+                            };
+                            let type = CALC_TYPE_CODE_TO_NAME[rawType] || rawType;
+                            
+                            // 🆕 v3.11.14 智能识别：如果显示文本包含"六肖"关键词，强制设为六肖类型
+                            if ((originalLine.includes('六肖') || originalLine.includes('6肖')) && (type === '未知' || type === rawType)) {
+                                type = '六肖';
+                            }
+                            
                             // 🆕 v3.11.10 复合类型注数固定为1注
-                            const isCompositeType = COMPOSITE_TYPES.includes(type);
+                            const isCompositeType = COMPOSITE_TYPES.includes(type) || COMPOSITE_TYPES.includes(rawType);
                             // 🆕 v3.11.10 使用分组时已计算好的 perAmount
                             const perAmount = group.perAmount || items[0]?.amount || 0;
                             
@@ -5633,7 +5652,26 @@
                             const typeTotal = isCompositeType ? perAmount : (betCount * perAmount);
                             
                             const hasWin = items.some(r => r.isWin);
-                            const typeOdds = items[0]?.odds || 1;
+                            // 🆕 v3.11.14 根据类型获取正确的赔率
+                            const savedOdds = JSON.parse(localStorage.getItem('lhc_odds') || '{}');
+                            let typeOdds = items[0]?.odds || 1;
+                            if (type === '特码' || rawType === 'T01' || rawType === 'SXTM') {
+                                typeOdds = parseFloat(savedOdds['odds-tema']) || 43;
+                            } else if (type === '平特一肖' || rawType === 'PT1') {
+                                typeOdds = parseFloat(savedOdds['odds-pingte1']) || 11;
+                            } else if (type === '平特二连肖' || rawType === 'PT2') {
+                                typeOdds = parseFloat(savedOdds['odds-pt2']) || 26;
+                            } else if (type === '平特三连肖' || rawType === 'PT3') {
+                                typeOdds = parseFloat(savedOdds['odds-pt3']) || 66;
+                            } else if (type === '六肖' || rawType === 'SX6' || rawType === 'LX' || rawType === 'LX6') {
+                                typeOdds = parseFloat(savedOdds['odds-liuxiao']) || 4.2;
+                            } else if (type === '生肖' || rawType === 'SX') {
+                                typeOdds = parseFloat(savedOdds['odds-shengxiao']) || 12;
+                            } else if (type === '波色' || rawType === 'BS') {
+                                typeOdds = parseFloat(savedOdds['odds-bose']) || 2;
+                            } else if (type === '半波' || rawType === 'BB') {
+                                typeOdds = parseFloat(savedOdds['odds-banbo']) || 4;
+                            }
                             const winPayout = items.filter(r => r.isWin).reduce((s, r) => s + r.winAmount, 0);
                             
                             // 🆕 v3.6.1 优化展示：聚合号码列表
