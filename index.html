@@ -690,25 +690,25 @@
                 cursor: not-allowed;
             }
             
-            /* 🆕 v3.11.47 统一工具栏按钮样式 - 50px高度，图标文字居中 */
+            /* 🆕 v3.11.48 统一工具栏按钮样式 - 50px高度，flexbox居中 */
             .toolbar-btn {
-                display: inline-flex;
+                display: flex;
+                flex-direction: row;
                 align-items: center;
                 justify-content: center;
-                gap: 6px;
+                gap: 3px;
                 flex: 1;
                 min-width: 0;
                 height: 50px;
-                padding: 0 10px;
+                padding: 0 6px;
                 border: none;
                 border-radius: 10px;
                 color: white;
-                font-size: 16px;
+                font-size: 18px;
                 font-weight: 500;
                 cursor: pointer;
                 transition: all 0.2s ease;
                 white-space: nowrap;
-                text-align: center;
             }
             .toolbar-btn:hover {
                 filter: brightness(1.15);
@@ -5549,7 +5549,7 @@
             // API Key 已移至后端，只需检查 aiEnabled
             if (settings.aiEnabled) {
                 // 【AI调试显示】开始
-                showAutoCloseToast('🚀 火速计算中请稍等。祝您日进斗金～', 8000);
+                showAutoCloseToast('🚀 正在计算,请稍等，老板日进斗金～', 8000);
                 // 【AI调试显示】结束
                 
                 try {
