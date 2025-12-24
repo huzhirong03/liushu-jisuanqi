@@ -10152,6 +10152,7 @@
                 winAmount: r.winAmount || 0,
                 odds: r.odds || 43,
                 zodiac: r.zodiac || null,  // 🆕 生肖代号
+                lt: r.lt || 'mc',  // 🆕 v3.11.31 彩种标识（hk/mc）
                 isError: r.isError || false,
                 hasError: false,
                 errorType: '',        // type/amount/num/count/win
@@ -10538,6 +10539,12 @@
                     }
                     
                     // 🆕 v3.8.4 格式：✓/✗ 类型(赔率倍): 原文（号码列表）金额元*注数=总额元  盈亏（删除"各"字）
+                    // 🆕 v3.11.31 混合下注时添加[香]/[澳]前缀
+                    const itemLt = items[0]?.lt || 'mc';
+                    const ltPrefix = window.currentCalcIsMixed ? 
+                        (itemLt === 'hk' ? '<span style="color:#ff6b6b;font-weight:bold;">[香]</span> ' : '<span style="color:#4ecdc4;font-weight:bold;">[澳]</span> ') 
+                        : '';
+                    
                     html += `
                     <div class="fb-line" data-index="${firstIndex}" style="
                         display:flex;
@@ -10549,7 +10556,7 @@
                         margin-left:${hasWin ? '-8px' : '0'};
                     ">
                         <div style="flex:1;font-size:12px;line-height:1.5;">
-                            ${statusIcon}
+                            ${ltPrefix}${statusIcon}
                             <span style="color:#64b5f6;margin-left:4px;">${typeName}(${typeOdds}倍):</span>
                             <span style="color:#fbbf24;font-weight:bold;margin-left:4px;">${displayOriginalLine}</span>
                             ${numbersStr ? `<span style="color:#888;font-size:11px;">${numbersStr}</span>` : ''}
