@@ -690,39 +690,37 @@
                 cursor: not-allowed;
             }
             
-            /* 🆕 v3.11.45 统一工具栏按钮样式 - 均匀分布、紧凑 */
+            /* 🆕 v3.11.45 统一工具栏按钮样式 - 占满整行均匀分布 */
             .toolbar-btn {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                gap: 4px;
+                gap: 2px;
                 flex: 1;
                 min-width: 0;
-                height: 36px;
-                padding: 0 8px;
+                height: 30px;
+                padding: 0 6px;
                 border: none;
-                border-radius: 8px;
+                border-radius: 6px;
                 color: white;
-                font-size: 13px;
-                font-weight: 600;
+                font-size: 12px;
+                font-weight: 500;
                 cursor: pointer;
                 transition: all 0.2s ease;
                 white-space: nowrap;
+                text-align: center;
             }
             .toolbar-btn:hover {
-                transform: translateY(-1px);
-                box-shadow: 0 3px 10px rgba(0,0,0,0.3);
-                filter: brightness(1.1);
+                filter: brightness(1.15);
             }
             .toolbar-btn:active {
-                transform: translateY(0);
+                filter: brightness(0.95);
             }
             .toolbar-btn .btn-text {
                 font-size: 12px;
             }
             .toolbar-btn-secondary {
                 background: linear-gradient(135deg,#4a5568,#2d3748) !important;
-                border: 1px solid rgba(255,255,255,0.15);
             }
             .toolbar-btn-primary {
                 background: linear-gradient(135deg,#e94560,#c23a51) !important;
@@ -1230,8 +1228,8 @@
                 
                 <!-- 输入框区域 -->
                 <div class="input-section" style="flex:1;display:flex;flex-direction:column;">
-                    <!-- 🆕 v3.11.45 按钮栏：均匀分布、间距更小 -->
-                    <div style="display:flex;gap:4px;margin-bottom:8px;">
+                    <!-- 🆕 v3.11.45 按钮栏：占满整行、紧凑间距、均匀分布 -->
+                    <div style="display:flex;gap:4px;margin-bottom:8px;width:100%;">
                         <!-- 详情按钮（合并AI+程序，内部Tab切换） -->
                         <button onclick="showDebugPanel()" class="toolbar-btn" style="background:linear-gradient(135deg,#9b59b6,#8e44ad);" title="查看识别详情">🤖<span class="btn-text">详情</span></button>
                         <!-- 对比测试 -->
@@ -1245,7 +1243,7 @@
                         <!-- 计算 -->
                         <button onclick="calculateBets()" class="toolbar-btn toolbar-btn-primary" title="开始计算">💰<span class="btn-text">计算</span></button>
                     </div>
-                    <textarea class="input-textarea" id="bet-input" style="flex:1;min-height:200px;" placeholder="粘贴下注信息，支持智能分组计算盈亏
+                    <textarea class="input-textarea" id="bet-input" style="flex:1;min-height:280px;" placeholder="粘贴下注信息，支持智能分组计算盈亏
 
 📌 分组规则：空一行 = 分隔不同组
 ━━━━━━━━━━━━━━━━━━━━
