@@ -5515,6 +5515,7 @@
                             const originalLine = r.originalLine || '';
                             const itemType = r.type || '未知';
                             const itemAmount = r.amount || 0;
+                            const itemGroupId = r.groupId || 1;  // 🆕 v3.11.15 获取用户输入行的组ID
                             const groupKey = `${originalLine}|||${itemType}|||${itemAmount}`;
                             
                             if (!calcPreGroupMap[groupKey]) {
@@ -5524,7 +5525,8 @@
                                     amount: itemAmount,
                                     items: [],
                                     odds: r.odds || 1,
-                                    minOrder: r.fragmentOrder !== undefined ? r.fragmentOrder : 9999
+                                    minOrder: r.fragmentOrder !== undefined ? r.fragmentOrder : 9999,
+                                    groupId: itemGroupId  // 🆕 v3.11.15 保存组ID用于分割线
                                 };
                             }
                             calcPreGroupMap[groupKey].items.push(r);
@@ -5605,10 +5607,20 @@
                             '三中三', 'S3'                         // 三中三
                         ];
                         
+                        // 🆕 v3.11.15 记录上一个 groupId，用于在不同组之间添加分割线
+                        let lastGroupId = null;
+                        
                         for (const group of sortedGroups) {
                             const items = group.items;
                             const rawType = group.type;
                             const originalLine = group.originalLine;
+                            const currentGroupId = group.groupId || items[0]?.groupId || 1;
+                            
+                            // 🆕 v3.11.15 在不同组之间添加分割线（同组内不加）
+                            if (lastGroupId !== null && currentGroupId !== lastGroupId) {
+                                resultText += `━━━━━━━━━━━━━━━━━━\n`;
+                            }
+                            lastGroupId = currentGroupId;
                             
                             // 🆕 v3.11.14 类型代码→中文名称转换 + 智能识别
                             const CALC_TYPE_CODE_TO_NAME = {
@@ -9956,6 +9968,15 @@
                     groupMap[gid] = [];
                 }
                 groupMap[gid].push(line);
+            });
+            
+            // 🆕 v3.11.15 确保每个组内的行按 fragmentOrder 正确排序（用户输入顺序）
+            Object.keys(groupMap).forEach(gid => {
+                groupMap[gid].sort((a, b) => {
+                    const orderA = a.fragmentOrder !== undefined ? a.fragmentOrder : 9999;
+                    const orderB = b.fragmentOrder !== undefined ? b.fragmentOrder : 9999;
+                    return orderA - orderB;
+                });
             });
             
             const groupIds = Object.keys(groupMap).map(Number).sort((a, b) => a - b);
