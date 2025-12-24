@@ -4,6 +4,7 @@
 // ║  ⚠️ 每次更新程序时，修改 APP_VERSION！                                      ║
 // ╠═══════════════════════════════════════════════════════════════════════════╣
 // ║  版本历史:                                                                 ║
+// ║  v2.4.0 - 2025-12-24 - 🔧 修复iOS Safari重定向错误(PWA打不开问题)           ║
 // ║  v2.3.0 - 2025-12-20 - 简洁反馈UI：原文(号码)注数×金额=总额 盈亏            ║
 // ║  v2.2.0 - 2025-12-20 - 重构分组解析+小票风格反馈UI                          ║
 // ║  v2.1.1 - 2025-12-20 - 修复反馈页原文显示和分组渲染                         ║
@@ -12,15 +13,15 @@
 // ║  v1.9.3 - 2025-12-17 - 下载文件名含类型版本(特码_V2_xxx.csv)                ║
 // ║  v1.9.0 - 2025-12-17 - 提示词v2 + 边缘测试 + JSON自动导出                   ║
 // ╚═══════════════════════════════════════════════════════════════════════════╝
-const APP_VERSION = 'v2.3.0';  // 简洁反馈UI
+const APP_VERSION = 'v2.4.0';  // 修复iOS Safari PWA重定向错误
 const CACHE_NAME = 'liushu-rocket-' + APP_VERSION;
 
+// 🆕 v2.4.0 使用绝对路径，避免iOS Safari的重定向问题
 const urlsToCache = [
-    './',
-    './index.html',
-    './manifest.json',
-    './icon-192.svg',
-    './data.json'
+    'index.html',
+    'manifest.json',
+    'icon-192.svg',
+    'data.json'
 ];
 
 // 安装事件 - 缓存资源
@@ -70,57 +71,83 @@ self.addEventListener('activate', event => {
     self.clients.claim();
 });
 
-// 请求拦截 - 缓存优先策略（大幅减少流量消耗！）
+// 🆕 v2.4.0 请求拦截 - 修复iOS Safari重定向问题
+// 关键：对于导航请求(navigate)，必须使用网络优先策略，避免重定向错误
 self.addEventListener('fetch', event => {
+    const request = event.request;
+    
+    // 过滤掉不支持的请求（如chrome-extension等）
+    if (!request.url.startsWith('http')) {
+        return;
+    }
+    
     // POST 请求不能缓存，直接走网络
-    if (event.request.method !== 'GET') {
-        event.respondWith(fetch(event.request).catch(() => new Response('Network error', { status: 503 })));
+    if (request.method !== 'GET') {
+        event.respondWith(fetch(request).catch(() => new Response('Network error', { status: 503 })));
+        return;
+    }
+    
+    // 🆕 v2.4.0 【关键修复】导航请求(页面打开)使用网络优先策略
+    // iOS Safari 不允许 Service Worker 返回重定向响应给导航请求
+    if (request.mode === 'navigate') {
+        event.respondWith(
+            fetch(request)
+                .then(response => {
+                    // 只缓存成功的、非重定向的响应
+                    if (response && response.status === 200 && response.type === 'basic') {
+                        const responseToCache = response.clone();
+                        caches.open(CACHE_NAME).then(cache => {
+                            cache.put(request, responseToCache);
+                        });
+                    }
+                    return response;
+                })
+                .catch(() => {
+                    // 离线时尝试返回缓存的页面（必须精确匹配URL）
+                    return caches.match(request);
+                })
+        );
         return;
     }
     
     // 对于 data.json，始终从网络获取最新数据
-    if (event.request.url.includes('data.json')) {
+    if (request.url.includes('data.json')) {
         event.respondWith(
-            fetch(event.request)
+            fetch(request)
                 .then(response => {
-                    const responseToCache = response.clone();
-                    caches.open(CACHE_NAME).then(cache => {
-                        cache.put(event.request, responseToCache);
-                    });
+                    if (response && response.status === 200) {
+                        const responseToCache = response.clone();
+                        caches.open(CACHE_NAME).then(cache => {
+                            cache.put(request, responseToCache);
+                        });
+                    }
                     return response;
                 })
                 .catch(() => {
-                    return caches.match(event.request);
+                    return caches.match(request);
                 })
         );
         return;
     }
     
     // 对于 API 请求，始终走网络（不缓存）
-    if (event.request.url.includes('api') || event.request.url.includes('marksix') || 
-        event.request.url.includes('corsproxy') || event.request.url.includes('allorigins') ||
-        event.request.url.includes('workers.dev') || event.request.url.includes('deepseek')) {
-        event.respondWith(fetch(event.request).catch(() => new Response('Network error', { status: 503 })));
+    if (request.url.includes('api') || request.url.includes('marksix') || 
+        request.url.includes('corsproxy') || request.url.includes('allorigins') ||
+        request.url.includes('workers.dev') || request.url.includes('deepseek')) {
+        event.respondWith(fetch(request).catch(() => new Response('Network error', { status: 503 })));
         return;
     }
     
-    // 【重要改动】对于静态资源，使用 缓存优先 + 网络更新
-    // 这样可以大幅减少流量消耗！
-    
-    // 过滤掉不支持的请求（如chrome-extension等）
-    if (!event.request.url.startsWith('http')) {
-        return;
-    }
-    
+    // 对于静态资源，使用 缓存优先 + 网络更新
     event.respondWith(
-        caches.match(event.request).then(cachedResponse => {
-            // 如果缓存中有，直接返回缓存（不消耗流量！）
+        caches.match(request).then(cachedResponse => {
+            // 如果缓存中有，直接返回缓存
             if (cachedResponse) {
                 // 后台静默更新缓存（不阻塞页面加载）
-                fetch(event.request).then(response => {
-                    if (response && response.status === 200) {
+                fetch(request).then(response => {
+                    if (response && response.status === 200 && response.type === 'basic') {
                         caches.open(CACHE_NAME).then(cache => {
-                            cache.put(event.request, response);
+                            cache.put(request, response);
                         });
                     }
                 }).catch(() => {});
@@ -128,17 +155,18 @@ self.addEventListener('fetch', event => {
             }
             
             // 缓存中没有，才去网络获取
-            return fetch(event.request).then(response => {
-                if (response && response.status === 200) {
+            return fetch(request).then(response => {
+                if (response && response.status === 200 && response.type === 'basic') {
                     const responseToCache = response.clone();
                     caches.open(CACHE_NAME).then(cache => {
-                        cache.put(event.request, responseToCache);
+                        cache.put(request, responseToCache);
                     });
                 }
                 return response;
             }).catch(() => {
-                // 网络也失败，返回离线页面
-                return caches.match('./index.html');
+                // 🆕 v2.4.0 网络失败时，不要返回不匹配的资源（避免重定向错误）
+                // 只返回空响应，让浏览器显示默认错误页
+                return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
             });
         })
     );
