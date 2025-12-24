@@ -7421,12 +7421,14 @@
             }
             
             // 🆕 v3.4 第2步：应用自定义规则（关键词→代号映射）
+            // 🆕 v3.11.48 修复：展开时添加 #CUSTOM:原始输入# 标记，确保显示时还原用户原始输入
             const rules = getCustomRules();
             if (rules && rules.length > 0) {
                 const sortedRules = [...rules].sort((a, b) => b.keyword.length - a.keyword.length);
                 for (const rule of sortedRules) {
                     if (result.includes(rule.keyword)) {
                         if (rule.expand && rule.numbers && rule.numbers.length > 0) {
+                            // 展开类型：将关键词展开为多行，每行带原始输入标记
                             const expandRegex = new RegExp(
                                 escapeRegex(rule.keyword) + '\\s*[各每统]?\\s*(\\d+)',
                                 'gi'
@@ -7436,10 +7438,15 @@
                                 if (rule.amountMode === 'total') {
                                     amount = Math.floor(amount / rule.numbers.length);
                                 }
-                                console.log(`🎯 自定义规则展开: "${rule.keyword}" → ${rule.numbers.length}条`);
-                                return rule.numbers.map(num => `${rule.type} ${num} ${amount}`).join('\n');
+                                // 🆕 v3.11.48 保留原始输入作为标记，格式: #CUSTOM:原始输入#T01 1 100
+                                // 后端识别标记后，将其设置为 original_line，用于结果显示
+                                const originalMatch = match.trim();
+                                console.log(`🎯 自定义规则展开: "${rule.keyword}" → ${rule.numbers.length}条 (原始: "${originalMatch}")`);
+                                // 每行都带标记（同一自定义规则展开的所有行）
+                                return rule.numbers.map(num => `#CUSTOM:${originalMatch}#${rule.type} ${num} ${amount}`).join('\n');
                             });
                         } else {
+                            // 非展开类型：简单替换关键词为类型代号（保持原有逻辑）
                             result = result.split(rule.keyword).join(rule.type);
                             console.log(`🎯 自定义规则: "${rule.keyword}" → "${rule.type}"`);
                         }
