@@ -5358,13 +5358,28 @@
                     // 🆕 v3.0 调用后端一站式计算接口
                     const config = getOddsConfig();
                     
-                    // 🆕 v3.11.30 获取香港开奖数据（用于香港类型的计算）
+                    // 🆕 v3.11.43 修复：始终传递正确的澳门和香港开奖数据
+                    // 问题：之前用 appState.lotteryNumbers（当前彩种数据），导致选择香港时澳门下注用错数据
+                    // 修复：始终从 lotteryData 获取对应彩种的数据
+                    const mcData = appState.lotteryData['xam'];
                     const hkData = appState.lotteryData['hk'];
-                    const hkNums = hkData?.numbers || null;
+                    
+                    // d 参数始终是澳门数据（如果没有澳门数据，用当前号码作为 fallback）
+                    const mcNums = (mcData?.numbers && mcData.numbers.length === 7) 
+                        ? mcData.numbers 
+                        : appState.lotteryNumbers;
+                    
+                    // hk_d 参数始终是香港数据
+                    const hkNums = (hkData?.numbers && hkData.numbers.length === 7) 
+                        ? hkData.numbers 
+                        : null;
+                    
+                    console.log('🎰 [callBackendCalc] 澳门数据:', mcNums?.join(',') || '无');
+                    console.log('🎰 [callBackendCalc] 香港数据:', hkNums?.join(',') || '无');
                     
                     const backendResult = await callBackendCalc(
                         sanitizedInput,
-                        appState.lotteryNumbers,  // 澳门开奖数据
+                        mcNums,  // 🆕 v3.11.43 始终传澳门开奖数据
                         config,
                         settings.aiProvider || 'openrouter',
                         null,
