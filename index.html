@@ -9611,26 +9611,46 @@
             console.log('═══════════════════════════════════════════════════════');
             
             // ═══════════════════════════════════════════════════════════════════════
-            // 【步骤2】按原文聚合数据（同一原文的多注合并显示）
-            // 🆕 v3.8.3 使用 fragmentOrder 排序
+            // 【步骤2】按用户输入行聚合数据（同一用户输入行的多注合并显示）
+            // 🆕 v3.11.5 使用与计算结果相同的聚合逻辑，确保多生肖合并显示
             // ═══════════════════════════════════════════════════════════════════════
-            const lineMap = {};  // originalLine → { originalLine, items: [], groupId }
+            const lineMap = {};  // groupKey → { originalLine, items: [], groupId }
+            
+            // 🆕 v3.11.5 获取用户原始输入行（从输入框获取）
+            const betInputEl = document.getElementById('bet-input');
+            const userInputLines = (betInputEl?.value || '').split('\n').filter(l => l.trim());
             
             feedbackData.items.forEach((item, idx) => {
-                // 🆕 使用原文作为聚合 key（确保同一条 AI 返回的记录被合并）
-                const key = item.originalLine || item.lineId || `${item.groupId}-0`;
+                const rawText = item.originalLine || '';
                 
-                if (!lineMap[key]) {
-                    lineMap[key] = {
+                // 🆕 v3.11.5 尝试匹配用户原始输入行（处理多生肖拆分情况）
+                const originalTextSanitized = sanitizeText(rawText);
+                let groupKey = rawText;
+                let displayText = rawText;
+                
+                for (const userLine of userInputLines) {
+                    const userLineSanitized = sanitizeText(userLine);
+                    // 精确匹配 或 子串匹配（处理多生肖拆分情况）
+                    if (userLineSanitized === originalTextSanitized || 
+                        userLineSanitized.includes(originalTextSanitized) ||
+                        originalTextSanitized.includes(userLineSanitized)) {
+                        groupKey = userLine;
+                        displayText = userLine;
+                        break;
+                    }
+                }
+                
+                if (!lineMap[groupKey]) {
+                    lineMap[groupKey] = {
                         lineId: item.lineId,
                         groupId: item.groupId,
-                        originalLine: item.originalLine,
+                        originalLine: displayText,
                         items: [],
                         // 🆕 v3.8.3 使用 fragmentOrder（预处理时分配的全局顺序）
                         fragmentOrder: item.fragmentOrder !== undefined ? item.fragmentOrder : 9999
                     };
                 }
-                lineMap[key].items.push(item);
+                lineMap[groupKey].items.push(item);
             });
             
             // 🆕 调试日志：显示聚合结果
