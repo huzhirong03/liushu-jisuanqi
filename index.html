@@ -690,20 +690,20 @@
                 cursor: not-allowed;
             }
             
-            /* 🆕 v3.11.46 统一工具栏按钮样式 - 增大高度更易点击 */
+            /* 🆕 v3.11.47 统一工具栏按钮样式 - 50px高度，图标文字居中 */
             .toolbar-btn {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                gap: 4px;
+                gap: 6px;
                 flex: 1;
                 min-width: 0;
-                height: 40px;
-                padding: 0 8px;
+                height: 50px;
+                padding: 0 10px;
                 border: none;
-                border-radius: 8px;
+                border-radius: 10px;
                 color: white;
-                font-size: 14px;
+                font-size: 16px;
                 font-weight: 500;
                 cursor: pointer;
                 transition: all 0.2s ease;
@@ -718,7 +718,8 @@
                 transform: scale(0.98);
             }
             .toolbar-btn .btn-text {
-                font-size: 13px;
+                font-size: 14px;
+                line-height: 1;
             }
             .toolbar-btn-secondary {
                 background: linear-gradient(135deg,#4a5568,#2d3748) !important;
@@ -5548,7 +5549,7 @@
             // API Key 已移至后端，只需检查 aiEnabled
             if (settings.aiEnabled) {
                 // 【AI调试显示】开始
-                showAutoCloseToast('🤖 后端正在识别并计算...', 8000);
+                showAutoCloseToast('🚀 火速计算中请稍等。祝您日进斗金～', 8000);
                 // 【AI调试显示】结束
                 
                 try {
