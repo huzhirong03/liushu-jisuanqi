@@ -9628,24 +9628,22 @@
             // 🆕 v2.4.5 修复：使用 AI 返回的原文 (raw) 作为分组依据，避免行匹配错误
             // ═══════════════════════════════════════════════════════════════════════
             // v3.2 初始化反馈数据，包含完整系统识别值
-            // 🆕 v3.8.2 区分展开型和拆分型，使用正确的显示文本
+            // 🆕 v3.11.7 修复一行多类型显示：使用 raw 作为显示文本，保留原始字段
             feedbackData.items = calcResults.map((r, index) => {
-                // 判断是拆分型还是展开型
+                // 🆕 v3.11.7 始终使用后端返回的 raw 字段作为该条目的显示文本
+                // raw 是后端拆分后的原文，精确对应该条目的内容
+                // originalLine 是用户输入的整行（一行多类型时会包含其他类型内容）
                 const rawText = r.raw || '';
                 const originalText = r.originalLine || '';
-                const isSliceType = originalText.length > rawText.length && (
-                    originalText.includes(rawText) || 
-                    originalText.replace(/\s+/g, '').includes(rawText.replace(/\s+/g, ''))
-                );
-                // 拆分型用 raw，展开型用 originalLine
-                const displayLine = isSliceType ? rawText : (originalText || rawText);
                 
                 return {
                 index: index,
                 groupId: r.groupId || 1,
                 lineId: r.lineId || `1-0`,
-                // 🆕 v3.8.2 拆分型用 raw，展开型用 originalLine
-                originalLine: displayLine,
+                // 🆕 v3.11.7 保留原始的 raw 字段（用于显示该条目对应的内容）
+                raw: rawText,
+                // 🆕 v3.11.7 originalLine 保留用户输入的整行（用于分组）
+                originalLine: originalText || rawText,
                 // 🆕 v3.8.3 片段顺序（用于排序）
                 fragmentOrder: r.fragmentOrder !== undefined ? r.fragmentOrder : 9999,
                 type: r.type || '未识别',
@@ -9675,25 +9673,28 @@
             console.log('═══════════════════════════════════════════════════════');
             
             // ═══════════════════════════════════════════════════════════════════════
-            // 【步骤2】按类型+原文聚合数据
-            // 🆕 v3.11.6 修复：不同类型应分行显示，相同类型的多生肖可合并
-            // 聚合规则：同一类型 + 同一原始文本 → 合并显示
+            // 【步骤2】按类型+raw聚合数据
+            // 🆕 v3.11.7 修复：使用 raw 作为聚合 key，确保一行多类型时按类型分行显示
+            // 聚合规则：同一类型 + 同一 raw → 合并显示
             // ═══════════════════════════════════════════════════════════════════════
-            const lineMap = {};  // groupKey → { originalLine, items: [], groupId, type }
+            const lineMap = {};  // groupKey → { displayText, items: [], groupId, type }
             
             feedbackData.items.forEach((item, idx) => {
-                const rawText = item.originalLine || '';
+                // 🆕 v3.11.7 使用 raw 作为显示文本（精确对应该类型的内容）
+                const rawText = item.raw || item.originalLine || '';
                 const itemType = item.type || '未知';
                 
-                // 🆕 v3.11.6 使用 类型+原文 作为聚合 key
-                // 这样不同类型会分行显示，相同类型的多生肖会合并
+                // 🆕 v3.11.7 使用 类型+raw 作为聚合 key
+                // 这样一行多类型时，每种类型会单独显示其对应的 raw 内容
                 const groupKey = `${itemType}|||${rawText}`;
                 
                 if (!lineMap[groupKey]) {
                     lineMap[groupKey] = {
                         lineId: item.lineId,
                         groupId: item.groupId,
-                        originalLine: rawText,
+                        // 🆕 v3.11.7 使用 raw 作为显示文本
+                        displayText: rawText,
+                        originalLine: item.originalLine,
                         type: itemType,
                         items: [],
                         // 🆕 v3.8.3 使用 fragmentOrder（预处理时分配的全局顺序）
@@ -9706,7 +9707,7 @@
             // 🆕 调试日志：显示聚合结果
             console.log('📋 按行聚合结果:');
             Object.values(lineMap).forEach(line => {
-                console.log(`  [${line.lineId}] "${line.originalLine?.substring(0,20)}..." → ${line.items.length}注 | order=${line.fragmentOrder}`);
+                console.log(`  [${line.lineId}] [${line.type}] "${line.displayText?.substring(0,30)}..." → ${line.items.length}项 | order=${line.fragmentOrder}`);
             });
             
             // 按 groupId 分组，组内按 fragmentOrder 排序
@@ -9756,7 +9757,7 @@
                     
                     if (items.length === 0 && errorItems.length > 0) {
                         // 🆕 v3.5 解析失败的行也要显示反馈按钮
-                        const errIndex = errorItems[0]?.index ?? feedbackData.items.findIndex(it => it.originalLine === line.originalLine);
+                        const errIndex = errorItems[0]?.index ?? feedbackData.items.findIndex(it => it.raw === line.displayText);
                         html += `
                         <div class="fb-line" data-index="${errIndex}" style="
                             display:flex;
@@ -9770,7 +9771,7 @@
                             <div style="flex:1;font-size:12px;line-height:1.5;">
                                 <span style="color:#f44336;font-weight:bold;font-size:14px;">✗</span>
                                 <span style="color:#f44336;margin-left:4px;">未识别:</span>
-                                <span style="color:#fbbf24;font-weight:bold;margin-left:4px;">${line.originalLine || '无法识别'}</span>
+                                <span style="color:#fbbf24;font-weight:bold;margin-left:4px;">${line.displayText || '无法识别'}</span>
                             </div>
                             <div style="display:flex;align-items:center;gap:8px;">
                                 <span style="font-size:10px;color:#888;">点击反馈→</span>
@@ -9804,17 +9805,7 @@
                         return;
                     }
                     
-                    // 🆕 v2.4.6 显示格式：✓/✗ 类型: 原文（号码列表）注数×金额= 总额  盈亏
-                    const betCount = items.length;
-                    const unitAmount = items[0]?.amount || 0;
-                    const totalAmount = items.reduce((s, it) => s + it.amount, 0);
-                    const lineProfit = items.reduce((s, it) => {
-                        return s + (it.isWin ? it.winAmount - it.amount : -it.amount);
-                    }, 0);
-                    const hasWin = items.some(it => it.isWin);
-                    const firstIndex = items[0]?.index || 0;
-                    
-                    // 🆕 v3.11.6 获取类型名称（代码→中文转换）
+                    // 🆕 v3.11.7 获取类型名称（代码→中文转换）
                     const rawTypeName = items[0]?.type || '未知';
                     const FB_TYPE_CODE_TO_NAME = {
                         'T01': '特码', 'SXTM': '特码', '特码': '特码', '生肖特码': '特码',
@@ -9830,6 +9821,23 @@
                         '六肖': '六肖', '波色': '波色', '半波': '半波'
                     };
                     const typeName = FB_TYPE_CODE_TO_NAME[rawTypeName] || rawTypeName;
+                    
+                    // 🆕 v3.11.7 修复注数计算：复合类型（六肖、平特连肖等）始终是1注
+                    // 这些类型虽然展开了多条记录（每个生肖一条），但实际是1注选多个生肖
+                    const COMPOSITE_TYPES = ['六肖', 'LX', 'LX6', 'SX6', '平特二连肖', 'PT2', '平特三连肖', 'PT3', 
+                        '平特四连肖', 'PT4', '平特五连肖', 'PT5', '合肖', 'HX', '二中二', 'E2', '三中三', 'S3'];
+                    const isCompositeType = COMPOSITE_TYPES.includes(rawTypeName) || COMPOSITE_TYPES.includes(typeName);
+                    
+                    // 复合类型：1注；其他类型：按展开的items数量计算
+                    const betCount = isCompositeType ? 1 : items.length;
+                    const unitAmount = items[0]?.amount || 0;
+                    // 🆕 v3.11.7 复合类型：总金额 = 单注金额（不是累加）
+                    const totalAmount = isCompositeType ? unitAmount : items.reduce((s, it) => s + it.amount, 0);
+                    const lineProfit = items.reduce((s, it) => {
+                        return s + (it.isWin ? it.winAmount - it.amount : -it.amount);
+                    }, 0);
+                    const hasWin = items.some(it => it.isWin);
+                    const firstIndex = items[0]?.index || 0;
                     
                     // 🆕 v3.11.6 获取对应类型的赔率（从赔率设置获取）
                     const savedOdds = JSON.parse(localStorage.getItem('lhc_odds') || '{}');
@@ -9880,11 +9888,11 @@
                     // 🆕 v3.3 检查是否是生肖格式（通过zodiac字段判断）
                     const hasZodiac = items.some(it => it.zodiac);
                     
-                    // 🆕 v3.6.1 高亮显示原文和号码列表中的中奖号码
-                    let displayOriginalLine = line.originalLine;
+                    // 🆕 v3.11.7 使用 displayText（精确对应该类型的内容）
+                    let displayOriginalLine = line.displayText || line.originalLine;
                     let numbersStr = '';
                     if (typeName === '特码' || typeName === '生肖特码') {
-                        displayOriginalLine = fbHighlightWinNum(line.originalLine, fbTema);
+                        displayOriginalLine = fbHighlightWinNum(line.displayText || line.originalLine, fbTema);
                         // 🆕 v3.8.4 按生肖分组显示号码（如：猴10,22,34,46,龙02,14,26,38）
                         if (hasZodiac && uniqueNumbers.length > 0) {
                             // Z代号转生肖名称映射
