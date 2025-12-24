@@ -9423,7 +9423,7 @@
             'T01': {
                 name: '特码',
                 subTypes: null,  // 无子类型，只需要号码+金额
-                winRule: '投注号码 == 特码（第7个数字）',
+                winRule: '下注的号码与开奖的特码（第7个球）相同即中奖',
                 needFields: ['numbers', 'amount'],
                 defaultOdds: 46
             },
@@ -9451,7 +9451,7 @@
             'BS': {
                 name: '波色',
                 subTypes: ['红波', '蓝波', '绿波'],
-                winRule: '特码属于所选颜色',
+                winRule: '特码的颜色与所选颜色相同即中奖',
                 colorNums: {
                     '红波': [1,2,7,8,12,13,18,19,23,24,29,30,34,35,40,45,46],
                     '蓝波': [3,4,9,10,14,15,20,25,26,31,36,37,41,42,47,48],
@@ -9465,7 +9465,7 @@
             'BB': {
                 name: '半波',
                 subTypes: ['红单', '红双', '红大', '红小', '蓝单', '蓝双', '蓝大', '蓝小', '绿单', '绿双', '绿大', '绿小'],
-                winRule: '特码同时满足颜色+大小/单双条件',
+                winRule: '特码同时满足颜色和大小/单双条件即中奖',
                 needFields: ['subType', 'amount'],
                 defaultOdds: 3.2
             },
@@ -9483,7 +9483,7 @@
             'TX': {
                 name: '特肖',
                 subTypes: ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'],
-                winRule: '特码属于所选生肖',
+                winRule: '特码的生肖与所选生肖相同即中奖',
                 needFields: ['zodiac', 'amount'],
                 defaultOdds: 12
             },
@@ -9492,7 +9492,7 @@
             'SX': {
                 name: '生肖',
                 subTypes: ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'],
-                winRule: '特码属于所选生肖',
+                winRule: '特码的生肖与所选生肖相同即中奖',
                 needFields: ['zodiac', 'amount'],
                 defaultOdds: 12
             },
@@ -10406,6 +10406,12 @@
             if (winSelect) winSelect.style.display = 'none';
             if (correctionInput) { correctionInput.style.display = 'none'; correctionInput.value = ''; }
             if (ruleEl) ruleEl.style.display = 'none';
+            
+            // 🆕 v3.11.16 切换错误类型时清空备注和修正值
+            const noteInput = document.getElementById(`fb-note-${index}`);
+            if (noteInput) noteInput.value = '';
+            item.note = '';
+            item.correction = '';
             
             // 🆕 v3.4 根据玩法类型获取配置
             const typeConfig = PLAY_TYPE_CONFIG[currentCode] || {};
