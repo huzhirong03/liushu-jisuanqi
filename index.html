@@ -6930,7 +6930,8 @@
         //   - 旧澳/旧澳门/旧奥 → 不支持，弹窗提醒
         
         /**
-         * 检测输入文本中的彩种类型
+         * 🆕 v3.11.26 检测输入文本中的彩种类型
+         * ⚠️ 注意：不使用后行断言(?<=)，兼容 iOS Safari
          * @param {string} line 单行文本
          * @returns {object} { type: 'hk'|'xam'|'old_am'|'default', keyword: 匹配到的关键字 }
          */
@@ -6938,32 +6939,37 @@
             if (!line) return { type: 'default', keyword: null };
             
             // 🚫 优先检测不支持的"旧澳"类型（必须最先检测）
-            const oldAmPatterns = [/旧澳门/g, /旧澳/g, /旧奥/g];
-            for (const pattern of oldAmPatterns) {
-                const match = line.match(pattern);
-                if (match) {
-                    return { type: 'old_am', keyword: match[0] };
-                }
-            }
+            if (line.indexOf('旧澳门') !== -1) return { type: 'old_am', keyword: '旧澳门' };
+            if (line.indexOf('旧澳') !== -1) return { type: 'old_am', keyword: '旧澳' };
+            if (line.indexOf('旧奥') !== -1) return { type: 'old_am', keyword: '旧奥' };
             
-            // 🇭🇰 检测香港
-            const hkPatterns = [/香港/g, /^香(?=[^港]|$)/gm, /(?<=[^香])港$/gm, /^港/gm];
-            // 更精确的香港检测：香港、行首的香、行尾的港
-            if (/香港/.test(line) || /^香/.test(line) || /港$/.test(line) || /^港/.test(line)) {
-                // 排除"新澳门"等
-                if (!/新澳|澳门|旧澳|旧奥/.test(line)) {
-                    const keyword = line.match(/香港|香|港/)?.[0];
-                    return { type: 'hk', keyword };
+            // 🇭🇰 检测香港（简化逻辑，避免复杂正则）
+            // 排除包含"新澳|澳门"的情况
+            if (line.indexOf('新澳') === -1 && line.indexOf('澳门') === -1) {
+                if (line.indexOf('香港') !== -1) return { type: 'hk', keyword: '香港' };
+                if (line.indexOf('香') === 0) return { type: 'hk', keyword: '香' };  // 行首的"香"
+                if (line.indexOf('港') === 0) return { type: 'hk', keyword: '港' };  // 行首的"港"
+                // 行尾的"港"（但前面不是"香"和"澳"）
+                if (line.length > 0 && line.charAt(line.length - 1) === '港') {
+                    var prevChar = line.length > 1 ? line.charAt(line.length - 2) : '';
+                    if (prevChar !== '香' && prevChar !== '澳') {
+                        return { type: 'hk', keyword: '港' };
+                    }
                 }
             }
             
             // 🇲🇴 检测新澳门
-            const xamPatterns = [/新澳门/, /新澳/, /新奥/, /澳门/, /^澳/, /^奥/, /澳$/, /奥$/];
-            for (const pattern of xamPatterns) {
-                if (pattern.test(line)) {
-                    const keyword = line.match(/新澳门|新澳|新奥|澳门|澳|奥/)?.[0];
-                    return { type: 'xam', keyword };
-                }
+            if (line.indexOf('新澳门') !== -1) return { type: 'xam', keyword: '新澳门' };
+            if (line.indexOf('新澳') !== -1) return { type: 'xam', keyword: '新澳' };
+            if (line.indexOf('新奥') !== -1) return { type: 'xam', keyword: '新奥' };
+            if (line.indexOf('澳门') !== -1) return { type: 'xam', keyword: '澳门' };
+            if (line.indexOf('澳') === 0) return { type: 'xam', keyword: '澳' };  // 行首的"澳"
+            if (line.indexOf('奥') === 0) return { type: 'xam', keyword: '奥' };  // 行首的"奥"
+            // 行尾的"澳"或"奥"
+            if (line.length > 0) {
+                var lastChar = line.charAt(line.length - 1);
+                if (lastChar === '澳') return { type: 'xam', keyword: '澳' };
+                if (lastChar === '奥') return { type: 'xam', keyword: '奥' };
             }
             
             // 默认：新澳门
