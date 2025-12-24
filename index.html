@@ -5482,54 +5482,53 @@
                             return orderA - orderB;
                         });
                         
-                        // 第2步：按"相邻+同类型+同金额"规则分组
-                        const sortedGroups = [];
-                        let calcCurrentGroup = null;
+                        // 🆕 v3.11.11 按 originalLine + type + amount 预分组
+                        // 确保同一用户输入的同类型同金额能合并（如"平特猴鸡各200"）
+                        const calcPreGroupMap = {};
                         
-                        sortedResults.forEach((r, idx) => {
-                            const rawText = r.raw || '';
+                        sortedResults.forEach((r) => {
+                            const originalLine = r.originalLine || '';
                             const itemType = r.type || '未知';
                             const itemAmount = r.amount || 0;
-                            const fragmentOrder = r.fragmentOrder !== undefined ? r.fragmentOrder : 9999;
+                            const groupKey = `${originalLine}|||${itemType}|||${itemAmount}`;
                             
-                            // 判断是否与前一组"相邻+同类型+同金额"
-                            const canMerge = calcCurrentGroup && 
-                                calcCurrentGroup.type === itemType && 
-                                calcCurrentGroup.perAmount === itemAmount &&
-                                // 相邻判断：fragmentOrder差值小于等于1（允许同一片段内的多条记录）
-                                (fragmentOrder - calcCurrentGroup.lastFragmentOrder <= 1);
-                            
-                            if (canMerge) {
-                                // 合并到当前组
-                                calcCurrentGroup.items.push(r);
-                                calcCurrentGroup.lastFragmentOrder = fragmentOrder;
-                                // 更新显示文本：追加新的raw（用逗号分隔）
-                                if (rawText && !calcCurrentGroup.displayTexts.includes(rawText)) {
-                                    calcCurrentGroup.displayTexts.push(rawText);
-                                }
-                            } else {
-                                // 新建一组
-                                calcCurrentGroup = {
+                            if (!calcPreGroupMap[groupKey]) {
+                                calcPreGroupMap[groupKey] = {
+                                    originalLine: originalLine,
                                     type: itemType,
-                                    displayTexts: rawText ? [rawText] : [],
-                                    items: [r],
+                                    amount: itemAmount,
+                                    items: [],
                                     odds: r.odds || 1,
-                                    perAmount: itemAmount,
-                                    fragmentOrder: fragmentOrder,
-                                    lastFragmentOrder: fragmentOrder
+                                    minOrder: r.fragmentOrder !== undefined ? r.fragmentOrder : 9999
                                 };
-                                sortedGroups.push(calcCurrentGroup);
+                            }
+                            calcPreGroupMap[groupKey].items.push(r);
+                            const order = r.fragmentOrder !== undefined ? r.fragmentOrder : 9999;
+                            if (order < calcPreGroupMap[groupKey].minOrder) {
+                                calcPreGroupMap[groupKey].minOrder = order;
                             }
                         });
                         
-                        // 第3步：生成每组的显示文本
-                        sortedGroups.forEach(group => {
-                            // 合并显示文本（去重后用空格连接）
-                            group.originalLine = group.displayTexts.join(' ');
+                        // 按 minOrder 排序
+                        const sortedGroups = Object.values(calcPreGroupMap).sort((a, b) => a.minOrder - b.minOrder);
+                        
+                        // 转换格式：收集显示文本
+                        sortedGroups.forEach((pg) => {
+                            const displayTexts = [];
+                            pg.items.forEach(r => {
+                                const rawText = r.raw || '';
+                                if (rawText && !displayTexts.includes(rawText)) {
+                                    displayTexts.push(rawText);
+                                }
+                            });
+                            pg.displayTexts = displayTexts;
+                            pg.originalLine = displayTexts.join(' ');
+                            pg.perAmount = pg.amount;
+                            pg.fragmentOrder = pg.minOrder;
                         });
                         
                         // 调试日志
-                        console.log('📊 v3.11.10 分组结果:');
+                        console.log('📊 v3.11.11 分组结果:');
                         sortedGroups.forEach((g, i) => {
                             console.log(`  [${i}] type=${g.type} | amt=${g.perAmount} | items=${g.items.length} | "${g.originalLine?.substring(0,30)}..."`);
                         });
@@ -9713,43 +9712,57 @@
             const sortedLines = [];
             let fbCurrentLine = null;
             
-            sortedItems.forEach((item, idx) => {
-                const rawText = item.raw || '';
+            // 🆕 v3.11.11 先按 originalLine + type + amount 预分组（确保同一用户输入的同类型同金额能合并）
+            const preGroupMap = {};  // key: originalLine|||type|||amount → items[]
+            
+            sortedItems.forEach((item) => {
+                const originalLine = item.originalLine || '';
                 const itemType = item.type || '未知';
                 const itemAmount = item.amount || 0;
-                const fragmentOrder = item.fragmentOrder !== undefined ? item.fragmentOrder : 9999;
-                const groupId = item.groupId;
+                const groupKey = `${originalLine}|||${itemType}|||${itemAmount}`;
                 
-                // 判断是否与前一组"相邻+同类型+同金额"
-                const canMerge = fbCurrentLine && 
-                    fbCurrentLine.type === itemType && 
-                    fbCurrentLine.perAmount === itemAmount &&
-                    fbCurrentLine.groupId === groupId &&
-                    // 相邻判断：fragmentOrder差值小于等于1
-                    (fragmentOrder - fbCurrentLine.lastFragmentOrder <= 1);
-                
-                if (canMerge) {
-                    // 合并到当前组
-                    fbCurrentLine.items.push(item);
-                    fbCurrentLine.lastFragmentOrder = fragmentOrder;
-                    // 更新显示文本：追加新的raw（去重）
-                    if (rawText && !fbCurrentLine.displayTexts.includes(rawText)) {
-                        fbCurrentLine.displayTexts.push(rawText);
-                    }
-                } else {
-                    // 新建一组
-                    fbCurrentLine = {
-                        lineId: item.lineId,
-                        groupId: groupId,
+                if (!preGroupMap[groupKey]) {
+                    preGroupMap[groupKey] = {
+                        originalLine: originalLine,
                         type: itemType,
-                        displayTexts: rawText ? [rawText] : [],
-                        items: [item],
-                        perAmount: itemAmount,
-                        fragmentOrder: fragmentOrder,
-                        lastFragmentOrder: fragmentOrder
+                        amount: itemAmount,
+                        items: [],
+                        groupId: item.groupId,
+                        minOrder: item.fragmentOrder !== undefined ? item.fragmentOrder : 9999
                     };
-                    sortedLines.push(fbCurrentLine);
                 }
+                preGroupMap[groupKey].items.push(item);
+                // 记录最小的 fragmentOrder 用于排序
+                const order = item.fragmentOrder !== undefined ? item.fragmentOrder : 9999;
+                if (order < preGroupMap[groupKey].minOrder) {
+                    preGroupMap[groupKey].minOrder = order;
+                }
+            });
+            
+            // 按 minOrder 排序预分组
+            const preGroups = Object.values(preGroupMap).sort((a, b) => a.minOrder - b.minOrder);
+            
+            // 转换为 sortedLines 格式
+            preGroups.forEach((pg) => {
+                // 收集所有 raw 文本（去重）
+                const displayTexts = [];
+                pg.items.forEach(item => {
+                    const rawText = item.raw || '';
+                    if (rawText && !displayTexts.includes(rawText)) {
+                        displayTexts.push(rawText);
+                    }
+                });
+                
+                sortedLines.push({
+                    lineId: pg.items[0]?.lineId,
+                    groupId: pg.groupId,
+                    type: pg.type,
+                    displayTexts: displayTexts,
+                    items: pg.items,
+                    perAmount: pg.amount,
+                    fragmentOrder: pg.minOrder,
+                    lastFragmentOrder: pg.items[pg.items.length - 1]?.fragmentOrder || pg.minOrder
+                });
             });
             
             // 第3步：生成每组的显示文本
@@ -9856,22 +9869,28 @@
                         return;
                     }
                     
-                    // 🆕 v3.11.7 获取类型名称（代码→中文转换）
+                    // 🆕 v3.11.11 获取类型名称（代码→中文转换）
                     const rawTypeName = items[0]?.type || '未知';
                     const FB_TYPE_CODE_TO_NAME = {
                         'T01': '特码', 'SXTM': '特码', '特码': '特码', '生肖特码': '特码',
                         'XS': '小数', 'DS': '大数', 'ODD': '单数', 'EVEN': '双数',
                         'PT1': '平特一肖', 'PT2': '平特二连肖', 'PT3': '平特三连肖',
                         'PT4': '平特四连肖', 'PT5': '平特五连肖', 'PTW': '平特尾数',
-                        'LX': '六肖', 'LX6': '六肖', 'SX6': '六肖',
+                        // 🆕 v3.11.11 六肖的所有可能代码
+                        'LX': '六肖', 'LX6': '六肖', 'SX6': '六肖', '6X': '六肖', 'LIUXIAO': '六肖',
                         'TX': '特肖', 'HX': '合肖', 'ZX': '正肖', 'SX': '生肖',
                         'BS': '波色', 'BB': '半波', 'DP': '单平', 'DXDS': '大小单双',
                         'E2': '二中二', 'S3': '三中三', 'BZ': '不中',
                         'LM': '连码', 'ZH': '总和', 'WX': '五行', 'JY': '家野',
                         '平特一肖': '平特一肖', '平特二连肖': '平特二连肖', '平特三连肖': '平特三连肖',
-                        '六肖': '六肖', '波色': '波色', '半波': '半波'
+                        '六肖': '六肖', '波色': '波色', '半波': '半波', '未知': '未知'
                     };
-                    const typeName = FB_TYPE_CODE_TO_NAME[rawTypeName] || rawTypeName;
+                    // 🆕 v3.11.11 智能识别：如果显示文本包含"六肖"关键词，强制设为六肖类型
+                    let typeName = FB_TYPE_CODE_TO_NAME[rawTypeName] || rawTypeName;
+                    const displayText = line.displayText || '';
+                    if ((displayText.includes('六肖') || displayText.includes('6肖')) && typeName === '未知') {
+                        typeName = '六肖';
+                    }
                     
                     // 🆕 v3.11.7 修复注数计算：复合类型（六肖、平特连肖等）始终是1注
                     // 这些类型虽然展开了多条记录（每个生肖一条），但实际是1注选多个生肖
