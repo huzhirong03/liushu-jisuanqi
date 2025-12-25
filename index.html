@@ -851,31 +851,6 @@
             word-break: break-all;
             max-height: 300px;
             overflow-y: auto;
-            scroll-behavior: smooth;
-        }
-        
-        /* 🆕 v3.11.64 打字机效果样式 */
-        .typewriter-cursor {
-            display: inline-block;
-            color: #4ecdc4;
-            font-weight: bold;
-            animation: cursorBlink 0.8s ease-in-out infinite;
-            text-shadow: 0 0 8px rgba(78, 205, 196, 0.6);
-        }
-        @keyframes cursorBlink {
-            0%, 45% { opacity: 1; }
-            50%, 95% { opacity: 0; }
-            100% { opacity: 1; }
-        }
-        
-        /* 打字机计算中提示 */
-        .typewriter-loading {
-            color: #f39c12;
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 0.6; }
-            50% { opacity: 1; }
         }
         
         .result-buttons {
@@ -2056,13 +2031,13 @@
                 </div>
                 
                 <!-- AI模型切换按钮 -->
-                    <div style="margin-top:12px;">
+                <div style="margin-top:12px;">
                     <div style="font-size:12px;color:#888;margin-bottom:8px;">选择AI模型：</div>
                     <div id="ai-model-buttons" style="display:flex;gap:8px;flex-wrap:wrap;">
-                        <button type="button" class="ai-model-btn" data-provider="openrouter" onclick="switchAIModel('openrouter')">
+                        <button type="button" class="ai-model-btn active" data-provider="openrouter" onclick="switchAIModel('openrouter')">
                             🌐 谷歌
                         </button>
-                        <button type="button" class="ai-model-btn active" data-provider="deepseek" onclick="switchAIModel('deepseek')">
+                        <button type="button" class="ai-model-btn" data-provider="deepseek" onclick="switchAIModel('deepseek')">
                             🚀 DS
                         </button>
                         <button type="button" class="ai-model-btn" data-provider="zhipu" onclick="switchAIModel('zhipu')">
@@ -2900,8 +2875,8 @@
             loadConfig();
             console.log('✅ [init] 配置加载完成');
             
-            // 恢复AI模型选择（🆕 v3.11.65 默认改为deepseek，更稳定）
-            const savedAIProvider = localStorage.getItem('ai_provider') || 'deepseek';
+            // 恢复AI模型选择
+            const savedAIProvider = localStorage.getItem('ai_provider') || 'openrouter';
             switchAIModel(savedAIProvider);
             console.log('🤖 [init] AI模型:', savedAIProvider);
             
@@ -4936,8 +4911,7 @@
             const saved = JSON.parse(localStorage.getItem('lhc_format_settings') || '{}');
             // AI配置：Key在后端，前端只需要知道是否启用和使用哪个模型
             // 【修复】优先从 ai_provider 读取用户切换的模型选择
-            // 🆕 v3.11.65 默认改为deepseek
-            saved.aiProvider = localStorage.getItem('ai_provider') || saved.aiProvider || 'deepseek';
+            saved.aiProvider = localStorage.getItem('ai_provider') || saved.aiProvider || 'openrouter';
             if (saved.aiEnabled === undefined) {
                 saved.aiEnabled = true; // 默认启用
             }
@@ -4945,7 +4919,7 @@
         } catch(e) {
             return {
                 aiEnabled: true,
-                aiProvider: localStorage.getItem('ai_provider') || 'deepseek'  // 🆕 v3.11.65
+                aiProvider: localStorage.getItem('ai_provider') || 'openrouter'
             };
         }
     }
@@ -5488,21 +5462,6 @@
         }
         
         // ════════════════════════════════════════════════════════════════
-        // 🆕 v3.11.65 【计算前优化】清除旧结果 + 滚动顶部 + 显示加载状态
-        // ════════════════════════════════════════════════════════════════
-        // 1. 清除旧的计算结果
-        const resultContent = document.getElementById('result-content');
-        if (resultContent) {
-            resultContent.innerHTML = '';
-        }
-        
-        // 2. 🆕 v3.11.66 快速滚动到页面顶部（点击计算后立即到顶部）
-        window.scrollTo({ top: 0, behavior: 'instant' });
-        
-        // 3. 显示持续的计算加载提示
-        showCalculatingLoader();
-        
-        // ════════════════════════════════════════════════════════════════
         // 🆕 v2.4.4 【预处理】去除标签前缀（如 "华龙:" "123:" "XXX:"）
         // 规则1：如果整行只有 "XXX:" 格式，删除这一行
         // 规则2：如果是 "XXX:内容" 格式，去掉前缀保留内容
@@ -5560,7 +5519,6 @@
         console.log('🎯 [彩种检测]', lotteryTypes);
         
         if (lotteryTypes.hasOldAM) {
-            hideCalculatingLoader(); // 🆕 v3.11.65 不支持的彩种要隐藏加载提示
             alert(`⚠️ 暂不支持"${lotteryTypes.oldAmKeyword}"计算\n目前只支持：新澳门、香港`);
             return;
         }
@@ -5597,7 +5555,10 @@
         // 🆕 v3.0 【新架构】计算逻辑在后端，前端只做展示
         // API Key 已移至后端，只需检查 aiEnabled
         if (settings.aiEnabled) {
-            // 🆕 v3.11.65 旧的toast提示已由全屏加载动画替代
+            // 【AI调试显示】开始
+            showAutoCloseToast('🚀 正在计算,请稍等，老板日进斗金～', 8000);
+            // 【AI调试显示】结束
+            
             try {
                 // 🆕 v3.11.4 生肖代号转换（后端正则匹配需要 Z1-Z12 格式）
                 const sanitizedInput = sanitizeText(input);
@@ -5630,7 +5591,7 @@
                     sanitizedInput,
                     mcNums,  // 🆕 v3.11.43 始终传澳门开奖数据
                     config,
-                    settings.aiProvider || 'deepseek',  // 🆕 v3.11.65 默认deepseek
+                    settings.aiProvider || 'openrouter',
                     null,
                     hkNums  // 香港开奖数据
                 );
@@ -6192,13 +6153,11 @@
                     }
                     
                     resultText += `━━━━━━━━━━━━━━━━━━\n`;
-                    resultText += `💡 结果有误？点击下方"提交反馈"（点击结果可跳过动画）\n`;
+                    resultText += `💡 结果有误？点击下方"提交反馈"\n`;
                     
-                    // 🆕 v3.11.65 隐藏计算加载提示
-                    hideCalculatingLoader();
-                    
-                    // 🆕 v3.11.64 使用打字机效果显示结果
-                    displayResultWithTypewriter(resultText, true);
+                    // 显示结果
+                    document.getElementById('result-content').innerHTML = resultText.replace(/\n/g, '<br>');
+                    document.getElementById('result-section').classList.add('show');
                     return; // 🆕 v3.0 后端计算完成，直接返回
                 } else {
                     // 后端返回空结果或失败，回退本地解析
@@ -6210,7 +6169,6 @@
             } catch (e) {
                 console.error('❌ 后端计算异常:', e);
                 debugInfo.lastError = e.message || String(e);
-                hideCalculatingLoader(); // 🆕 v3.11.65 异常时也要隐藏加载提示
                 showAutoCloseToast('❌ 后端计算异常: ' + e.message, 3000);
                 // 回退到本地解析
                 parsedBets = parseBetInput(input);
@@ -6224,7 +6182,6 @@
         // 以下是本地解析的回退逻辑（当后端计算失败时使用）
         // ═══════════════════════════════════════════════════════════
         if (parsedBets.length === 0) {
-            hideCalculatingLoader(); // 🆕 v3.11.65 无结果时也要隐藏加载提示
             alert('❌ 未识别到有效的下注信息\n\n建议：\n1. 检查输入格式\n2. 在"自定义格式"中添加规则\n3. 启用AI智能解析');
             return;
         }
@@ -6363,13 +6320,11 @@
         }
         
         resultText += `━━━━━━━━━━━━━━━━━━\n`;
-        resultText += `💡 结果有误？点击下方"提交反馈"（点击结果可跳过动画）\n`;
+        resultText += `💡 结果有误？点击下方"提交反馈"\n`;
         
-        // 🆕 v3.11.65 隐藏计算加载提示
-        hideCalculatingLoader();
-        
-        // 🆕 v3.11.64 使用打字机效果显示结果
-        displayResultWithTypewriter(resultText, true);
+        // 显示结果
+        document.getElementById('result-content').innerHTML = resultText.replace(/\n/g, '<br>');
+        document.getElementById('result-section').classList.add('show');
     }
     
     // 显示核对详情
@@ -6630,220 +6585,10 @@
     }
     
     // ════════════════════════════════════════════════════════════════════════════
-    // 🆕 v3.11.64 打字机效果模块 - 增强用户体验
-    // ════════════════════════════════════════════════════════════════════════════
-    
-    // 打字机状态管理
-    let typewriterState = {
-        isRunning: false,      // 是否正在运行
-        timeoutId: null,       // 定时器ID（用于取消）
-        skipRequested: false,  // 是否请求跳过
-        fullText: '',          // 完整文本
-    };
-    
-    /**
-     * 🆕 v3.11.64 滚动到结果区域顶部
-     */
-    function scrollToResultSection() {
-        const resultSection = document.getElementById('result-section');
-        if (resultSection) {
-            // 先显示结果区域
-            resultSection.classList.add('show');
-            // 平滑滚动到结果区域
-            setTimeout(() => {
-                resultSection.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'start' 
-                });
-            }, 100);
-        }
-    }
-    
-    /**
-     * 🆕 v3.11.64 智能滚动跟随（让光标始终可见）
-     * @param {HTMLElement} element - 结果容器元素
-     */
-    function smartScrollFollow(element) {
-        if (!element) return;
-        
-        // 内部滚动到底部（让新内容和光标可见）
-        element.scrollTop = element.scrollHeight;
-        
-        // 检查元素底部是否在视口中，如果不在则滚动页面
-        const rect = element.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        
-        // 如果元素底部超出视口，滚动页面跟随
-        if (rect.bottom > viewportHeight - 50) {
-            window.scrollBy({
-                top: Math.min(rect.bottom - viewportHeight + 80, 50), // 每次最多滚动50px，避免抖动
-                behavior: 'smooth'
-            });
-        }
-    }
-    
-    /**
-     * 🆕 v3.11.64 打字机效果显示HTML内容
-     * @param {HTMLElement} element - 目标元素
-     * @param {string} fullText - 完整文本（带\n换行）
-     * @param {number} speed - 每字符延迟(ms)，默认5ms
-     * @param {Function} callback - 完成回调
-     */
-    function typewriterHTML(element, fullText, speed = 5, callback) {
-        // 保存状态
-        typewriterState.isRunning = true;
-        typewriterState.skipRequested = false;
-        typewriterState.fullText = fullText;
-        
-        // 清除之前的定时器
-        if (typewriterState.timeoutId) {
-            clearTimeout(typewriterState.timeoutId);
-        }
-        
-        // 将文本按行分割
-        const lines = fullText.split('\n');
-        let currentLineIdx = 0;
-        let currentCharIdx = 0;
-        let displayedHTML = '';
-        
-        // 检测头部区域（开奖结果部分），使用较慢速度
-        // 头部通常是前几行（📊 计算结果、━━━、🎰 开奖...）
-        const headerEndLine = Math.min(5, lines.length);
-        
-        function typeNextChar() {
-            // 检查是否请求跳过
-            if (typewriterState.skipRequested) {
-                // 直接显示完整内容
-                element.innerHTML = fullText.replace(/\n/g, '<br>');
-                typewriterState.isRunning = false;
-                if (callback) callback();
-                return;
-            }
-            
-            if (currentLineIdx >= lines.length) {
-                // 完成
-                typewriterState.isRunning = false;
-                if (callback) callback();
-                return;
-            }
-            
-            const currentLine = lines[currentLineIdx];
-            
-            if (currentCharIdx < currentLine.length) {
-                // 还在当前行
-                currentCharIdx++;
-                const partialLine = currentLine.substring(0, currentCharIdx);
-                const cursorHTML = '<span class="typewriter-cursor">▌</span>';
-                
-                // 构建显示内容：已完成的行 + 当前行部分 + 光标
-                let html = displayedHTML;
-                if (displayedHTML) html += '<br>';
-                html += partialLine + cursorHTML;
-                
-                element.innerHTML = html;
-                smartScrollFollow(element);
-                
-                // 动态速度：头部慢(30ms)，结果快(5ms)
-                const isHeader = currentLineIdx < headerEndLine;
-                const currentSpeed = isHeader ? 25 : speed;
-                
-                typewriterState.timeoutId = setTimeout(typeNextChar, currentSpeed);
-            } else {
-                // 当前行完成，移到下一行
-                if (displayedHTML) displayedHTML += '<br>';
-                displayedHTML += currentLine;
-                currentLineIdx++;
-                currentCharIdx = 0;
-                
-                // 行间有短暂停顿（让用户能看清每行）
-                const linePause = currentLine.includes('━━') ? 50 : 10;
-                typewriterState.timeoutId = setTimeout(typeNextChar, linePause);
-            }
-        }
-        
-        // 添加点击跳过功能
-        const skipHandler = function() {
-            if (typewriterState.isRunning) {
-                typewriterState.skipRequested = true;
-            }
-            element.removeEventListener('click', skipHandler);
-        };
-        element.addEventListener('click', skipHandler);
-        
-        // 开始打字
-        typeNextChar();
-    }
-    
-    /**
-     * 🆕 v3.11.66 平稳滚动到页面顶部
-     * 模拟用户手工点击空位后往上滑动的效果
-     */
-    function smoothScrollToTop() {
-        // 使用平滑滚动到页面顶部
-        window.scrollTo({ 
-            top: 0, 
-            behavior: 'smooth' 
-        });
-        console.log('📍 平稳滚动到页面顶部');
-    }
-    
-    /**
-     * 🆕 v3.11.66 显示结果（带打字机效果）
-     * 修改：打字机效果完成后，自动平稳滚动到页面顶部
-     * @param {string} resultText - 结果文本
-     * @param {boolean} useTypewriter - 是否使用打字机效果，默认true
-     */
-    function displayResultWithTypewriter(resultText, useTypewriter = true) {
-        const resultSection = document.getElementById('result-section');
-        const resultContent = document.getElementById('result-content');
-        
-        if (!resultSection || !resultContent) {
-            console.error('❌ 找不到结果显示区域');
-            return;
-        }
-        
-        // 显示结果区域并滚动到结果区域顶部（开始打字时）
-        scrollToResultSection();
-        
-        if (useTypewriter && resultText.length > 50) {
-            // 使用打字机效果
-            typewriterHTML(resultContent, resultText, 5, () => {
-                console.log('✅ 打字机效果完成');
-                // 🆕 v3.11.66 打字机效果完成后，延迟300ms后平稳滚动到页面顶部
-                // 延迟是为了让用户先看到完整结果，然后再平稳滚动
-                setTimeout(() => {
-                    smoothScrollToTop();
-                }, 300);
-            });
-        } else {
-            // 直接显示（短文本或禁用打字机）
-            resultContent.innerHTML = resultText.replace(/\n/g, '<br>');
-            // 🆕 v3.11.66 直接显示完成后也滚动到顶部
-            setTimeout(() => {
-                smoothScrollToTop();
-            }, 300);
-        }
-    }
-    
-    /**
-     * 🆕 v3.11.64 停止打字机效果
-     */
-    function stopTypewriter() {
-        if (typewriterState.isRunning) {
-            typewriterState.skipRequested = true;
-        }
-        if (typewriterState.timeoutId) {
-            clearTimeout(typewriterState.timeoutId);
-            typewriterState.timeoutId = null;
-        }
-    }
-    
-    // ════════════════════════════════════════════════════════════════════════════
     
     function clearInput() {
         document.getElementById('bet-input').value = '';
         document.getElementById('result-section').classList.remove('show');
-        stopTypewriter();  // 🆕 v3.11.64 清空时停止打字机
         parsedBets = [];
         calcResults = [];
     }
@@ -7233,7 +6978,7 @@
         const settings = {
             // AI设置（默认启用，API Key在后端环境变量）
             aiEnabled: document.getElementById('ai-parse-enabled')?.checked !== false,
-            aiProvider: localStorage.getItem('ai_provider') || 'deepseek'  // 🆕 v3.11.65
+            aiProvider: localStorage.getItem('ai_provider') || 'openrouter'
         };
         localStorage.setItem('lhc_format_settings', JSON.stringify(settings));
         showAutoCloseToast('✅ 设置已保存！');
@@ -9876,7 +9621,7 @@ ${sanitizedInput}
         const settings = {
             // AI设置
             aiEnabled: document.getElementById('ai-parse-enabled')?.checked !== false,
-            aiProvider: localStorage.getItem('ai_provider') || 'deepseek'  // 🆕 v3.11.65
+            aiProvider: localStorage.getItem('ai_provider') || 'openrouter'
         };
         localStorage.setItem('lhc_format_settings', JSON.stringify(settings));
         showAutoCloseToast('✅ 参数设置已保存！');
@@ -9960,133 +9705,6 @@ ${sanitizedInput}
         toast.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.85);color:#4CAF50;padding:15px 25px;border-radius:10px;font-size:14px;z-index:9999;';
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), duration);
-    }
-    
-    // ════════════════════════════════════════════════════════════════
-    // 🆕 v3.11.65 【计算加载提示】持续显示直到计算完成
-    // ════════════════════════════════════════════════════════════════
-    let calculatingLoaderEl = null;
-    let loaderStartTime = 0;
-    let loaderTimerInterval = null;
-    
-    /**
-     * 显示计算中加载提示（持续显示直到手动关闭）
-     */
-    function showCalculatingLoader() {
-        // 先移除可能存在的旧提示
-        hideCalculatingLoader();
-        
-        loaderStartTime = Date.now();
-        
-        calculatingLoaderEl = document.createElement('div');
-        calculatingLoaderEl.id = 'calculating-loader';
-        calculatingLoaderEl.innerHTML = `
-            <div class="loader-content">
-                <div class="loader-spinner"></div>
-                <div class="loader-text">
-                    <div class="loader-title">🚀 AI正在识别计算中...</div>
-                    <div class="loader-subtitle">请稍等，老板日进斗金～</div>
-                    <div class="loader-timer" id="loader-timer">已等待: 0秒</div>
-                </div>
-            </div>
-        `;
-        calculatingLoaderEl.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 99999;
-            backdrop-filter: blur(3px);
-        `;
-        
-        // 添加样式
-        const style = document.createElement('style');
-        style.id = 'calculating-loader-style';
-        style.textContent = `
-            #calculating-loader .loader-content {
-                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-                border: 2px solid #e94560;
-                border-radius: 20px;
-                padding: 30px 50px;
-                text-align: center;
-                box-shadow: 0 20px 60px rgba(233, 69, 96, 0.3);
-                animation: loaderPulse 2s ease-in-out infinite;
-            }
-            @keyframes loaderPulse {
-                0%, 100% { box-shadow: 0 20px 60px rgba(233, 69, 96, 0.3); }
-                50% { box-shadow: 0 20px 80px rgba(233, 69, 96, 0.5); }
-            }
-            #calculating-loader .loader-spinner {
-                width: 60px;
-                height: 60px;
-                border: 4px solid rgba(233, 69, 96, 0.3);
-                border-top-color: #e94560;
-                border-radius: 50%;
-                margin: 0 auto 20px;
-                animation: spin 1s linear infinite;
-            }
-            @keyframes spin {
-                to { transform: rotate(360deg); }
-            }
-            #calculating-loader .loader-title {
-                color: #4CAF50;
-                font-size: 18px;
-                font-weight: bold;
-                margin-bottom: 8px;
-            }
-            #calculating-loader .loader-subtitle {
-                color: #f39c12;
-                font-size: 14px;
-                margin-bottom: 12px;
-            }
-            #calculating-loader .loader-timer {
-                color: #888;
-                font-size: 13px;
-                font-family: 'Courier New', monospace;
-            }
-        `;
-        
-        document.head.appendChild(style);
-        document.body.appendChild(calculatingLoaderEl);
-        
-        // 启动计时器
-        loaderTimerInterval = setInterval(() => {
-            const elapsed = Math.floor((Date.now() - loaderStartTime) / 1000);
-            const timerEl = document.getElementById('loader-timer');
-            if (timerEl) {
-                timerEl.textContent = `已等待: ${elapsed}秒`;
-                // 超过5秒显示提示
-                if (elapsed >= 5 && elapsed < 10) {
-                    timerEl.style.color = '#f39c12';
-                } else if (elapsed >= 10) {
-                    timerEl.style.color = '#e74c3c';
-                    timerEl.textContent = `已等待: ${elapsed}秒（AI正在努力处理复杂内容...）`;
-                }
-            }
-        }, 1000);
-    }
-    
-    /**
-     * 隐藏计算中加载提示
-     */
-    function hideCalculatingLoader() {
-        if (loaderTimerInterval) {
-            clearInterval(loaderTimerInterval);
-            loaderTimerInterval = null;
-        }
-        if (calculatingLoaderEl) {
-            calculatingLoaderEl.remove();
-            calculatingLoaderEl = null;
-        }
-        const style = document.getElementById('calculating-loader-style');
-        if (style) {
-            style.remove();
-        }
     }
     
     // ╔════════════════════════════════════════════════════════════════╗
