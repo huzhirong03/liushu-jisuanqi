@@ -861,15 +861,22 @@
                 overflow-y: auto;
             }
             
-            /* 🆕 v3.11.58 打字机光标动画 */
+            /* 🆕 v3.11.63 打字机光标动画（大模型风格） */
             .typewriter-cursor {
                 color: #4ecdc4;
-                animation: blink 0.7s infinite;
-                font-family: inherit;
+                animation: cursorBlink 0.8s ease-in-out infinite;
+                font-weight: bold;
+                text-shadow: 0 0 8px rgba(78, 205, 196, 0.6);
             }
-            @keyframes blink {
-                0%, 50% { opacity: 1; }
-                51%, 100% { opacity: 0; }
+            @keyframes cursorBlink {
+                0%, 45% { opacity: 1; }
+                50%, 95% { opacity: 0; }
+                100% { opacity: 1; }
+            }
+            
+            /* 🆕 v3.11.63 结果区域平滑滚动 */
+            .result-content {
+                scroll-behavior: smooth;
             }
             
             .result-buttons {
@@ -5296,10 +5303,13 @@
                 
                 console.log('%c🌊 【流式计算开始】', 'color: #9c27b0; font-weight: bold; font-size: 14px');
                 
-                // 🆕 v3.11.60 不显示进度条UI，直接在结果区显示头部
+                // 🆕 v3.11.63 不显示进度条UI，直接在结果区显示头部
                 // 显示结果区域并开始打字机头部
                 document.getElementById('result-section').classList.add('show');
                 const resultEl = document.getElementById('result-content');
+                
+                // 🆕 v3.11.63 滚动页面到结果区域（让用户看到打字机效果）
+                scrollToResultSection();
                 
                 // 构建头部文本（开奖结果）
                 const mcData = window.appState?.lotteryData?.['xam'];
@@ -5520,11 +5530,11 @@
             }, speed);
         }
         
-        // 🆕 v3.11.60 HTML打字机效果（支持换行 + 动态速度）
+        // 🆕 v3.11.63 HTML打字机效果（支持换行 + 动态速度 + 智能滚动跟随）
         let htmlTypewriterTimer = null;
         function typewriterHTML(element, text, speed = 8, callback) {
             if (htmlTypewriterTimer) {
-                clearInterval(htmlTypewriterTimer);
+                clearTimeout(htmlTypewriterTimer);
                 htmlTypewriterTimer = null;
             }
             
@@ -5568,7 +5578,8 @@
                         currentChar = 0;
                     }
                     
-                    element.scrollTop = element.scrollHeight;
+                    // 🆕 v3.11.63 智能滚动跟随（光标始终可见）
+                    smartScrollFollow(element);
                     htmlTypewriterTimer = setTimeout(typeNextChar, currentSpeed);
                 } else {
                     clearTimeout(htmlTypewriterTimer);
@@ -5590,7 +5601,39 @@
             element.innerHTML = text.replace(/\n/g, '<br>');
         }
         
-        // 🆕 v3.11.62 追加打字机效果（从已有内容后继续打印）
+        // 🆕 v3.11.63 滚动页面到结果区域（大模型风格体验）
+        function scrollToResultSection() {
+            const resultSection = document.getElementById('result-section');
+            if (resultSection) {
+                // 使用 scrollIntoView 实现平滑滚动到结果区域顶部
+                resultSection.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                });
+            }
+        }
+        
+        // 🆕 v3.11.63 智能滚动跟随（光标跟随打印内容）
+        function smartScrollFollow(element) {
+            if (!element) return;
+            
+            // 内部滚动到底部（让光标始终可见）
+            element.scrollTop = element.scrollHeight;
+            
+            // 检查元素是否在视口中，如果不在则滚动页面
+            const rect = element.getBoundingClientRect();
+            const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+            
+            // 如果元素底部超出视口，滚动页面使其可见
+            if (rect.bottom > viewportHeight - 50) {
+                window.scrollBy({
+                    top: rect.bottom - viewportHeight + 100,
+                    behavior: 'smooth'
+                });
+            }
+        }
+        
+        // 🆕 v3.11.63 追加打字机效果（从已有内容后继续打印 + 智能滚动跟随）
         function continueTypewriterAfterHeader(element, fullText, speed = 5, callback) {
             // 停止之前的打字机
             if (htmlTypewriterTimer) {
@@ -5627,7 +5670,10 @@
                 displayedHTML += '<br>';
             }
             
-            // 结果区域滚动到顶部
+            // 🆕 v3.11.63 先滚动页面到结果区域顶部
+            scrollToResultSection();
+            
+            // 结果区域内部滚动到顶部
             element.scrollTop = 0;
             
             // 开始打字机显示结果部分
@@ -5652,8 +5698,8 @@
                         currentChar = 0;
                     }
                     
-                    // 滚动跟随打印内容
-                    element.scrollTop = element.scrollHeight;
+                    // 🆕 v3.11.63 智能滚动跟随（光标始终可见）
+                    smartScrollFollow(element);
                     htmlTypewriterTimer = setTimeout(typeNextChar, speed);
                 } else {
                     clearTimeout(htmlTypewriterTimer);
