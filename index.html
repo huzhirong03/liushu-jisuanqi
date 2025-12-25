@@ -5487,6 +5487,21 @@
         }
         
         // ════════════════════════════════════════════════════════════════
+        // 🆕 v3.11.65 【计算前优化】清除旧结果 + 滚动顶部 + 显示加载状态
+        // ════════════════════════════════════════════════════════════════
+        // 1. 清除旧的计算结果
+        const resultContent = document.getElementById('result-content');
+        if (resultContent) {
+            resultContent.innerHTML = '';
+        }
+        
+        // 2. 滚动到页面顶部
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+        // 3. 显示持续的计算加载提示
+        showCalculatingLoader();
+        
+        // ════════════════════════════════════════════════════════════════
         // 🆕 v2.4.4 【预处理】去除标签前缀（如 "华龙:" "123:" "XXX:"）
         // 规则1：如果整行只有 "XXX:" 格式，删除这一行
         // 规则2：如果是 "XXX:内容" 格式，去掉前缀保留内容
@@ -5544,6 +5559,7 @@
         console.log('🎯 [彩种检测]', lotteryTypes);
         
         if (lotteryTypes.hasOldAM) {
+            hideCalculatingLoader(); // 🆕 v3.11.65 不支持的彩种要隐藏加载提示
             alert(`⚠️ 暂不支持"${lotteryTypes.oldAmKeyword}"计算\n目前只支持：新澳门、香港`);
             return;
         }
@@ -5580,10 +5596,7 @@
         // 🆕 v3.0 【新架构】计算逻辑在后端，前端只做展示
         // API Key 已移至后端，只需检查 aiEnabled
         if (settings.aiEnabled) {
-            // 【AI调试显示】开始
-            showAutoCloseToast('🚀 正在计算,请稍等，老板日进斗金～', 8000);
-            // 【AI调试显示】结束
-            
+            // 🆕 v3.11.65 旧的toast提示已由全屏加载动画替代
             try {
                 // 🆕 v3.11.4 生肖代号转换（后端正则匹配需要 Z1-Z12 格式）
                 const sanitizedInput = sanitizeText(input);
@@ -6180,6 +6193,9 @@
                     resultText += `━━━━━━━━━━━━━━━━━━\n`;
                     resultText += `💡 结果有误？点击下方"提交反馈"（点击结果可跳过动画）\n`;
                     
+                    // 🆕 v3.11.65 隐藏计算加载提示
+                    hideCalculatingLoader();
+                    
                     // 🆕 v3.11.64 使用打字机效果显示结果
                     displayResultWithTypewriter(resultText, true);
                     return; // 🆕 v3.0 后端计算完成，直接返回
@@ -6193,6 +6209,7 @@
             } catch (e) {
                 console.error('❌ 后端计算异常:', e);
                 debugInfo.lastError = e.message || String(e);
+                hideCalculatingLoader(); // 🆕 v3.11.65 异常时也要隐藏加载提示
                 showAutoCloseToast('❌ 后端计算异常: ' + e.message, 3000);
                 // 回退到本地解析
                 parsedBets = parseBetInput(input);
@@ -6206,6 +6223,7 @@
         // 以下是本地解析的回退逻辑（当后端计算失败时使用）
         // ═══════════════════════════════════════════════════════════
         if (parsedBets.length === 0) {
+            hideCalculatingLoader(); // 🆕 v3.11.65 无结果时也要隐藏加载提示
             alert('❌ 未识别到有效的下注信息\n\n建议：\n1. 检查输入格式\n2. 在"自定义格式"中添加规则\n3. 启用AI智能解析');
             return;
         }
@@ -6345,6 +6363,9 @@
         
         resultText += `━━━━━━━━━━━━━━━━━━\n`;
         resultText += `💡 结果有误？点击下方"提交反馈"（点击结果可跳过动画）\n`;
+        
+        // 🆕 v3.11.65 隐藏计算加载提示
+        hideCalculatingLoader();
         
         // 🆕 v3.11.64 使用打字机效果显示结果
         displayResultWithTypewriter(resultText, true);
@@ -9915,6 +9936,133 @@ ${sanitizedInput}
         toast.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.85);color:#4CAF50;padding:15px 25px;border-radius:10px;font-size:14px;z-index:9999;';
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), duration);
+    }
+    
+    // ════════════════════════════════════════════════════════════════
+    // 🆕 v3.11.65 【计算加载提示】持续显示直到计算完成
+    // ════════════════════════════════════════════════════════════════
+    let calculatingLoaderEl = null;
+    let loaderStartTime = 0;
+    let loaderTimerInterval = null;
+    
+    /**
+     * 显示计算中加载提示（持续显示直到手动关闭）
+     */
+    function showCalculatingLoader() {
+        // 先移除可能存在的旧提示
+        hideCalculatingLoader();
+        
+        loaderStartTime = Date.now();
+        
+        calculatingLoaderEl = document.createElement('div');
+        calculatingLoaderEl.id = 'calculating-loader';
+        calculatingLoaderEl.innerHTML = `
+            <div class="loader-content">
+                <div class="loader-spinner"></div>
+                <div class="loader-text">
+                    <div class="loader-title">🚀 AI正在识别计算中...</div>
+                    <div class="loader-subtitle">请稍等，老板日进斗金～</div>
+                    <div class="loader-timer" id="loader-timer">已等待: 0秒</div>
+                </div>
+            </div>
+        `;
+        calculatingLoaderEl.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            backdrop-filter: blur(3px);
+        `;
+        
+        // 添加样式
+        const style = document.createElement('style');
+        style.id = 'calculating-loader-style';
+        style.textContent = `
+            #calculating-loader .loader-content {
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                border: 2px solid #e94560;
+                border-radius: 20px;
+                padding: 30px 50px;
+                text-align: center;
+                box-shadow: 0 20px 60px rgba(233, 69, 96, 0.3);
+                animation: loaderPulse 2s ease-in-out infinite;
+            }
+            @keyframes loaderPulse {
+                0%, 100% { box-shadow: 0 20px 60px rgba(233, 69, 96, 0.3); }
+                50% { box-shadow: 0 20px 80px rgba(233, 69, 96, 0.5); }
+            }
+            #calculating-loader .loader-spinner {
+                width: 60px;
+                height: 60px;
+                border: 4px solid rgba(233, 69, 96, 0.3);
+                border-top-color: #e94560;
+                border-radius: 50%;
+                margin: 0 auto 20px;
+                animation: spin 1s linear infinite;
+            }
+            @keyframes spin {
+                to { transform: rotate(360deg); }
+            }
+            #calculating-loader .loader-title {
+                color: #4CAF50;
+                font-size: 18px;
+                font-weight: bold;
+                margin-bottom: 8px;
+            }
+            #calculating-loader .loader-subtitle {
+                color: #f39c12;
+                font-size: 14px;
+                margin-bottom: 12px;
+            }
+            #calculating-loader .loader-timer {
+                color: #888;
+                font-size: 13px;
+                font-family: 'Courier New', monospace;
+            }
+        `;
+        
+        document.head.appendChild(style);
+        document.body.appendChild(calculatingLoaderEl);
+        
+        // 启动计时器
+        loaderTimerInterval = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - loaderStartTime) / 1000);
+            const timerEl = document.getElementById('loader-timer');
+            if (timerEl) {
+                timerEl.textContent = `已等待: ${elapsed}秒`;
+                // 超过5秒显示提示
+                if (elapsed >= 5 && elapsed < 10) {
+                    timerEl.style.color = '#f39c12';
+                } else if (elapsed >= 10) {
+                    timerEl.style.color = '#e74c3c';
+                    timerEl.textContent = `已等待: ${elapsed}秒（AI正在努力处理复杂内容...）`;
+                }
+            }
+        }, 1000);
+    }
+    
+    /**
+     * 隐藏计算中加载提示
+     */
+    function hideCalculatingLoader() {
+        if (loaderTimerInterval) {
+            clearInterval(loaderTimerInterval);
+            loaderTimerInterval = null;
+        }
+        if (calculatingLoaderEl) {
+            calculatingLoaderEl.remove();
+            calculatingLoaderEl = null;
+        }
+        const style = document.getElementById('calculating-loader-style');
+        if (style) {
+            style.remove();
+        }
     }
     
     // ╔════════════════════════════════════════════════════════════════╗
