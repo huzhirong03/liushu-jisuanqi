@@ -6663,23 +6663,19 @@
      * 🆕 v3.11.64 智能滚动跟随（让光标始终可见）
      * @param {HTMLElement} element - 结果容器元素
      */
+    /**
+     * 🆕 v3.11.66 智能滚动跟随（只在结果区域内部滚动，不带动页面）
+     * 修改：禁用页面滚动跟随，让用户停留在顶部位置
+     */
     function smartScrollFollow(element) {
         if (!element) return;
         
-        // 内部滚动到底部（让新内容和光标可见）
+        // 只在结果区域内部滚动到底部（让新内容和光标可见）
         element.scrollTop = element.scrollHeight;
         
-        // 检查元素底部是否在视口中，如果不在则滚动页面
-        const rect = element.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        
-        // 如果元素底部超出视口，滚动页面跟随
-        if (rect.bottom > viewportHeight - 50) {
-            window.scrollBy({
-                top: Math.min(rect.bottom - viewportHeight + 80, 50), // 每次最多滚动50px，避免抖动
-                behavior: 'smooth'
-            });
-        }
+        // 🆕 v3.11.66 禁用页面滚动跟随
+        // 用户希望点击计算后停留在顶部，打字机效果只在结果区域内展开
+        // 不再调用 window.scrollBy 带动页面滚动
     }
     
     /**
@@ -6809,19 +6805,13 @@
             // 使用打字机效果
             typewriterHTML(resultContent, resultText, 5, () => {
                 console.log('✅ 打字机效果完成');
-                // 🆕 v3.11.66 打字机效果完成后，延迟300ms后平稳滚动到页面顶部
-                // 延迟是为了让用户先看到完整结果，然后再平稳滚动
-                setTimeout(() => {
-                    smoothScrollToTop();
-                }, 300);
+                // 🆕 v3.11.66 打字机完成后不再滚动
+                // 因为用户点击计算时已经快速滚到顶部，打字机过程中也不带动页面滚动
+                // 所以完成后用户还在顶部，不需要再滚动
             });
         } else {
             // 直接显示（短文本或禁用打字机）
             resultContent.innerHTML = resultText.replace(/\n/g, '<br>');
-            // 🆕 v3.11.66 直接显示完成后也滚动到顶部
-            setTimeout(() => {
-                smoothScrollToTop();
-            }, 300);
         }
     }
     
