@@ -2056,13 +2056,13 @@
                 </div>
                 
                 <!-- AI模型切换按钮 -->
-                <div style="margin-top:12px;">
+                    <div style="margin-top:12px;">
                     <div style="font-size:12px;color:#888;margin-bottom:8px;">选择AI模型：</div>
                     <div id="ai-model-buttons" style="display:flex;gap:8px;flex-wrap:wrap;">
-                        <button type="button" class="ai-model-btn active" data-provider="openrouter" onclick="switchAIModel('openrouter')">
+                        <button type="button" class="ai-model-btn" data-provider="openrouter" onclick="switchAIModel('openrouter')">
                             🌐 谷歌
                         </button>
-                        <button type="button" class="ai-model-btn" data-provider="deepseek" onclick="switchAIModel('deepseek')">
+                        <button type="button" class="ai-model-btn active" data-provider="deepseek" onclick="switchAIModel('deepseek')">
                             🚀 DS
                         </button>
                         <button type="button" class="ai-model-btn" data-provider="zhipu" onclick="switchAIModel('zhipu')">
@@ -2900,8 +2900,8 @@
             loadConfig();
             console.log('✅ [init] 配置加载完成');
             
-            // 恢复AI模型选择
-            const savedAIProvider = localStorage.getItem('ai_provider') || 'openrouter';
+            // 恢复AI模型选择（🆕 v3.11.65 默认改为deepseek，更稳定）
+            const savedAIProvider = localStorage.getItem('ai_provider') || 'deepseek';
             switchAIModel(savedAIProvider);
             console.log('🤖 [init] AI模型:', savedAIProvider);
             
@@ -4936,7 +4936,8 @@
             const saved = JSON.parse(localStorage.getItem('lhc_format_settings') || '{}');
             // AI配置：Key在后端，前端只需要知道是否启用和使用哪个模型
             // 【修复】优先从 ai_provider 读取用户切换的模型选择
-            saved.aiProvider = localStorage.getItem('ai_provider') || saved.aiProvider || 'openrouter';
+            // 🆕 v3.11.65 默认改为deepseek
+            saved.aiProvider = localStorage.getItem('ai_provider') || saved.aiProvider || 'deepseek';
             if (saved.aiEnabled === undefined) {
                 saved.aiEnabled = true; // 默认启用
             }
@@ -4944,7 +4945,7 @@
         } catch(e) {
             return {
                 aiEnabled: true,
-                aiProvider: localStorage.getItem('ai_provider') || 'openrouter'
+                aiProvider: localStorage.getItem('ai_provider') || 'deepseek'  // 🆕 v3.11.65
             };
         }
     }
@@ -5629,7 +5630,7 @@
                     sanitizedInput,
                     mcNums,  // 🆕 v3.11.43 始终传澳门开奖数据
                     config,
-                    settings.aiProvider || 'openrouter',
+                    settings.aiProvider || 'deepseek',  // 🆕 v3.11.65 默认deepseek
                     null,
                     hkNums  // 香港开奖数据
                 );
@@ -7209,7 +7210,7 @@
         const settings = {
             // AI设置（默认启用，API Key在后端环境变量）
             aiEnabled: document.getElementById('ai-parse-enabled')?.checked !== false,
-            aiProvider: localStorage.getItem('ai_provider') || 'openrouter'
+            aiProvider: localStorage.getItem('ai_provider') || 'deepseek'  // 🆕 v3.11.65
         };
         localStorage.setItem('lhc_format_settings', JSON.stringify(settings));
         showAutoCloseToast('✅ 设置已保存！');
@@ -9852,7 +9853,7 @@ ${sanitizedInput}
         const settings = {
             // AI设置
             aiEnabled: document.getElementById('ai-parse-enabled')?.checked !== false,
-            aiProvider: localStorage.getItem('ai_provider') || 'openrouter'
+            aiProvider: localStorage.getItem('ai_provider') || 'deepseek'  // 🆕 v3.11.65
         };
         localStorage.setItem('lhc_format_settings', JSON.stringify(settings));
         showAutoCloseToast('✅ 参数设置已保存！');
