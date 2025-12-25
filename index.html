@@ -6579,23 +6579,34 @@
                         resultText += `━━━━━━━━━━━━━━━━━━\n`;
                         resultText += `💡 结果有误？点击下方"提交反馈"\n`;
                         
-                        // 🆕 v3.11.58 使用打字机效果显示结果
+                        // 🆕 v3.11.61 显示最终结果
                         const resultEl = document.getElementById('result-content');
                         document.getElementById('result-section').classList.add('show');
                         
                         // 保存结果文本供复制使用
                         window.lastResultText = resultText;
                         
-                        // 打字机效果显示（每字8ms，约2秒完成500字）
-                        typewriterHTML(resultEl, resultText, 8, () => {
-                            console.log('✅ 打字机效果完成');
-                        });
-                        
-                        // 添加点击跳过功能
-                        resultEl.onclick = function() {
-                            skipTypewriter(resultEl, resultText);
-                            resultEl.onclick = null;
-                        };
+                        // 🆕 v3.11.61 流式模式下直接显示最终结果（不重复打字机头部）
+                        if (useStreamMode) {
+                            // 流式模式：头部已显示过，直接设置最终内容
+                            if (htmlTypewriterTimer) {
+                                clearTimeout(htmlTypewriterTimer);
+                                htmlTypewriterTimer = null;
+                            }
+                            resultEl.innerHTML = resultText.replace(/\n/g, '<br>');
+                            console.log('✅ 流式模式：直接显示最终结果');
+                        } else {
+                            // 普通模式：打字机效果显示（每字8ms）
+                            typewriterHTML(resultEl, resultText, 8, () => {
+                                console.log('✅ 打字机效果完成');
+                            });
+                            
+                            // 添加点击跳过功能
+                            resultEl.onclick = function() {
+                                skipTypewriter(resultEl, resultText);
+                                resultEl.onclick = null;
+                            };
+                        }
                         
                         return; // 🆕 v3.0 后端计算完成，直接返回
                     } else {
