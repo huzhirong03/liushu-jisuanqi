@@ -857,12 +857,19 @@
                 background: rgba(0, 0, 0, 0.3);
                 border-radius: 8px;
                 padding: 12px;
-                font-family: 'Courier New', monospace;
-                font-size: 13px;
-                white-space: pre-wrap;
-                word-break: break-all;
-                max-height: 300px;
+                max-height: 60vh;
                 overflow-y: auto;
+            }
+            
+            /* 🆕 v3.11.58 打字机光标动画 */
+            .typewriter-cursor {
+                color: #4ecdc4;
+                animation: blink 0.7s infinite;
+                font-family: inherit;
+            }
+            @keyframes blink {
+                0%, 50% { opacity: 1; }
+                51%, 100% { opacity: 0; }
             }
             
             .result-buttons {
@@ -5452,7 +5459,7 @@
             document.getElementById('stream-results-preview').innerHTML = '';
         }
         
-        // 🆕 v3.11.57 打字机效果：逐字显示
+        // 🆕 v3.11.58 打字机效果：逐字显示（类似 ChatGPT）
         let typewriterTimer = null;
         function typewriterEffect(element, text, speed = 30) {
             if (typewriterTimer) clearInterval(typewriterTimer);
@@ -5469,6 +5476,61 @@
                     typewriterTimer = null;
                 }
             }, speed);
+        }
+        
+        // 🆕 v3.11.58 HTML打字机效果（支持换行）
+        let htmlTypewriterTimer = null;
+        function typewriterHTML(element, text, speed = 8, callback) {
+            if (htmlTypewriterTimer) {
+                clearInterval(htmlTypewriterTimer);
+                htmlTypewriterTimer = null;
+            }
+            
+            // 将文本转换为 HTML（换行 -> <br>）
+            const lines = text.split('\n');
+            let currentLine = 0;
+            let currentChar = 0;
+            let displayedHTML = '';
+            
+            element.innerHTML = '<span class="typewriter-cursor">▌</span>';
+            
+            htmlTypewriterTimer = setInterval(() => {
+                if (currentLine < lines.length) {
+                    const line = lines[currentLine];
+                    
+                    if (currentChar < line.length) {
+                        // 逐字添加当前行
+                        displayedHTML += line.charAt(currentChar);
+                        element.innerHTML = displayedHTML + '<span class="typewriter-cursor">▌</span>';
+                        currentChar++;
+                    } else {
+                        // 当前行结束，添加换行
+                        if (currentLine < lines.length - 1) {
+                            displayedHTML += '<br>';
+                        }
+                        currentLine++;
+                        currentChar = 0;
+                    }
+                    
+                    // 自动滚动到底部
+                    element.scrollTop = element.scrollHeight;
+                } else {
+                    // 全部显示完成
+                    clearInterval(htmlTypewriterTimer);
+                    htmlTypewriterTimer = null;
+                    element.innerHTML = displayedHTML;  // 移除光标
+                    if (callback) callback();
+                }
+            }, speed);
+        }
+        
+        // 🆕 v3.11.58 跳过打字机效果，直接显示全部
+        function skipTypewriter(element, text) {
+            if (htmlTypewriterTimer) {
+                clearInterval(htmlTypewriterTimer);
+                htmlTypewriterTimer = null;
+            }
+            element.innerHTML = text.replace(/\n/g, '<br>');
         }
         
         function updateStreamProgress(message, current, total) {
@@ -6460,9 +6522,24 @@
                         resultText += `━━━━━━━━━━━━━━━━━━\n`;
                         resultText += `💡 结果有误？点击下方"提交反馈"\n`;
                         
-                        // 显示结果
-                        document.getElementById('result-content').innerHTML = resultText.replace(/\n/g, '<br>');
+                        // 🆕 v3.11.58 使用打字机效果显示结果
+                        const resultEl = document.getElementById('result-content');
                         document.getElementById('result-section').classList.add('show');
+                        
+                        // 保存结果文本供复制使用
+                        window.lastResultText = resultText;
+                        
+                        // 打字机效果显示（每字8ms，约2秒完成500字）
+                        typewriterHTML(resultEl, resultText, 8, () => {
+                            console.log('✅ 打字机效果完成');
+                        });
+                        
+                        // 添加点击跳过功能
+                        resultEl.onclick = function() {
+                            skipTypewriter(resultEl, resultText);
+                            resultEl.onclick = null;
+                        };
+                        
                         return; // 🆕 v3.0 后端计算完成，直接返回
                     } else {
                         // 后端返回空结果或失败，回退本地解析
@@ -6627,9 +6704,23 @@
             resultText += `━━━━━━━━━━━━━━━━━━\n`;
             resultText += `💡 结果有误？点击下方"提交反馈"\n`;
             
-            // 显示结果
-            document.getElementById('result-content').innerHTML = resultText.replace(/\n/g, '<br>');
+            // 🆕 v3.11.58 使用打字机效果显示结果
+            const resultEl = document.getElementById('result-content');
             document.getElementById('result-section').classList.add('show');
+            
+            // 保存结果文本供复制使用
+            window.lastResultText = resultText;
+            
+            // 打字机效果显示
+            typewriterHTML(resultEl, resultText, 8, () => {
+                console.log('✅ 打字机效果完成');
+            });
+            
+            // 点击可跳过打字机效果
+            resultEl.onclick = function() {
+                skipTypewriter(resultEl, resultText);
+                resultEl.onclick = null;
+            };
         }
         
         // 显示核对详情
@@ -9960,7 +10051,8 @@
         }
         
         function copyResult() {
-            const result = document.getElementById('result-content').textContent;
+            // 🆕 v3.11.58 优先使用保存的完整结果文本
+            const result = window.lastResultText || document.getElementById('result-content').textContent;
             copyToClipboard(result);
         }
         
