@@ -287,6 +287,18 @@
                 }
             }
             
+            /* 🆕 v3.11.57 流式结果滑入动画 */
+            @keyframes slideIn {
+                from {
+                    opacity: 0;
+                    transform: translateX(-20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
+            }
+            
             /* 禁用动画时立即显示 */
             .ball.no-anim {
                 opacity: 1;
@@ -5259,6 +5271,239 @@
         }
         
         /**
+         * 🆕 v3.11.57 流式调用后端计算接口（瀑布流显示）
+         * 使用 Server-Sent Events 逐步接收结果
+         */
+        async function callBackendCalcStream(sanitizedInput, dataArr, config, provider = 'deepseek', model = null, hkDataArr = null) {
+            return new Promise((resolve, reject) => {
+                const requestBody = {
+                    t: sanitizedInput,
+                    d: dataArr,
+                    c: config,
+                    p: provider,
+                    m: model
+                };
+                if (hkDataArr && hkDataArr.length === 7) {
+                    requestBody.hk_d = hkDataArr;
+                }
+                
+                console.log('%c🌊 【流式计算开始】', 'color: #9c27b0; font-weight: bold; font-size: 14px');
+                
+                // 显示流式进度区域
+                showStreamProgressUI();
+                
+                // 收集结果
+                const collectedItems = [];
+                let summaryData = null;
+                
+                // 使用 fetch + ReadableStream 处理 SSE
+                fetch(`${ALIYUN_PROXY_URL}/api/calc_stream`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                }).then(response => {
+                    if (!response.ok) {
+                        throw new Error(`流式请求失败: ${response.status}`);
+                    }
+                    
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+                    
+                    function processChunk() {
+                        reader.read().then(({ done, value }) => {
+                            if (done) {
+                                // 流结束，构建最终结果
+                                hideStreamProgressUI();
+                                
+                                if (summaryData) {
+                                    resolve({
+                                        success: true,
+                                        items: collectedItems,
+                                        s1: summaryData.s1,
+                                        s2: summaryData.s2,
+                                        s3: summaryData.s3,
+                                        s4: summaryData.s4,
+                                        hk_summary: summaryData.hk_summary,
+                                        mc_summary: summaryData.mc_summary,
+                                        latency_ms: summaryData.latency_ms,
+                                        model_used: 'stream',
+                                        input_count: collectedItems.length,
+                                        output_count: collectedItems.length
+                                    });
+                                } else {
+                                    resolve({
+                                        success: true,
+                                        items: collectedItems,
+                                        s1: 0, s2: 0, s3: 0, s4: 0
+                                    });
+                                }
+                                return;
+                            }
+                            
+                            buffer += decoder.decode(value, { stream: true });
+                            
+                            // 按行解析 SSE 数据
+                            const lines = buffer.split('\n');
+                            buffer = lines.pop() || '';  // 保留不完整的最后一行
+                            
+                            for (const line of lines) {
+                                if (line.startsWith('data: ')) {
+                                    try {
+                                        const data = JSON.parse(line.slice(6));
+                                        
+                                        switch (data.type) {
+                                            case 'start':
+                                                updateStreamProgress(data.message, 0, 100);
+                                                break;
+                                                
+                                            case 'progress':
+                                                updateStreamProgress(data.message, data.current, data.total);
+                                                break;
+                                                
+                                            case 'item':
+                                                // 收集计算结果
+                                                collectedItems.push(data.data);
+                                                // 实时显示新结果
+                                                appendStreamResult(data.data, data.index);
+                                                break;
+                                                
+                                            case 'summary':
+                                                summaryData = data;
+                                                updateStreamProgress(`✅ 计算完成！共${data.total_items}注`, 100, 100);
+                                                break;
+                                                
+                                            case 'done':
+                                                console.log('%c✅ 流式计算完成', 'color: #4caf50; font-weight: bold');
+                                                break;
+                                                
+                                            case 'error':
+                                                console.error('流式计算错误:', data.message);
+                                                hideStreamProgressUI();
+                                                reject(new Error(data.message));
+                                                return;
+                                        }
+                                    } catch (e) {
+                                        console.warn('解析SSE数据失败:', line, e);
+                                    }
+                                }
+                            }
+                            
+                            // 继续读取
+                            processChunk();
+                        }).catch(err => {
+                            hideStreamProgressUI();
+                            reject(err);
+                        });
+                    }
+                    
+                    processChunk();
+                }).catch(err => {
+                    hideStreamProgressUI();
+                    reject(err);
+                });
+            });
+        }
+        
+        // 🆕 v3.11.57 流式进度UI函数
+        function showStreamProgressUI() {
+            // 显示结果区域
+            document.getElementById('result-section').classList.add('show');
+            
+            // 创建或更新进度条
+            let progressContainer = document.getElementById('stream-progress-container');
+            if (!progressContainer) {
+                progressContainer = document.createElement('div');
+                progressContainer.id = 'stream-progress-container';
+                progressContainer.style.cssText = `
+                    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                    border-radius: 12px;
+                    padding: 20px;
+                    margin-bottom: 15px;
+                    border: 1px solid rgba(78, 205, 196, 0.3);
+                `;
+                progressContainer.innerHTML = `
+                    <div id="stream-progress-text" style="color: #4ecdc4; font-size: 14px; margin-bottom: 10px;">
+                        🚀 正在连接...
+                    </div>
+                    <div style="background: rgba(255,255,255,0.1); border-radius: 10px; height: 8px; overflow: hidden;">
+                        <div id="stream-progress-bar" style="
+                            width: 0%;
+                            height: 100%;
+                            background: linear-gradient(90deg, #4ecdc4, #44a08d);
+                            border-radius: 10px;
+                            transition: width 0.3s ease;
+                        "></div>
+                    </div>
+                    <div id="stream-results-preview" style="
+                        margin-top: 15px;
+                        max-height: 300px;
+                        overflow-y: auto;
+                        font-size: 13px;
+                    "></div>
+                `;
+                
+                const resultContent = document.getElementById('result-content');
+                resultContent.innerHTML = '';
+                resultContent.appendChild(progressContainer);
+            }
+            
+            // 清空预览区
+            document.getElementById('stream-results-preview').innerHTML = '';
+        }
+        
+        function updateStreamProgress(message, current, total) {
+            const textEl = document.getElementById('stream-progress-text');
+            const barEl = document.getElementById('stream-progress-bar');
+            
+            if (textEl) textEl.textContent = message;
+            if (barEl) {
+                const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+                barEl.style.width = percent + '%';
+            }
+        }
+        
+        function appendStreamResult(item, index) {
+            const previewEl = document.getElementById('stream-results-preview');
+            if (!previewEl) return;
+            
+            const isWin = item.w || false;
+            const icon = isWin ? '✓' : '✗';
+            const color = isWin ? '#4ecdc4' : '#888';
+            const raw = item.raw || item.original || '未知';
+            const amount = item.a || 0;
+            const winAmount = item.v || 0;
+            
+            const itemHtml = `
+                <div style="
+                    padding: 8px 12px;
+                    margin-bottom: 6px;
+                    background: rgba(255,255,255,0.05);
+                    border-radius: 8px;
+                    border-left: 3px solid ${color};
+                    color: ${color};
+                    animation: slideIn 0.3s ease;
+                ">
+                    <span style="font-weight: bold;">${icon}</span>
+                    ${raw.substring(0, 30)}${raw.length > 30 ? '...' : ''}
+                    <span style="float: right; color: #aaa;">${amount}元${isWin ? ' → +' + winAmount : ''}</span>
+                </div>
+            `;
+            
+            previewEl.insertAdjacentHTML('beforeend', itemHtml);
+            // 自动滚动到底部
+            previewEl.scrollTop = previewEl.scrollHeight;
+        }
+        
+        function hideStreamProgressUI() {
+            // 进度条保留，让用户看到最终状态
+            const progressText = document.getElementById('stream-progress-text');
+            if (progressText) {
+                progressText.innerHTML = '✅ 处理完成，正在生成最终结果...';
+            }
+        }
+        
+        /**
          * 🆕 v3.0 调用后端计算接口（一站式：识别+计算）
          * @param {string} sanitizedInput 代号转换后的输入文本（Z代号格式）
          * @param {Array} dataArr 数据数组（7个数字）
@@ -5555,46 +5800,55 @@
             // 🆕 v3.0 【新架构】计算逻辑在后端，前端只做展示
             // API Key 已移至后端，只需检查 aiEnabled
             if (settings.aiEnabled) {
-                // 【AI调试显示】开始
-                showAutoCloseToast('🚀 正在计算,请稍等，老板日进斗金～', 8000);
-                // 【AI调试显示】结束
+                // 🆕 v3.11.57 准备请求参数
+                const sanitizedInput = sanitizeText(input);
+                debugInfo.sanitizedInput = sanitizedInput;
+                console.log('🔄 代号转换后:', sanitizedInput);
+                
+                const config = getOddsConfig();
+                const mcData = appState.lotteryData['xam'];
+                const hkData = appState.lotteryData['hk'];
+                const mcNums = (mcData?.numbers && mcData.numbers.length === 7) 
+                    ? mcData.numbers : appState.lotteryNumbers;
+                const hkNums = (hkData?.numbers && hkData.numbers.length === 7) 
+                    ? hkData.numbers : null;
+                
+                console.log('🎰 [计算] 澳门数据:', mcNums?.join(',') || '无');
+                console.log('🎰 [计算] 香港数据:', hkNums?.join(',') || '无');
+                
+                // 🆕 v3.11.57 判断是否使用流式模式（超过3行时使用）
+                const lineCount = sanitizedInput.split('\n').filter(l => l.trim()).length;
+                const useStreamMode = lineCount >= 3;
+                
+                console.log(`📊 输入${lineCount}行，${useStreamMode ? '使用流式模式' : '使用普通模式'}`);
                 
                 try {
-                    // 🆕 v3.11.4 生肖代号转换（后端正则匹配需要 Z1-Z12 格式）
-                    const sanitizedInput = sanitizeText(input);
-                    debugInfo.sanitizedInput = sanitizedInput;
-                    console.log('🔄 代号转换后:', sanitizedInput);
+                    let backendResult;
                     
-                    // 🆕 v3.0 调用后端一站式计算接口
-                    const config = getOddsConfig();
-                    
-                    // 🆕 v3.11.43 修复：始终传递正确的澳门和香港开奖数据
-                    // 问题：之前用 appState.lotteryNumbers（当前彩种数据），导致选择香港时澳门下注用错数据
-                    // 修复：始终从 lotteryData 获取对应彩种的数据
-                    const mcData = appState.lotteryData['xam'];
-                    const hkData = appState.lotteryData['hk'];
-                    
-                    // d 参数始终是澳门数据（如果没有澳门数据，用当前号码作为 fallback）
-                    const mcNums = (mcData?.numbers && mcData.numbers.length === 7) 
-                        ? mcData.numbers 
-                        : appState.lotteryNumbers;
-                    
-                    // hk_d 参数始终是香港数据
-                    const hkNums = (hkData?.numbers && hkData.numbers.length === 7) 
-                        ? hkData.numbers 
-                        : null;
-                    
-                    console.log('🎰 [callBackendCalc] 澳门数据:', mcNums?.join(',') || '无');
-                    console.log('🎰 [callBackendCalc] 香港数据:', hkNums?.join(',') || '无');
-                    
-                    const backendResult = await callBackendCalc(
-                        sanitizedInput,
-                        mcNums,  // 🆕 v3.11.43 始终传澳门开奖数据
-                        config,
-                        settings.aiProvider || 'openrouter',
-                        null,
-                        hkNums  // 香港开奖数据
-                    );
+                    if (useStreamMode) {
+                        // ═══════════════════════════════════════════════════════════════════════
+                        // 🆕 v3.11.57 瀑布流模式：逐步显示结果
+                        // ═══════════════════════════════════════════════════════════════════════
+                        backendResult = await callBackendCalcStream(
+                            sanitizedInput,
+                            mcNums,
+                            config,
+                            settings.aiProvider || 'openrouter',
+                            null,
+                            hkNums
+                        );
+                    } else {
+                        // 普通模式：一次性返回
+                        showAutoCloseToast('🚀 正在计算,请稍等，老板日进斗金～', 8000);
+                        backendResult = await callBackendCalc(
+                            sanitizedInput,
+                            mcNums,
+                            config,
+                            settings.aiProvider || 'openrouter',
+                            null,
+                            hkNums
+                        );
+                    }
                     
                     // 🆕 v3.11.29 检测旧澳门错误
                     if (!backendResult.success && backendResult.error === 'old_mc_not_supported') {
