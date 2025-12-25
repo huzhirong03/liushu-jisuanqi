@@ -5452,11 +5452,33 @@
             document.getElementById('stream-results-preview').innerHTML = '';
         }
         
+        // 🆕 v3.11.57 打字机效果：逐字显示
+        let typewriterTimer = null;
+        function typewriterEffect(element, text, speed = 30) {
+            if (typewriterTimer) clearInterval(typewriterTimer);
+            
+            element.textContent = '';
+            let index = 0;
+            
+            typewriterTimer = setInterval(() => {
+                if (index < text.length) {
+                    element.textContent += text.charAt(index);
+                    index++;
+                } else {
+                    clearInterval(typewriterTimer);
+                    typewriterTimer = null;
+                }
+            }, speed);
+        }
+        
         function updateStreamProgress(message, current, total) {
             const textEl = document.getElementById('stream-progress-text');
             const barEl = document.getElementById('stream-progress-bar');
             
-            if (textEl) textEl.textContent = message;
+            // 🆕 使用打字机效果显示进度文字
+            if (textEl) {
+                typewriterEffect(textEl, message, 25);
+            }
             if (barEl) {
                 const percent = total > 0 ? Math.round((current / total) * 100) : 0;
                 barEl.style.width = percent + '%';
@@ -5473,24 +5495,53 @@
             const raw = item.raw || item.original || '未知';
             const amount = item.a || 0;
             const winAmount = item.v || 0;
+            const displayText = raw.substring(0, 35) + (raw.length > 35 ? '...' : '');
+            const rightText = `${amount}元${isWin ? ' → +' + winAmount : ''}`;
             
-            const itemHtml = `
-                <div style="
-                    padding: 8px 12px;
-                    margin-bottom: 6px;
-                    background: rgba(255,255,255,0.05);
-                    border-radius: 8px;
-                    border-left: 3px solid ${color};
-                    color: ${color};
-                    animation: slideIn 0.3s ease;
-                ">
-                    <span style="font-weight: bold;">${icon}</span>
-                    ${raw.substring(0, 30)}${raw.length > 30 ? '...' : ''}
-                    <span style="float: right; color: #aaa;">${amount}元${isWin ? ' → +' + winAmount : ''}</span>
-                </div>
+            // 创建容器
+            const itemDiv = document.createElement('div');
+            itemDiv.style.cssText = `
+                padding: 8px 12px;
+                margin-bottom: 6px;
+                background: rgba(255,255,255,0.05);
+                border-radius: 8px;
+                border-left: 3px solid ${color};
+                color: ${color};
+                animation: slideIn 0.3s ease;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
             `;
             
-            previewEl.insertAdjacentHTML('beforeend', itemHtml);
+            // 左侧内容（打字机效果）
+            const leftSpan = document.createElement('span');
+            leftSpan.innerHTML = `<span style="font-weight: bold;">${icon}</span> `;
+            
+            const textSpan = document.createElement('span');
+            textSpan.className = 'typewriter-text';
+            leftSpan.appendChild(textSpan);
+            
+            // 右侧金额
+            const rightSpan = document.createElement('span');
+            rightSpan.style.cssText = 'color: #aaa; white-space: nowrap; margin-left: 10px;';
+            rightSpan.textContent = rightText;
+            
+            itemDiv.appendChild(leftSpan);
+            itemDiv.appendChild(rightSpan);
+            previewEl.appendChild(itemDiv);
+            
+            // 🆕 打字机效果逐字显示
+            let charIndex = 0;
+            const typeSpeed = 20;  // 每个字20ms
+            const typeInterval = setInterval(() => {
+                if (charIndex < displayText.length) {
+                    textSpan.textContent += displayText.charAt(charIndex);
+                    charIndex++;
+                } else {
+                    clearInterval(typeInterval);
+                }
+            }, typeSpeed);
+            
             // 自动滚动到底部
             previewEl.scrollTop = previewEl.scrollHeight;
         }
