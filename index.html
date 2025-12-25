@@ -5884,8 +5884,16 @@
                         // 3. 否则 → 新建一组
                         // ═══════════════════════════════════════════════════════════════════════
                         
-                        // 第1步：按 fragmentOrder 排序所有结果
+                        // 第1步：按 groupId + fragmentOrder 排序所有结果
+                        // 🆕 v3.11.52 修复：优先按用户输入组号排序，确保同一组的记录在一起
                         const sortedResults = [...calcResults].sort((a, b) => {
+                            // 优先按 groupId 排序（用户输入的空行分组）
+                            const groupA = a.groupId !== undefined ? a.groupId : 9999;
+                            const groupB = b.groupId !== undefined ? b.groupId : 9999;
+                            if (groupA !== groupB) {
+                                return groupA - groupB;
+                            }
+                            // 同组内按 fragmentOrder 排序（保持输入顺序）
                             const orderA = a.fragmentOrder !== undefined ? a.fragmentOrder : 9999;
                             const orderB = b.fragmentOrder !== undefined ? b.fragmentOrder : 9999;
                             return orderA - orderB;
@@ -5923,8 +5931,16 @@
                             }
                         });
                         
-                        // 按 minOrder 排序
-                        const sortedGroups = Object.values(calcPreGroupMap).sort((a, b) => a.minOrder - b.minOrder);
+                        // 按 groupId + minOrder 排序
+                        // 🆕 v3.11.52 修复：优先按用户输入组号排序
+                        const sortedGroups = Object.values(calcPreGroupMap).sort((a, b) => {
+                            const groupA = a.groupId !== undefined ? a.groupId : 9999;
+                            const groupB = b.groupId !== undefined ? b.groupId : 9999;
+                            if (groupA !== groupB) {
+                                return groupA - groupB;
+                            }
+                            return a.minOrder - b.minOrder;
+                        });
                         
                         // 🆕 v3.11.13 转换格式：优先从用户输入行提取原始片段
                         const userInputText = document.getElementById('bet-input')?.value || '';
@@ -10501,8 +10517,16 @@
             // 核心规则：相邻 + 同类型 + 同金额 → 合并；否则 → 新建一组
             // ═══════════════════════════════════════════════════════════════════════
             
-            // 第1步：按 fragmentOrder 排序所有 items
+            // 第1步：按 groupId + fragmentOrder 排序所有 items
+            // 🆕 v3.11.52 修复：优先按用户输入组号排序，确保同一组的记录在一起
             const sortedItems = [...feedbackData.items].sort((a, b) => {
+                // 优先按 groupId 排序（用户输入的空行分组）
+                const groupA = a.groupId !== undefined ? a.groupId : 9999;
+                const groupB = b.groupId !== undefined ? b.groupId : 9999;
+                if (groupA !== groupB) {
+                    return groupA - groupB;
+                }
+                // 同组内按 fragmentOrder 排序（保持输入顺序）
                 const orderA = a.fragmentOrder !== undefined ? a.fragmentOrder : 9999;
                 const orderB = b.fragmentOrder !== undefined ? b.fragmentOrder : 9999;
                 return orderA - orderB;
@@ -10542,8 +10566,16 @@
                 }
             });
             
-            // 按 minOrder 排序预分组
-            const preGroups = Object.values(preGroupMap).sort((a, b) => a.minOrder - b.minOrder);
+            // 按 groupId + minOrder 排序预分组
+            // 🆕 v3.11.52 修复：优先按用户输入组号排序
+            const preGroups = Object.values(preGroupMap).sort((a, b) => {
+                const groupA = a.groupId !== undefined ? a.groupId : 9999;
+                const groupB = b.groupId !== undefined ? b.groupId : 9999;
+                if (groupA !== groupB) {
+                    return groupA - groupB;
+                }
+                return a.minOrder - b.minOrder;
+            });
             
             // 转换为 sortedLines 格式
             preGroups.forEach((pg) => {
