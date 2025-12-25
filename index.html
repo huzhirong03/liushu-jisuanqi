@@ -6702,16 +6702,17 @@
                         resultText += `━━━━━━━━━━━━━━━━━━\n`;
                         resultText += `💡 结果有误？点击下方"提交反馈"\n`;
                         
-                        // 🆕 v3.11.62 显示最终结果
+                        // 🆕 v3.11.63 显示最终结果
                         const resultEl = document.getElementById('result-content');
                         document.getElementById('result-section').classList.add('show');
                         
                         // 保存结果文本供复制使用
                         window.lastResultText = resultText;
                         
-                        // 🆕 v3.11.62 流式模式：保留头部，继续打字机显示结果部分
+                        // 🆕 v3.11.63 流式模式：保留头部，继续打字机显示结果部分
                         if (useStreamMode) {
                             // 流式模式：头部已显示，继续打字机显示结果（不重复头部）
+                            // scrollToResultSection() 在 continueTypewriterAfterHeader 内部调用
                             continueTypewriterAfterHeader(resultEl, resultText, 5, () => {
                                 console.log('✅ 流式模式打字机效果完成');
                             });
@@ -6722,6 +6723,9 @@
                                 resultEl.onclick = null;
                             };
                         } else {
+                            // 🆕 v3.11.63 普通模式：先滚动到结果区域，再开始打字机效果
+                            scrollToResultSection();
+                            
                             // 普通模式：打字机效果显示（每字8ms）
                             typewriterHTML(resultEl, resultText, 8, () => {
                                 console.log('✅ 打字机效果完成');
@@ -6898,12 +6902,15 @@
             resultText += `━━━━━━━━━━━━━━━━━━\n`;
             resultText += `💡 结果有误？点击下方"提交反馈"\n`;
             
-            // 🆕 v3.11.58 使用打字机效果显示结果
+            // 🆕 v3.11.63 使用打字机效果显示结果
             const resultEl = document.getElementById('result-content');
             document.getElementById('result-section').classList.add('show');
             
             // 保存结果文本供复制使用
             window.lastResultText = resultText;
+            
+            // 🆕 v3.11.63 滚动页面到结果区域（本地回退模式）
+            scrollToResultSection();
             
             // 打字机效果显示
             typewriterHTML(resultEl, resultText, 8, () => {
