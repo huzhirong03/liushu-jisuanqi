@@ -851,6 +851,31 @@
             word-break: break-all;
             max-height: 300px;
             overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+        
+        /* 🆕 v3.11.64 打字机效果样式 */
+        .typewriter-cursor {
+            display: inline-block;
+            color: #4ecdc4;
+            font-weight: bold;
+            animation: cursorBlink 0.8s ease-in-out infinite;
+            text-shadow: 0 0 8px rgba(78, 205, 196, 0.6);
+        }
+        @keyframes cursorBlink {
+            0%, 45% { opacity: 1; }
+            50%, 95% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+        
+        /* 打字机计算中提示 */
+        .typewriter-loading {
+            color: #f39c12;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
         }
         
         .result-buttons {
@@ -6153,11 +6178,10 @@
                     }
                     
                     resultText += `━━━━━━━━━━━━━━━━━━\n`;
-                    resultText += `💡 结果有误？点击下方"提交反馈"\n`;
+                    resultText += `💡 结果有误？点击下方"提交反馈"（点击结果可跳过动画）\n`;
                     
-                    // 显示结果
-                    document.getElementById('result-content').innerHTML = resultText.replace(/\n/g, '<br>');
-                    document.getElementById('result-section').classList.add('show');
+                    // 🆕 v3.11.64 使用打字机效果显示结果
+                    displayResultWithTypewriter(resultText, true);
                     return; // 🆕 v3.0 后端计算完成，直接返回
                 } else {
                     // 后端返回空结果或失败，回退本地解析
@@ -6320,11 +6344,10 @@
         }
         
         resultText += `━━━━━━━━━━━━━━━━━━\n`;
-        resultText += `💡 结果有误？点击下方"提交反馈"\n`;
+        resultText += `💡 结果有误？点击下方"提交反馈"（点击结果可跳过动画）\n`;
         
-        // 显示结果
-        document.getElementById('result-content').innerHTML = resultText.replace(/\n/g, '<br>');
-        document.getElementById('result-section').classList.add('show');
+        // 🆕 v3.11.64 使用打字机效果显示结果
+        displayResultWithTypewriter(resultText, true);
     }
     
     // 显示核对详情
@@ -6585,10 +6608,197 @@
     }
     
     // ════════════════════════════════════════════════════════════════════════════
+    // 🆕 v3.11.64 打字机效果模块 - 增强用户体验
+    // ════════════════════════════════════════════════════════════════════════════
+    
+    // 打字机状态管理
+    let typewriterState = {
+        isRunning: false,      // 是否正在运行
+        timeoutId: null,       // 定时器ID（用于取消）
+        skipRequested: false,  // 是否请求跳过
+        fullText: '',          // 完整文本
+    };
+    
+    /**
+     * 🆕 v3.11.64 滚动到结果区域顶部
+     */
+    function scrollToResultSection() {
+        const resultSection = document.getElementById('result-section');
+        if (resultSection) {
+            // 先显示结果区域
+            resultSection.classList.add('show');
+            // 平滑滚动到结果区域
+            setTimeout(() => {
+                resultSection.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                });
+            }, 100);
+        }
+    }
+    
+    /**
+     * 🆕 v3.11.64 智能滚动跟随（让光标始终可见）
+     * @param {HTMLElement} element - 结果容器元素
+     */
+    function smartScrollFollow(element) {
+        if (!element) return;
+        
+        // 内部滚动到底部（让新内容和光标可见）
+        element.scrollTop = element.scrollHeight;
+        
+        // 检查元素底部是否在视口中，如果不在则滚动页面
+        const rect = element.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        
+        // 如果元素底部超出视口，滚动页面跟随
+        if (rect.bottom > viewportHeight - 50) {
+            window.scrollBy({
+                top: Math.min(rect.bottom - viewportHeight + 80, 50), // 每次最多滚动50px，避免抖动
+                behavior: 'smooth'
+            });
+        }
+    }
+    
+    /**
+     * 🆕 v3.11.64 打字机效果显示HTML内容
+     * @param {HTMLElement} element - 目标元素
+     * @param {string} fullText - 完整文本（带\n换行）
+     * @param {number} speed - 每字符延迟(ms)，默认5ms
+     * @param {Function} callback - 完成回调
+     */
+    function typewriterHTML(element, fullText, speed = 5, callback) {
+        // 保存状态
+        typewriterState.isRunning = true;
+        typewriterState.skipRequested = false;
+        typewriterState.fullText = fullText;
+        
+        // 清除之前的定时器
+        if (typewriterState.timeoutId) {
+            clearTimeout(typewriterState.timeoutId);
+        }
+        
+        // 将文本按行分割
+        const lines = fullText.split('\n');
+        let currentLineIdx = 0;
+        let currentCharIdx = 0;
+        let displayedHTML = '';
+        
+        // 检测头部区域（开奖结果部分），使用较慢速度
+        // 头部通常是前几行（📊 计算结果、━━━、🎰 开奖...）
+        const headerEndLine = Math.min(5, lines.length);
+        
+        function typeNextChar() {
+            // 检查是否请求跳过
+            if (typewriterState.skipRequested) {
+                // 直接显示完整内容
+                element.innerHTML = fullText.replace(/\n/g, '<br>');
+                typewriterState.isRunning = false;
+                if (callback) callback();
+                return;
+            }
+            
+            if (currentLineIdx >= lines.length) {
+                // 完成
+                typewriterState.isRunning = false;
+                if (callback) callback();
+                return;
+            }
+            
+            const currentLine = lines[currentLineIdx];
+            
+            if (currentCharIdx < currentLine.length) {
+                // 还在当前行
+                currentCharIdx++;
+                const partialLine = currentLine.substring(0, currentCharIdx);
+                const cursorHTML = '<span class="typewriter-cursor">▌</span>';
+                
+                // 构建显示内容：已完成的行 + 当前行部分 + 光标
+                let html = displayedHTML;
+                if (displayedHTML) html += '<br>';
+                html += partialLine + cursorHTML;
+                
+                element.innerHTML = html;
+                smartScrollFollow(element);
+                
+                // 动态速度：头部慢(30ms)，结果快(5ms)
+                const isHeader = currentLineIdx < headerEndLine;
+                const currentSpeed = isHeader ? 25 : speed;
+                
+                typewriterState.timeoutId = setTimeout(typeNextChar, currentSpeed);
+            } else {
+                // 当前行完成，移到下一行
+                if (displayedHTML) displayedHTML += '<br>';
+                displayedHTML += currentLine;
+                currentLineIdx++;
+                currentCharIdx = 0;
+                
+                // 行间有短暂停顿（让用户能看清每行）
+                const linePause = currentLine.includes('━━') ? 50 : 10;
+                typewriterState.timeoutId = setTimeout(typeNextChar, linePause);
+            }
+        }
+        
+        // 添加点击跳过功能
+        const skipHandler = function() {
+            if (typewriterState.isRunning) {
+                typewriterState.skipRequested = true;
+            }
+            element.removeEventListener('click', skipHandler);
+        };
+        element.addEventListener('click', skipHandler);
+        
+        // 开始打字
+        typeNextChar();
+    }
+    
+    /**
+     * 🆕 v3.11.64 显示结果（带打字机效果）
+     * @param {string} resultText - 结果文本
+     * @param {boolean} useTypewriter - 是否使用打字机效果，默认true
+     */
+    function displayResultWithTypewriter(resultText, useTypewriter = true) {
+        const resultSection = document.getElementById('result-section');
+        const resultContent = document.getElementById('result-content');
+        
+        if (!resultSection || !resultContent) {
+            console.error('❌ 找不到结果显示区域');
+            return;
+        }
+        
+        // 显示结果区域并滚动到顶部
+        scrollToResultSection();
+        
+        if (useTypewriter && resultText.length > 50) {
+            // 使用打字机效果
+            typewriterHTML(resultContent, resultText, 5, () => {
+                console.log('✅ 打字机效果完成');
+            });
+        } else {
+            // 直接显示（短文本或禁用打字机）
+            resultContent.innerHTML = resultText.replace(/\n/g, '<br>');
+        }
+    }
+    
+    /**
+     * 🆕 v3.11.64 停止打字机效果
+     */
+    function stopTypewriter() {
+        if (typewriterState.isRunning) {
+            typewriterState.skipRequested = true;
+        }
+        if (typewriterState.timeoutId) {
+            clearTimeout(typewriterState.timeoutId);
+            typewriterState.timeoutId = null;
+        }
+    }
+    
+    // ════════════════════════════════════════════════════════════════════════════
     
     function clearInput() {
         document.getElementById('bet-input').value = '';
         document.getElementById('result-section').classList.remove('show');
+        stopTypewriter();  // 🆕 v3.11.64 清空时停止打字机
         parsedBets = [];
         calcResults = [];
     }
