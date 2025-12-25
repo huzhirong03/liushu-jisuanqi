@@ -5774,7 +5774,8 @@
                                 originalLine: restoreText(fragmentInfo?.originalLine || groupInfo.originalLine || item.raw || ''),
                                 zodiac: item.z || null,
                                 fromAI: true,
-                                groupId: finalGroupId,
+                                // 🆕 v3.11.52 优先使用后端返回的 group_idx（准确反映用户输入分组）
+                                groupId: item.group_idx !== undefined ? item.group_idx + 1 : finalGroupId,
                                 lineId: `${finalGroupId}-${finalLineIndex}`,
                                 globalLineIndex: idx,
                                 betIndexInLine: item.idx || 0,
