@@ -5590,6 +5590,83 @@
             element.innerHTML = text.replace(/\n/g, '<br>');
         }
         
+        // 🆕 v3.11.62 追加打字机效果（从已有内容后继续打印）
+        function continueTypewriterAfterHeader(element, fullText, speed = 5, callback) {
+            // 停止之前的打字机
+            if (htmlTypewriterTimer) {
+                clearTimeout(htmlTypewriterTimer);
+                htmlTypewriterTimer = null;
+            }
+            
+            // 找到第二个分割线的位置（头部结束）
+            const lines = fullText.split('\n');
+            let headerEndIdx = 0;
+            let separatorCount = 0;
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].includes('━━━')) {
+                    separatorCount++;
+                    if (separatorCount >= 2) {
+                        headerEndIdx = i + 1;  // 第二个分割线的下一行
+                        break;
+                    }
+                }
+            }
+            
+            // 提取头部和结果部分
+            const headerLines = lines.slice(0, headerEndIdx);
+            const resultLines = lines.slice(headerEndIdx);
+            
+            // 设置头部（移除"⏳ 正在计算中..."）
+            let headerHTML = headerLines.join('<br>');
+            headerHTML = headerHTML.replace(/<br>⏳ 正在计算中\.\.\.(<br>)?/g, '');
+            headerHTML = headerHTML.replace(/⏳ 正在计算中\.\.\.(<br>)?/g, '');
+            
+            // 当前显示的内容（头部）
+            let displayedHTML = headerHTML;
+            if (headerHTML && !headerHTML.endsWith('<br>')) {
+                displayedHTML += '<br>';
+            }
+            
+            // 结果区域滚动到顶部
+            element.scrollTop = 0;
+            
+            // 开始打字机显示结果部分
+            let currentLine = 0;
+            let currentChar = 0;
+            
+            element.innerHTML = displayedHTML + '<span class="typewriter-cursor">▌</span>';
+            
+            function typeNextChar() {
+                if (currentLine < resultLines.length) {
+                    const line = resultLines[currentLine];
+                    
+                    if (currentChar < line.length) {
+                        displayedHTML += line.charAt(currentChar);
+                        element.innerHTML = displayedHTML + '<span class="typewriter-cursor">▌</span>';
+                        currentChar++;
+                    } else {
+                        if (currentLine < resultLines.length - 1) {
+                            displayedHTML += '<br>';
+                        }
+                        currentLine++;
+                        currentChar = 0;
+                    }
+                    
+                    // 滚动跟随打印内容
+                    element.scrollTop = element.scrollHeight;
+                    htmlTypewriterTimer = setTimeout(typeNextChar, speed);
+                } else {
+                    clearTimeout(htmlTypewriterTimer);
+                    htmlTypewriterTimer = null;
+                    // 移除光标
+                    element.innerHTML = displayedHTML;
+                    if (callback) callback();
+                }
+            }
+            
+            typeNextChar();
+        }
+        
         function updateStreamProgress(message, current, total) {
             const textEl = document.getElementById('stream-progress-text');
             const barEl = document.getElementById('stream-progress-bar');
@@ -6579,22 +6656,25 @@
                         resultText += `━━━━━━━━━━━━━━━━━━\n`;
                         resultText += `💡 结果有误？点击下方"提交反馈"\n`;
                         
-                        // 🆕 v3.11.61 显示最终结果
+                        // 🆕 v3.11.62 显示最终结果
                         const resultEl = document.getElementById('result-content');
                         document.getElementById('result-section').classList.add('show');
                         
                         // 保存结果文本供复制使用
                         window.lastResultText = resultText;
                         
-                        // 🆕 v3.11.61 流式模式下直接显示最终结果（不重复打字机头部）
+                        // 🆕 v3.11.62 流式模式：保留头部，继续打字机显示结果部分
                         if (useStreamMode) {
-                            // 流式模式：头部已显示过，直接设置最终内容
-                            if (htmlTypewriterTimer) {
-                                clearTimeout(htmlTypewriterTimer);
-                                htmlTypewriterTimer = null;
-                            }
-                            resultEl.innerHTML = resultText.replace(/\n/g, '<br>');
-                            console.log('✅ 流式模式：直接显示最终结果');
+                            // 流式模式：头部已显示，继续打字机显示结果（不重复头部）
+                            continueTypewriterAfterHeader(resultEl, resultText, 5, () => {
+                                console.log('✅ 流式模式打字机效果完成');
+                            });
+                            
+                            // 添加点击跳过功能
+                            resultEl.onclick = function() {
+                                skipTypewriter(resultEl, resultText);
+                                resultEl.onclick = null;
+                            };
                         } else {
                             // 普通模式：打字机效果显示（每字8ms）
                             typewriterHTML(resultEl, resultText, 8, () => {
