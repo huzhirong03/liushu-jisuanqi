@@ -5774,8 +5774,10 @@
                                 originalLine: restoreText(fragmentInfo?.originalLine || groupInfo.originalLine || item.raw || ''),
                                 zodiac: item.z || null,
                                 fromAI: true,
-                                groupId: finalGroupId,
-                                lineId: `${finalGroupId}-${finalLineIndex}`,
+                                // 🆕 v3.11.52 优先使用后端返回的 group_idx（用户输入组号）
+                                // 后端 group_idx 从0开始，前端 groupId 从1开始，所以 +1
+                                groupId: item.group_idx !== undefined ? item.group_idx + 1 : finalGroupId,
+                                lineId: `${item.group_idx !== undefined ? item.group_idx + 1 : finalGroupId}-${finalLineIndex}`,
                                 globalLineIndex: idx,
                                 betIndexInLine: item.idx || 0,
                                 // 🆕 v3.11.37 优先使用后端返回的input_order（保证按用户输入顺序）
