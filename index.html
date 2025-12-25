@@ -5302,6 +5302,34 @@
     }
     
     /**
+     * 🆕 v3.11.68 网络请求重试封装
+     * 原理：手机网络（4G/5G/WiFi）切换时容易断连，自动重试提升成功率
+     * @param {string} url 请求地址
+     * @param {Object} options fetch选项
+     * @param {number} retries 重试次数，默认3次
+     * @param {number} delay 重试间隔(ms)，默认1000ms
+     * @returns {Promise<Response>}
+     */
+    async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
+        for (let i = 0; i <= retries; i++) {
+            try {
+                const response = await fetch(url, options);
+                // 如果请求成功（即使是4xx/5xx也算"完成"），直接返回
+                return response;
+            } catch (err) {
+                // 网络错误（断连、超时等）
+                if (i < retries) {
+                    console.warn(`⚠️ 网络请求失败，正在重试... (${i + 1}/${retries})`, err.message);
+                    await new Promise(r => setTimeout(r, delay));
+                } else {
+                    console.error(`❌ 网络请求失败，已重试${retries}次仍失败:`, err.message);
+                    throw err;
+                }
+            }
+        }
+    }
+    
+    /**
      * 🆕 v3.0 调用后端计算接口（一站式：识别+计算）
      * @param {string} sanitizedInput 代号转换后的输入文本（Z代号格式）
      * @param {Array} dataArr 数据数组（7个数字）
@@ -5333,11 +5361,12 @@
         console.log('   ⚙️ 赔率配置:', config);
         console.log('   🤖 AI服务商:', provider);
         
-        const response = await fetch(`${ALIYUN_PROXY_URL}/api/calc`, {
+        // 🆕 v3.11.68 使用带重试的 fetch（网络抖动时自动重试3次）
+        const response = await fetchWithRetry(`${ALIYUN_PROXY_URL}/api/calc`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
-        });
+        }, 3, 1000);  // 重试3次，间隔1秒
         
         if (!response.ok) {
             const errText = await response.text();
@@ -5503,6 +5532,22 @@
             alert('请先设置开奖号码！');
             return;
         }
+        
+        // ════════════════════════════════════════════════════════════════
+        // 🆕 v3.11.68 【内存优化】主动释放旧的大对象，防止内存泄漏
+        // 原理：旧手机内存有限，debugInfo/calcResults 可能无限增长撑爆内存
+        // ════════════════════════════════════════════════════════════════
+        calcResults = null;  // 先置空释放引用
+        calcResults = [];    // 重新初始化
+        parsedBets = [];     // 释放旧的解析结果
+        debugInfo = {        // 重置为初始小对象
+            originalInput: '', sanitizedInput: '', normalizeInfo: '',
+            aiInput: '', aiOutput: '', aiParsed: null, modelUsed: '', latencyMs: 0,
+            extractItems: [], calcInputCount: 0, calcOutputCount: 0, calcItems: [],
+            calcS1: 0, calcS2: 0, calcS3: 0, calcS4: 0, backendVersion: '',
+            requestMode: '', requestUrl: '', responseStatus: 0, responseBody: '', errorMsg: ''
+        };
+        console.log('🧹 内存清理完成: calcResults/parsedBets/debugInfo 已重置');
         
         // ════════════════════════════════════════════════════════════════
         // 🆕 v3.11.65 【计算前优化】清除旧结果 + 滚动顶部 + 显示加载状态
