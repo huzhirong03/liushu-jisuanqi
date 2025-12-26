@@ -8138,9 +8138,9 @@
             // 实时显示结果
             appendResultToList(result, i);
             
-            // 短暂延迟，避免请求过快
+            // 延迟，避免请求过快（涉及AI时需要更长时间）
             if (i < totalCases - 1 && !batchTestState.shouldStop) {
-                await new Promise(r => setTimeout(r, 100));
+                await new Promise(r => setTimeout(r, 300));  // 300ms延迟
             }
         }
         
@@ -8159,6 +8159,9 @@
         };
         
         try {
+            // 确保 settings 已定义（防止旧代码缓存问题）
+            const settings = typeof getFormatSettings === 'function' ? getFormatSettings() : { aiEnabled: true };
+            
             // 步骤1: 前端预处理（sanitizeText）
             const sanitizedInput = sanitizeText(testCase.input);
             log.steps.push({ step: 'sanitizeText', result: sanitizedInput });
@@ -8176,11 +8179,12 @@
             
             log.steps.push({ step: 'prepareRequest', mcNums, hkNums });
             
+            const aiProvider = localStorage.getItem('ai_provider') || 'tuzi';
             const backendResult = await callBackendCalc(
                 sanitizedInput,
                 mcNums,
                 config,
-                settings.aiProvider || 'tuzi',
+                aiProvider,
                 null,
                 hkNums
             );
