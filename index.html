@@ -5402,15 +5402,29 @@
                     'XS': '小数', 'DS': '大数', 'ODD': '单数', 'EVEN': '双数'
                 };
                 
+                // 🆕 v3.11.71 统计数据来源
+                let regexCount = 0, aiCount = 0, v2Count = 0;
+                result.items.forEach(item => {
+                    if (item.source === 'regex') regexCount++;
+                    else if (item.source === 'ai') aiCount++;
+                    else if (item.source === 'v2') v2Count++;
+                });
+                console.log(`   📊 数据来源统计: 正则引擎=${regexCount}条, AI识别=${aiCount}条, v2.0引擎=${v2Count}条`);
+                
                 result.items.forEach((item, idx) => {
                     const typeName = CODE_MAP[item.code] || item.code;
                     const nums = item.n ? item.n.join(',') : '-';
                     const zodiac = item.z || '-';
                     const win = item.w ? '✓中' : '✗未中';
                     const winColor = item.w ? 'color: #4caf50; font-weight: bold' : 'color: #999';
+                    // 🆕 v3.11.71 数据来源标记
+                    const sourceMap = {'regex': '⚡正则', 'ai': '🤖AI', 'v2': '🚀v2.0'};
+                    const sourceTag = sourceMap[item.source] || '❓未知';
+                    const sourceColor = item.source === 'regex' ? 'color: #4caf50' : 
+                                        item.source === 'ai' ? 'color: #ff9800' : 'color: #2196f3';
                     
-                    console.log(`   [${idx + 1}] %c${win}%c ${typeName}(${item.code}) | 号码:[${nums}] | 生肖:${zodiac} | 金额:${item.a}元 | 赔率:${item.r}倍 | 派彩:${item.v}元`,
-                        winColor, 'color: inherit');
+                    console.log(`   [${idx + 1}] %c${sourceTag}%c %c${win}%c ${typeName}(${item.code}) | 号码:[${nums}] | 生肖:${zodiac} | 金额:${item.a}元`,
+                        sourceColor, 'color: inherit', winColor, 'color: inherit');
                     console.log(`       原文: "${item.raw || '-'}"`);
                 });
             }
