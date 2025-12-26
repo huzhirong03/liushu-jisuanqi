@@ -5352,14 +5352,8 @@
             requestBody.hk_d = hkDataArr;
         }
         
-        console.log('%c════════════════════════════════════════════════════════════════', 'color: #2196f3');
-        console.log('%c📤 【发送到后端】', 'color: #2196f3; font-weight: bold; font-size: 14px');
-        console.log('%c════════════════════════════════════════════════════════════════', 'color: #2196f3');
-        console.log('   📝 输入文本:', sanitizedInput);
-        console.log('   🎲 澳门开奖:', dataArr.slice(0,6).join(', '), '+ 特码', dataArr[6]);
-        if (hkDataArr) console.log('   🎲 香港开奖:', hkDataArr.slice(0,6).join(', '), '+ 特码', hkDataArr[6]);
-        console.log('   ⚙️ 赔率配置:', config);
-        console.log('   🤖 AI服务商:', provider);
+        // 🆕 v3.12 精简日志：只保留关键信息
+        console.log('%c📤 发送请求', 'color: #2196f3; font-weight: bold', `| 文本长度:${sanitizedInput.length}字符 | 服务商:${provider}`);
         
         // 🆕 v3.11.68 使用带重试的 fetch（网络抖动时自动重试3次）
         const response = await fetchWithRetry(`${ALIYUN_PROXY_URL}/api/calc`, {
@@ -5375,74 +5369,57 @@
         
         const result = await response.json();
         
-        // 🆕 v3.11.3 详细的调试日志输出
-        console.log('%c════════════════════════════════════════════════════════════════', 'color: #4caf50');
-        console.log('%c📥 【后端返回结果】', 'color: #4caf50; font-weight: bold; font-size: 14px');
-        console.log('%c════════════════════════════════════════════════════════════════', 'color: #4caf50');
-        
+        // 🆕 v3.12 精简日志：清晰展示处理结果
         if (result.success) {
-            console.log('   ✅ 状态: 成功');
-            console.log('   🤖 使用模型:', result.model_used || '未知');
-            console.log('   ⏱️ 耗时:', result.latency_ms + 'ms');
-            console.log('   📊 识别条数:', result.extract_count || result.items?.length || 0);
-            console.log('   📊 展开条数:', result.items?.length || 0);
-            
-            // 🆕 v3.11.67 输出每条识别结果（受 IS_DEBUG 控制，生产环境关闭可提升 10 倍性能）
-            if (IS_DEBUG && result.items && result.items.length > 0) {
-                console.log('%c────────────────────────────────────────────────────────────────', 'color: #ff9800');
-                console.log('%c📋 【识别结果详情】', 'color: #ff9800; font-weight: bold');
-                console.log('%c────────────────────────────────────────────────────────────────', 'color: #ff9800');
-                
-                // 类型代码映射
-                const CODE_MAP = {
-                    'T01': '特码', 'SXTM': '生肖特码', 'SX': '生肖',
-                    'PT1': '平特一肖', 'PT2': '平特二连肖', 'PT3': '平特三连肖',
-                    'PT4': '平特四连肖', 'PT5': '平特五连肖',
-                    'BS': '波色', 'BB': '半波', 'BZ': '不中',
-                    'XS': '小数', 'DS': '大数', 'ODD': '单数', 'EVEN': '双数'
-                };
-                
-                // 🆕 v3.11.71 统计数据来源
-                let regexCount = 0, aiCount = 0, v2Count = 0;
+            // 统计数据来源
+            let regexCount = 0, aiCount = 0, v2Count = 0;
+            if (result.items) {
                 result.items.forEach(item => {
                     if (item.source === 'regex') regexCount++;
                     else if (item.source === 'ai') aiCount++;
                     else if (item.source === 'v2') v2Count++;
                 });
-                console.log(`   📊 数据来源统计: 正则引擎=${regexCount}条, AI识别=${aiCount}条, v2.0引擎=${v2Count}条`);
-                
-                result.items.forEach((item, idx) => {
-                    const typeName = CODE_MAP[item.code] || item.code;
-                    const nums = item.n ? item.n.join(',') : '-';
-                    const zodiac = item.z || '-';
-                    const win = item.w ? '✓中' : '✗未中';
-                    const winColor = item.w ? 'color: #4caf50; font-weight: bold' : 'color: #999';
-                    // 🆕 v3.11.71 数据来源标记
-                    const sourceMap = {'regex': '⚡正则', 'ai': '🤖AI', 'v2': '🚀v2.0'};
-                    const sourceTag = sourceMap[item.source] || '❓未知';
-                    const sourceColor = item.source === 'regex' ? 'color: #4caf50' : 
-                                        item.source === 'ai' ? 'color: #ff9800' : 'color: #2196f3';
-                    
-                    console.log(`   [${idx + 1}] %c${sourceTag}%c %c${win}%c ${typeName}(${item.code}) | 号码:[${nums}] | 生肖:${zodiac} | 金额:${item.a}元`,
-                        sourceColor, 'color: inherit', winColor, 'color: inherit');
-                    console.log(`       原文: "${item.raw || '-'}"`);
-                });
             }
             
-            // 输出汇总
-            console.log('%c────────────────────────────────────────────────────────────────', 'color: #9c27b0');
-            console.log('%c💰 【计算汇总】', 'color: #9c27b0; font-weight: bold');
-            console.log('%c────────────────────────────────────────────────────────────────', 'color: #9c27b0');
-            console.log('   📊 总投注:', result.s1 + '元');
-            console.log('   🎯 中奖注数:', result.s2 + '注');
-            console.log('   💵 派彩金额:', result.s3 + '元');
-            console.log('   💰 结算:', (result.s4 >= 0 ? '+' : '') + result.s4 + '元');
+            // 一行汇总日志
+            console.log(
+                '%c✅ 计算完成%c | 耗时:%dms | 识别:%d条 | ⚡正则:%d | 🤖AI:%d | 🚀v2.0:%d | 投注:%d元 | 结算:%s%d元',
+                'color: #4caf50; font-weight: bold', 'color: inherit',
+                result.latency_ms || 0,
+                result.items?.length || 0,
+                regexCount, aiCount, v2Count,
+                result.s1 || 0,
+                result.s4 >= 0 ? '+' : '', result.s4 || 0
+            );
+            
+            // 🆕 v3.12 只在调试模式下输出详细内容
+            if (IS_DEBUG && result.items && result.items.length > 0) {
+                const CODE_MAP = {
+                    'T01': '特码', 'SXTM': '生肖特码', 'SX': '生肖',
+                    'PT1': '平特一肖', 'PT2': '二连肖', 'PT3': '三连肖',
+                    'BS': '波色', 'BZ': '不中', 'XS': '小数', 'DS': '大数'
+                };
+                const sourceMap = {'regex': '⚡', 'ai': '🤖', 'v2': '🚀'};
+                
+                console.log('%c─────────────────────────────────────────', 'color: #888');
+                result.items.forEach((item, idx) => {
+                    const src = sourceMap[item.source] || '?';
+                    const type = CODE_MAP[item.code] || item.code;
+                    const win = item.w ? '%c✓%c' : '%c✗%c';
+                    const winColor = item.w ? 'color:#4caf50;font-weight:bold' : 'color:#999';
+                    const zodiac = item.z ? `生肖:${item.z}` : '';
+                    const nums = item.n?.length > 3 ? `[${item.n.slice(0,3).join(',')}...共${item.n.length}个]` : (item.n?.join(',') || '-');
+                    
+                    console.log(
+                        `${src} ${win} ${type} | 号码:${nums} ${zodiac} | ${item.a}元 | "${(item.raw || '').substring(0,20)}"`,
+                        winColor, 'color:inherit'
+                    );
+                });
+                console.log('%c─────────────────────────────────────────', 'color: #888');
+            }
         } else {
-            console.log('   ❌ 状态: 失败');
-            console.log('   ⚠️ 错误:', result.error || '未知错误');
+            console.log('%c❌ 计算失败%c:', 'color: #f44336; font-weight: bold', 'color: inherit', result.error || '未知错误');
         }
-        
-        console.log('%c════════════════════════════════════════════════════════════════', 'color: #4caf50');
         
         return result;
     }
@@ -9190,9 +9167,7 @@ ${userInput}
         debugInfo.targetUrl = targetUrl;
         debugInfo.networkError = '';
         
-        console.log(`🌐 AI请求模式: ${requestMode}`);
-        console.log(`🌐 目标URL: ${targetUrl}`);
-        console.log(`🌐 当前域名: ${window.location.hostname}`);
+        // 🆕 v3.12 精简：调试信息已保存到 debugInfo，不输出到控制台
         
         try {
             let response;
@@ -9206,7 +9181,7 @@ ${userInput}
                 
                 if (isAliyunProxy) {
                     // 阿里云代理：使用新版 /api/analyze 接口 (Function Calling)
-                    console.log('📡 使用阿里云代理 /api/analyze 接口（Function Calling）');
+                    // 🆕 v3.12 精简：移除冗余日志
                     
                     // 从 prompt 中提取实际文本内容
                     let text = prompt;
@@ -9233,7 +9208,6 @@ ${userInput}
                 } else {
                     // Cloudflare/其他代理：使用旧版接口
                     // 🆕 v3.0 使用中性字段名
-                    console.log('使用代理模式调用AI API（Key在后端）');
                     const requestBody = {
                         p: provider,    // 服务商
                         prompt: prompt, // 旧版接口仍需 prompt（兼容）
@@ -9259,7 +9233,7 @@ ${userInput}
             
             clearTimeout(timeoutId);
             const elapsed = Date.now() - startTime;
-            console.log(`🌐 请求耗时: ${elapsed}ms, 状态码: ${response.status}`);
+            // 🆕 v3.12 精简：只在失败时输出状态码
             
             if (!response.ok) {
                 const err = await response.text();
@@ -9268,9 +9242,7 @@ ${userInput}
             }
             
             const responseText = await response.text();
-            console.log('AI API原始响应文本:', responseText);
-            
-            // 记录原始响应（用于诊断）
+            // 🆕 v3.12 精简：不输出大量原始响应，保存到 debugInfo 即可
             debugInfo.rawResponse = responseText.substring(0, 500);
             
             // 尝试解析 JSON
@@ -9281,8 +9253,6 @@ ${userInput}
                 debugInfo.networkError = `JSON解析失败: ${responseText.substring(0, 100)}`;
                 throw new Error('代理返回非JSON数据: ' + responseText.substring(0, 100));
             }
-            
-            console.log('AI API解析后:', data);
             
             // 检查是否有错误信息
             if (data.error) {
@@ -9330,40 +9300,14 @@ ${userInput}
                         'Z9': '猴', 'Z10': '鸡', 'Z11': '狗', 'Z12': '猪'
                     };
                     
-                    console.log('%c═══════════════════════════════════════════════════════', 'color: #00bcd4');
-                    console.log('%c📊 【AI理解结果分析】以下是AI如何拆分你的输入：', 'color: #00bcd4; font-weight: bold; font-size: 14px');
-                    console.log('%c═══════════════════════════════════════════════════════', 'color: #00bcd4');
-                    
-                    let aiTotalAmount = 0;  // AI理解的总金额
-                    
-                    if (Array.isArray(data.data)) {
-                        data.data.forEach((item, index) => {
-                            const typeName = CODE_NAME_MAP[item.code] || item.code;
-                            const numCount = item.numbers ? item.numbers.length : 0;
-                            const itemTotal = numCount * (item.amount || 0);
-                            aiTotalAmount += itemTotal;
-                            
-                            console.log(`%c第${index + 1}条记录:`, 'color: #ff9800; font-weight: bold');
-                            console.log(`   📝 原文: "${item.original}"`);
-                            console.log(`   🏷️ AI识别类型: ${typeName}`);
-                            console.log(`   🔢 AI提取的下注号码: ${item.numbers ? JSON.stringify(item.numbers) : '无'} (${numCount}个)`);
-                            console.log(`   💰 AI提取的每注金额: ${item.amount || '无'}元`);
-                            if (item.zodiac_code) {
-                                const zodiacName = ZODIAC_NAME_MAP[item.zodiac_code] || item.zodiac_code;
-                                console.log(`   🐾 AI识别的生肖: ${zodiacName}`);
-                            }
-                            console.log(`   📊 本条小计: ${numCount}注 × ${item.amount || 0}元 = ${itemTotal}元`);
-                            console.log('   ---');
+                    // 🆕 v3.12 精简：AI分析日志只在调试模式显示
+                    if (IS_DEBUG && Array.isArray(data.data)) {
+                        console.log('%c📊 AI分析结果:', 'color: #00bcd4; font-weight: bold', `共${data.data.length}条`);
+                        data.data.forEach((item, idx) => {
+                            const type = CODE_NAME_MAP[item.code] || item.code;
+                            console.log(`   [${idx+1}] ${type} | ${item.numbers?.length || 0}注 | ${item.amount}元 | "${(item.original||'').substring(0,25)}"`);
                         });
-                        
-                        console.log(`%c💰 AI理解的总下注金额: ${aiTotalAmount}元`, 'color: #ff5722; font-weight: bold; font-size: 13px');
-                        
-                        // 🔍 诊断提示
-                        console.log('%c💡 【如何判断问题】:', 'color: #4caf50; font-weight: bold');
-                        console.log('   - 如果上面"AI提取的号码/金额"就已经错了 → 问题在【后端提示词】');
-                        console.log('   - 如果上面正确，但最终计算结果错了 → 问题在【前端解析】');
                     }
-                    console.log('%c═══════════════════════════════════════════════════════', 'color: #00bcd4');
                 } else {
                     debugInfo.networkError = `API返回错误: ${data.error || '未知错误'}`;
                     throw new Error(data.error || 'AI分析失败');
@@ -9701,11 +9645,7 @@ ${sanitizedInput}
                 // 【核心】处理还原后的结果，提取具体数值
                 const bets = [];
                 
-                // 🔍 【前端解析过程】日志
-                console.log('%c═══════════════════════════════════════════════════════', 'color: #9c27b0');
-                console.log('%c🔄 【前端解析过程】将AI返回的数据转换为下注记录：', 'color: #9c27b0; font-weight: bold; font-size: 14px');
-                console.log('%c═══════════════════════════════════════════════════════', 'color: #9c27b0');
-                
+                // 🆕 v3.12 精简：前端解析日志只在调试模式显示
                 if (Array.isArray(restoredResult)) {
                     for (const item of restoredResult) {
                         if (Array.isArray(item) && item.length >= 2) {
@@ -9716,17 +9656,11 @@ ${sanitizedInput}
                             const zodiacCode = item[4]; // 🆕 生肖代号 (SXTM用)
                             const type = CODE_TO_TYPE[code] || code;
                             
-                            const itemIndex = restoredResult.indexOf(item) + 1;
-                            console.log(`%c第${itemIndex}条 → 前端处理:`, 'color: #9c27b0; font-weight: bold');
-                            console.log(`   📥 输入: 代号=${code}, 原文="${raw}"`);
-                            console.log(`   🔄 转换: ${code} → ${type}`);
-                            
                             let extracted = [];
                             
                             // 🆕 v3.3 T01 + zodiacCode：生肖格式的特码（通过Z代号选号）
                             // 生肖特码本质上是特码的一种下注格式，统一显示为"特码"
                             if (code === 'T01' && zodiacCode && amount) {
-                                console.log('✨ T01(生肖格式): 使用 zodiacCode 展开号码', { zodiacCode, amount });
                                 // 将 Z1-Z12 转换为生肖名称
                                 const ZODIAC_MAP = {
                                     'Z1': '鼠', 'Z2': '牛', 'Z3': '虎', 'Z4': '兔',
@@ -9748,9 +9682,6 @@ ${sanitizedInput}
                             }
                             // 🆕 如果 Function Calling 已经提取了 numbers 和 amount，直接使用
                             else if (numbers && Array.isArray(numbers) && numbers.length > 0 && amount) {
-                                console.log(`   ✅ 数据来源: AI已提取 (无需正则)`);
-                                console.log(`   🔢 号码: ${JSON.stringify(numbers)}`);
-                                console.log(`   💰 金额: ${amount}元/注`);
                                 // 根据类型生成下注数据
                                 if (type === '特码') {
                                     for (const num of numbers) {
