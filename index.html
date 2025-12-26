@@ -8128,12 +8128,15 @@
                 const groupId = parseInt(groupMatch[1]);
                 const expectParts = groupMatch[2] ? groupMatch[2].split('|').map(p => p.trim()) : [];
                 
+                // 🆕 v3.12.5 支持第5个期望值：总投注额
+                // 格式：#组N|类型|金额|注数|总投注
                 currentGroup = {
                     id: groupId,
-                    expected: expectParts.length >= 1 && expectParts[0] ? {
+                    expected: expectParts.length >= 1 && (expectParts[0] || expectParts[2] || expectParts[3]) ? {
                         type: expectParts[0] || null,
                         amount: expectParts[1] ? parseInt(expectParts[1]) : null,
-                        bets: expectParts[2] ? parseInt(expectParts[2]) : null
+                        bets: expectParts[2] ? parseInt(expectParts[2]) : null,
+                        totalBet: expectParts[3] ? parseInt(expectParts[3]) : null  // 🆕 总投注额
                     } : null
                 };
                 currentLines = [];
@@ -8397,19 +8400,30 @@
                     const typeMatch = !exp.type || actualType === exp.type || actualType.includes(exp.type) || exp.type.includes(actualType);
                     const amountMatch = exp.amount === null || actualAmount === exp.amount;
                     const betsMatch = exp.bets === null || actualBets === exp.bets;
+                    // 🆕 v3.12.5 增加总投注额验证
+                    const actualTotalBet = backendResult.s1 || totalAmount;
+                    const totalBetMatch = exp.totalBet === null || exp.totalBet === undefined || actualTotalBet === exp.totalBet;
                     
-                    if (typeMatch && amountMatch && betsMatch) {
+                    // 保存总投注到details
+                    details.totalBet = actualTotalBet;
+                    details.s4 = backendResult.s4;  // 总盈亏
+                    
+                    if (typeMatch && amountMatch && betsMatch && totalBetMatch) {
                         status = 'pass';
                     } else {
                         status = 'fail';
                         details.mismatch = {
                             type: !typeMatch ? { expected: exp.type, actual: actualType } : null,
                             amount: !amountMatch ? { expected: exp.amount, actual: actualAmount } : null,
-                            bets: !betsMatch ? { expected: exp.bets, actual: actualBets } : null
+                            bets: !betsMatch ? { expected: exp.bets, actual: actualBets } : null,
+                            totalBet: !totalBetMatch ? { expected: exp.totalBet, actual: actualTotalBet } : null
                         };
                     }
                 } else {
                     status = 'warn'; // 无期望值，待验证
+                    // 即使无期望值，也保存总投注信息
+                    details.totalBet = backendResult.s1 || totalAmount;
+                    details.s4 = backendResult.s4;
                 }
             } else {
                 status = 'fail';
@@ -8491,12 +8505,10 @@
                         .join(',');
                 }
                 
-                detailHtml = `类型:${result.details.type} | 金额:${result.details.amount} | 注数:${result.details.bets} | 来源:[${sourceInfo}]`;
-                
-                // 🆕 显示总投注（多行输入时有意义）
-                if (result.details.totalAmount && result.details.itemCount > 1) {
-                    detailHtml += ` | 总投注:${result.details.totalAmount}`;
-                }
+                // 🆕 v3.12.5 显示总投注和盈亏
+                const totalBetDisplay = result.details.totalBet || result.details.totalAmount || '-';
+                const s4Display = result.details.s4 !== undefined ? result.details.s4 : '-';
+                detailHtml = `类型:${result.details.type} | 金额:${result.details.amount} | 注数:${result.details.bets} | 总投:${totalBetDisplay} | 盈亏:${s4Display} | [${sourceInfo}]`;
                 
                 if (result.details.mismatch) {
                     const mm = result.details.mismatch;
@@ -8705,8 +8717,8 @@
                     }
                     
                     // 期望 vs 实际
-                    logContent += `【期望】类型:${result.expected?.type || '-'} | 金额:${result.expected?.amount || '-'} | 注数:${result.expected?.bets || '-'}\n`;
-                    logContent += `【实际】类型:${result.details?.type || '-'} | 金额:${result.details?.amount || '-'} | 注数:${result.details?.bets || '-'}\n`;
+                    logContent += `【期望】类型:${result.expected?.type || '-'} | 金额:${result.expected?.amount || '-'} | 注数:${result.expected?.bets || '-'} | 总投注:${result.expected?.totalBet || '-'}\n`;
+                    logContent += `【实际】类型:${result.details?.type || '-'} | 金额:${result.details?.amount || '-'} | 注数:${result.details?.bets || '-'} | 总投注:${result.details?.totalBet || '-'} | 盈亏:${result.details?.s4 || '-'}\n`;
                     
                     // 不匹配项
                     if (result.details?.mismatch) {
@@ -8715,6 +8727,7 @@
                         if (mm.type) logContent += `类型(期望:${mm.type.expected} 实际:${mm.type.actual}) `;
                         if (mm.amount) logContent += `金额(期望:${mm.amount.expected} 实际:${mm.amount.actual}) `;
                         if (mm.bets) logContent += `注数(期望:${mm.bets.expected} 实际:${mm.bets.actual}) `;
+                        if (mm.totalBet) logContent += `总投注(期望:${mm.totalBet.expected} 实际:${mm.totalBet.actual}) `;
                         logContent += `\n`;
                     }
                     
