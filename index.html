@@ -2276,42 +2276,26 @@
                 <button onclick="closeBatchTestModal()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;">×</button>
             </div>
             
-            <!-- 测试控制区 -->
+            <!-- 测试输入区 -->
             <div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.1);">
-                <!-- 添加测试用例输入框 -->
-                <div style="margin-bottom:10px;">
-                    <label style="font-size:11px;color:#888;display:block;margin-bottom:4px;">📝 添加测试案例（每行一个，格式：输入内容|期望类型|期望金额|期望注数）：</label>
-                    <textarea id="batch-test-input" placeholder="例如：&#10;鸡各100|特码|100|4&#10;六肖鼠牛虎兔龙蛇200|六肖|200|1&#10;平特马x900|平特一肖|900|1&#10;&#10;也可以只输入内容（无标准答案，仅测试解析）：&#10;龙x10&#10;买猪狗鸡各50" 
-                        style="width:100%;height:80px;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.3);color:#fff;font-size:12px;font-family:monospace;resize:vertical;"></textarea>
+                <div style="margin-bottom:8px;">
+                    <label style="font-size:11px;color:#888;display:block;margin-bottom:4px;">📝 粘贴测试案例（每行一个，格式：输入内容|期望类型|期望金额|期望注数）：</label>
+                    <textarea id="batch-test-input" oninput="updateQueueCount()" placeholder="格式说明：&#10;输入内容|期望类型|期望金额|期望注数&#10;&#10;例如：&#10;鸡各100|特码|100|4&#10;六肖鼠牛虎兔龙蛇200|六肖|200|1&#10;平特马x900|平特一肖|900|1&#10;&#10;也可以只输入内容（无标准答案）：&#10;龙x10&#10;买猪狗鸡各50" 
+                        style="width:100%;height:120px;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.3);color:#fff;font-size:12px;font-family:monospace;resize:vertical;"></textarea>
                 </div>
                 
                 <!-- 操作按钮 -->
-                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-                    <button onclick="addCustomTestCases()" style="padding:6px 12px;background:linear-gradient(90deg,#3498db,#2980b9);color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">
-                        ➕ 添加到队列
-                    </button>
-                    <button onclick="generateVariants()" style="padding:6px 12px;background:linear-gradient(90deg,#9b59b6,#8e44ad);color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">
-                        🔄 裂变生成变体
-                    </button>
-                    <button onclick="loadPresetTestCases()" style="padding:6px 12px;background:linear-gradient(90deg,#f39c12,#e67e22);color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">
-                        📋 加载预设案例
-                    </button>
-                    <button onclick="clearTestQueue()" style="padding:6px 12px;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.2);border-radius:4px;font-size:11px;cursor:pointer;">
-                        🗑️ 清空队列
-                    </button>
-                </div>
-            </div>
-            
-            <!-- 测试队列信息 -->
-            <div style="padding:8px 0;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.1);">
-                <span style="font-size:12px;color:#888;">📋 测试队列：<span id="test-queue-count" style="color:#4ade80;">0</span> 个案例</span>
-                <div style="display:flex;gap:8px;">
-                    <button id="run-batch-test-btn" onclick="runBatchTest()" style="padding:8px 16px;background:linear-gradient(90deg,#27ae60,#2ecc71);color:white;border:none;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;">
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button id="run-batch-test-btn" onclick="runBatchTest()" style="padding:8px 20px;background:linear-gradient(90deg,#27ae60,#2ecc71);color:white;border:none;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;">
                         ▶️ 开始测试
                     </button>
-                    <button id="stop-batch-test-btn" onclick="stopBatchTest()" style="padding:8px 16px;background:linear-gradient(90deg,#e74c3c,#c0392b);color:white;border:none;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;display:none;">
+                    <button id="stop-batch-test-btn" onclick="stopBatchTest()" style="padding:8px 20px;background:linear-gradient(90deg,#e74c3c,#c0392b);color:white;border:none;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;display:none;">
                         ⏹️ 停止
                     </button>
+                    <button onclick="clearBatchTest()" style="padding:8px 12px;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.2);border-radius:6px;font-size:11px;cursor:pointer;">
+                        🗑️ 清空
+                    </button>
+                    <span id="test-queue-count" style="font-size:11px;color:#888;margin-left:auto;">0 个案例</span>
                 </div>
             </div>
             
@@ -8038,64 +8022,7 @@
         results: []  // [{ input, answer, models: { deepseek: {...}, ... } }]
     };
     
-    // ==================== 批量边缘测试系统 v1.0 ====================
-    
-    // 批量测试预设案例（带标准答案）
-    const BATCH_TEST_PRESETS = [
-        // 特码类 - 基础格式
-        { input: '鸡各100', expected: { type: '特码', amount: 100, bets: 4 }, group: '特码-生肖' },
-        { input: '龙x10', expected: { type: '生肖特码', amount: 10, bets: 4 }, group: '生肖特码' },
-        { input: '买猪各20', expected: { type: '生肖特码', amount: 20, bets: 4 }, group: '生肖特码' },
-        { input: '买龙虎各20', expected: { type: '生肖特码', amount: 20, bets: 8 }, group: '多生肖' },
-        { input: '特43 20元', expected: { type: '特码', amount: 20, bets: 1 }, group: '特码-号码' },
-        
-        // 特码类 - 分隔符变体
-        { input: '10,12,20,22各30', expected: { type: '特码', amount: 30, bets: 4 }, group: '分隔符' },
-        { input: '10、12、20、22各30', expected: { type: '特码', amount: 30, bets: 4 }, group: '分隔符' },
-        { input: '10.12.20.22各30', expected: { type: '特码', amount: 30, bets: 4 }, group: '分隔符' },
-        { input: '03-24-07-49各25', expected: { type: '特码', amount: 25, bets: 4 }, group: '分隔符' },
-        
-        // 特码类 - 金额符号变体
-        { input: '25 36 47各50', expected: { type: '特码', amount: 50, bets: 3 }, group: '金额符号' },
-        { input: '25 36 47×50', expected: { type: '特码', amount: 50, bets: 3 }, group: '金额符号' },
-        { input: '25 36 47X50', expected: { type: '特码', amount: 50, bets: 3 }, group: '金额符号' },
-        { input: '25 36 47x50', expected: { type: '特码', amount: 50, bets: 3 }, group: '金额符号' },
-        { input: '25 36 47*50', expected: { type: '特码', amount: 50, bets: 3 }, group: '金额符号' },
-        
-        // 特码类 - 数字范围
-        { input: '小数各20', expected: { type: '特码', amount: 20, bets: 24 }, group: '数字范围' },
-        { input: '大数各30', expected: { type: '特码', amount: 30, bets: 25 }, group: '数字范围' },
-        { input: '单数各10', expected: { type: '特码', amount: 10, bets: 25 }, group: '数字范围' },
-        { input: '双数各15', expected: { type: '特码', amount: 15, bets: 24 }, group: '数字范围' },
-        
-        // 六肖类
-        { input: '六肖鼠牛虎兔龙蛇200', expected: { type: '六肖', amount: 200, bets: 1 }, group: '六肖' },
-        { input: '六肖鼠猴羊鸡牛马200', expected: { type: '六肖', amount: 200, bets: 1 }, group: '六肖' },
-        
-        // 平特类
-        { input: '平特马x900', expected: { type: '平特一肖', amount: 900, bets: 1 }, group: '平特' },
-        { input: '一友狗30', expected: { type: '平特一肖', amount: 30, bets: 1 }, group: '平特' },
-        { input: '二友猴鸡50', expected: { type: '平特二连肖', amount: 50, bets: 1 }, group: '平特' },
-        
-        // 多组输入
-        { input: '羊X4 23.35.47X3', expected: { type: '混合', amount: null, bets: null }, group: '多组' },
-        { input: '特牛、狗、鸡各数30', expected: { type: '特码', amount: 30, bets: 12 }, group: '多生肖' },
-        { input: '鸡鼠猴x10', expected: { type: '生肖特码', amount: 10, bets: 12 }, group: '多生肖' },
-        
-        // 混合号码+生肖
-        { input: '25、40、28、20、32、18、30、42、猴、龙、猪、鸡、羊、牛、兔各10', expected: { type: '特码', amount: 10, bets: 36 }, group: '混合' },
-        
-        // 边缘情况
-        { input: '10 12 20 22 23 25 33 40 43 44 30各20', expected: { type: '特码', amount: 20, bets: 11 }, group: '大批量号码' },
-        { input: '06.18.42各20', expected: { type: '特码', amount: 20, bets: 3 }, group: '点分隔' },
-        { input: '39X200', expected: { type: '特码', amount: 200, bets: 1 }, group: '单号大额' },
-        { input: '08 18 28各二十', expected: { type: '特码', amount: 20, bets: 3 }, group: '中文金额' },
-        { input: '猪10', expected: { type: '生肖', amount: 10, bets: 1 }, group: '生肖无符号' },
-        
-        // 彩种标识
-        { input: '新澳门09，45，03各25', expected: { type: '特码', amount: 25, bets: 3 }, group: '彩种标识' },
-        { input: '香港狗x80', expected: { type: '生肖特码', amount: 80, bets: 4 }, group: '彩种标识' }
-    ];
+    // ==================== 批量边缘测试系统 v1.1 ====================
     
     // 批量测试状态
     let batchTestState = {
@@ -8126,118 +8053,32 @@
     
     // 更新队列计数
     function updateQueueCount() {
-        document.getElementById('test-queue-count').textContent = batchTestState.queue.length;
-    }
-    
-    // 添加自定义测试案例
-    function addCustomTestCases() {
         const inputEl = document.getElementById('batch-test-input');
-        const text = inputEl.value.trim();
-        if (!text) {
-            alert('请输入测试案例');
-            return;
-        }
-        
-        const lines = text.split('\n').filter(l => l.trim());
-        let addedCount = 0;
-        
-        for (const line of lines) {
-            const parts = line.split('|').map(p => p.trim());
-            const testCase = {
-                input: parts[0],
-                expected: null,
-                group: '自定义'
-            };
-            
-            if (parts.length >= 2) {
-                testCase.expected = {
-                    type: parts[1] || null,
-                    amount: parts[2] ? parseInt(parts[2]) : null,
-                    bets: parts[3] ? parseInt(parts[3]) : null
-                };
-            }
-            
-            batchTestState.queue.push(testCase);
-            addedCount++;
-        }
-        
-        inputEl.value = '';
-        updateQueueCount();
-        showAutoCloseToast(`✅ 已添加 ${addedCount} 个测试案例`);
+        const text = inputEl?.value?.trim() || '';
+        const count = text ? text.split('\n').filter(l => l.trim()).length : 0;
+        const countEl = document.getElementById('test-queue-count');
+        if (countEl) countEl.textContent = count + ' 个案例';
     }
     
-    // 加载预设测试案例
-    function loadPresetTestCases() {
-        batchTestState.queue = [...BATCH_TEST_PRESETS];
-        updateQueueCount();
-        showAutoCloseToast(`✅ 已加载 ${BATCH_TEST_PRESETS.length} 个预设案例`);
-    }
-    
-    // 清空测试队列
-    function clearTestQueue() {
-        batchTestState.queue = [];
+    // 清空批量测试
+    function clearBatchTest() {
+        document.getElementById('batch-test-input').value = '';
         batchTestState.results = [];
         batchTestState.logs = [];
         updateQueueCount();
         document.getElementById('batch-result-list').innerHTML = '';
         document.getElementById('batch-summary').style.display = 'none';
-        showAutoCloseToast('🗑️ 队列已清空');
-    }
-    
-    // 裂变生成变体
-    function generateVariants() {
-        const inputEl = document.getElementById('batch-test-input');
-        const text = inputEl.value.trim();
-        if (!text) {
-            alert('请先输入一个基础案例');
-            return;
-        }
-        
-        const baseCase = text.split('\n')[0].split('|')[0].trim();
-        if (!baseCase) return;
-        
-        // 提取生肖（如果有）
-        const zodiacMatch = baseCase.match(/[鼠牛虎兔龙蛇马羊猴鸡狗猪]+/);
-        const zodiac = zodiacMatch ? zodiacMatch[0] : '';
-        
-        // 提取金额（如果有）
-        const amountMatch = baseCase.match(/(\d+)/);
-        const amount = amountMatch ? amountMatch[1] : '100';
-        
-        const variants = [];
-        
-        // 金额符号变体
-        if (zodiac) {
-            variants.push(`${zodiac}各${amount}`);
-            variants.push(`${zodiac}×${amount}`);
-            variants.push(`${zodiac}X${amount}`);
-            variants.push(`${zodiac}x${amount}`);
-            variants.push(`${zodiac}*${amount}`);
-            variants.push(`${zodiac}${amount}元`);
-            variants.push(`${zodiac} ${amount}`);
-            variants.push(`买${zodiac}各${amount}`);
-        }
-        
-        // 如果是数字，生成分隔符变体
-        const numbersMatch = baseCase.match(/\d{2}/g);
-        if (numbersMatch && numbersMatch.length > 1) {
-            const nums = numbersMatch.slice(0, 4);
-            variants.push(nums.join(',') + '各' + amount);
-            variants.push(nums.join('、') + '各' + amount);
-            variants.push(nums.join('.') + '各' + amount);
-            variants.push(nums.join('-') + '各' + amount);
-            variants.push(nums.join(' ') + '各' + amount);
-        }
-        
-        // 添加到输入框
-        inputEl.value = variants.join('\n');
-        showAutoCloseToast(`🔄 生成了 ${variants.length} 个变体`);
+        showAutoCloseToast('🗑️ 已清空');
     }
     
     // 运行批量测试
     async function runBatchTest() {
-        if (batchTestState.queue.length === 0) {
-            alert('测试队列为空，请先添加测试案例');
+        // 从输入框读取测试案例
+        const inputEl = document.getElementById('batch-test-input');
+        const text = inputEl.value.trim();
+        
+        if (!text) {
+            alert('请粘贴测试案例到输入框');
             return;
         }
         
@@ -8245,6 +8086,21 @@
             alert('测试正在进行中...');
             return;
         }
+        
+        // 解析输入框内容为测试队列
+        const lines = text.split('\n').filter(l => l.trim());
+        batchTestState.queue = lines.map(line => {
+            const parts = line.split('|').map(p => p.trim());
+            return {
+                input: parts[0],
+                expected: parts.length >= 2 ? {
+                    type: parts[1] || null,
+                    amount: parts[2] ? parseInt(parts[2]) : null,
+                    bets: parts[3] ? parseInt(parts[3]) : null
+                } : null,
+                group: parts.length >= 2 ? '有标准' : '仅测试'
+            };
+        });
         
         // 初始化状态
         batchTestState.isRunning = true;
