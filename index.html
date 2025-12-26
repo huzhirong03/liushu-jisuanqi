@@ -8082,7 +8082,87 @@
         showAutoCloseToast('🗑️ 已清空');
     }
     
-    // 运行批量测试
+    // 🆕 v3.12.2 解析分组测试案例
+    // 格式：#组1|期望类型|期望金额|期望注数
+    //       输入行1
+    //       输入行2
+    //       #组2|...
+    function parseGroupedTestCases(text) {
+        const testCases = [];
+        const lines = text.split('\n');
+        
+        let currentGroup = null;
+        let currentLines = [];
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            
+            // 检测组标记：#组N 或 #组N|期望类型|期望金额|期望注数
+            const groupMatch = line.match(/^#组(\d+)(?:\|(.*))?$/);
+            
+            if (groupMatch) {
+                // 保存上一组
+                if (currentGroup !== null && currentLines.length > 0) {
+                    testCases.push({
+                        groupId: currentGroup.id,
+                        input: currentLines.join('\n'),  // 多行合并
+                        expected: currentGroup.expected,
+                        group: currentGroup.expected ? '有标准' : '仅测试'
+                    });
+                }
+                
+                // 解析新组
+                const groupId = parseInt(groupMatch[1]);
+                const expectParts = groupMatch[2] ? groupMatch[2].split('|').map(p => p.trim()) : [];
+                
+                currentGroup = {
+                    id: groupId,
+                    expected: expectParts.length >= 1 ? {
+                        type: expectParts[0] || null,
+                        amount: expectParts[1] ? parseInt(expectParts[1]) : null,
+                        bets: expectParts[2] ? parseInt(expectParts[2]) : null
+                    } : null
+                };
+                currentLines = [];
+            } else if (currentGroup !== null) {
+                // 属于当前组的输入行（保留空行，因为真实输入可能有空行）
+                currentLines.push(line);
+            } else {
+                // 兼容旧格式：单行测试（没有#组标记）
+                if (line.trim()) {
+                    const parts = line.split('|').map(p => p.trim());
+                    // 跳过注释行和分隔线
+                    if (parts[0].startsWith('//') || parts[0].startsWith('===') || parts[0].startsWith('---')) {
+                        continue;
+                    }
+                    testCases.push({
+                        groupId: testCases.length + 1,
+                        input: parts[0],
+                        expected: parts.length >= 2 ? {
+                            type: parts[1] || null,
+                            amount: parts[2] ? parseInt(parts[2]) : null,
+                            bets: parts[3] ? parseInt(parts[3]) : null
+                        } : null,
+                        group: parts.length >= 2 ? '有标准' : '仅测试'
+                    });
+                }
+            }
+        }
+        
+        // 保存最后一组
+        if (currentGroup !== null && currentLines.length > 0) {
+            testCases.push({
+                groupId: currentGroup.id,
+                input: currentLines.join('\n'),
+                expected: currentGroup.expected,
+                group: currentGroup.expected ? '有标准' : '仅测试'
+            });
+        }
+        
+        return testCases;
+    }
+    
+    // 运行批量测试（支持分组多行输入）
     async function runBatchTest() {
         // 从输入框读取测试案例
         const inputEl = document.getElementById('batch-test-input');
@@ -8098,20 +8178,13 @@
             return;
         }
         
-        // 解析输入框内容为测试队列
-        const lines = text.split('\n').filter(l => l.trim());
-        batchTestState.queue = lines.map(line => {
-            const parts = line.split('|').map(p => p.trim());
-            return {
-                input: parts[0],
-                expected: parts.length >= 2 ? {
-                    type: parts[1] || null,
-                    amount: parts[2] ? parseInt(parts[2]) : null,
-                    bets: parts[3] ? parseInt(parts[3]) : null
-                } : null,
-                group: parts.length >= 2 ? '有标准' : '仅测试'
-            };
-        });
+        // 🆕 使用新的分组解析函数
+        batchTestState.queue = parseGroupedTestCases(text);
+        
+        if (batchTestState.queue.length === 0) {
+            alert('未找到有效的测试案例');
+            return;
+        }
         
         // 初始化状态
         batchTestState.isRunning = true;
@@ -8159,14 +8232,23 @@
         finishBatchTest();
     }
     
-    // 执行单个测试用例
+    // 🆕 v3.12.2 执行单个测试用例（支持多行输入 + 增强日志）
     async function executeTestCase(testCase, index) {
         const startTime = Date.now();
+        const isMultiLine = testCase.input.includes('\n');
+        const inputPreview = isMultiLine 
+            ? testCase.input.split('\n')[0] + '...(共' + testCase.input.split('\n').length + '行)'
+            : testCase.input;
+        
         const log = {
             index: index + 1,
+            groupId: testCase.groupId || (index + 1),
             input: testCase.input,
+            inputPreview: inputPreview,
+            isMultiLine: isMultiLine,
             timestamp: new Date().toISOString(),
-            steps: []
+            steps: [],
+            backendDebug: null  // 🆕 保存后端debug信息
         };
         
         try {
@@ -8175,7 +8257,12 @@
             
             // 步骤1: 前端预处理（sanitizeText）
             const sanitizedInput = sanitizeText(testCase.input);
-            log.steps.push({ step: 'sanitizeText', result: sanitizedInput });
+            log.steps.push({ 
+                step: 'sanitizeText', 
+                inputLines: testCase.input.split('\n').length,
+                outputLines: sanitizedInput.split('\n').length,
+                result: sanitizedInput.substring(0, 200) + (sanitizedInput.length > 200 ? '...' : '')
+            });
             
             // 步骤2: 调用后端API
             const config = getOddsConfig();
@@ -8200,7 +8287,30 @@
                 hkNums
             );
             
-            log.steps.push({ step: 'backendResponse', success: backendResult.success, itemCount: backendResult.items?.length || 0 });
+            // 🆕 保存后端debug信息
+            log.backendDebug = {
+                latency_ms: backendResult.latency_ms,
+                s1: backendResult.s1,  // 总投注
+                s4: backendResult.s4,  // 总盈亏
+                itemCount: backendResult.items?.length || 0,
+                // 统计处理来源
+                sourceStats: {}
+            };
+            
+            if (backendResult.items) {
+                backendResult.items.forEach(item => {
+                    const src = item.source || 'unknown';
+                    log.backendDebug.sourceStats[src] = (log.backendDebug.sourceStats[src] || 0) + 1;
+                });
+            }
+            
+            log.steps.push({ 
+                step: 'backendResponse', 
+                success: backendResult.success, 
+                itemCount: backendResult.items?.length || 0,
+                latency_ms: backendResult.latency_ms,
+                sources: log.backendDebug.sourceStats
+            });
             
             const elapsed = Date.now() - startTime;
             
@@ -8211,14 +8321,24 @@
             if (backendResult.success && backendResult.items?.length > 0) {
                 const items = backendResult.items;
                 const totalBets = items.reduce((sum, item) => sum + (item.bet_count || 1), 0);
+                const totalAmount = backendResult.s1 || items.reduce((sum, item) => sum + (item.a || 0), 0);
                 const firstItem = items[0];
                 
                 // 类型映射
                 const TYPE_MAP = {
                     'T01': '特码', 'SXTM': '生肖特码', 'SX': '生肖',
                     'PT1': '平特一肖', 'PT2': '平特二连肖', 'PT3': '平特三连肖',
+                    'PT4': '平特四连肖', 'PT5': '平特五连肖',
                     'SX6': '六肖', 'BS': '波色', 'BB': '半波'
                 };
+                
+                // 🆕 多行输入时统计所有类型
+                const typeStats = {};
+                items.forEach(item => {
+                    const t = TYPE_MAP[item.code] || item.code;
+                    typeStats[t] = (typeStats[t] || 0) + 1;
+                });
+                
                 const actualType = TYPE_MAP[firstItem.code] || firstItem.code;
                 const actualAmount = firstItem.a || 0;
                 const actualBets = totalBets;
@@ -8230,10 +8350,20 @@
                     bets: actualBets,
                     source: source,
                     itemCount: items.length,
-                    raw: items
+                    totalAmount: totalAmount,
+                    typeStats: typeStats,  // 🆕 类型统计
+                    sourceStats: log.backendDebug.sourceStats,  // 🆕 来源统计
+                    // 🆕 精简raw，只保留关键字段
+                    rawSummary: items.slice(0, 5).map(it => ({
+                        code: it.code,
+                        raw: (it.raw || '').substring(0, 30),
+                        a: it.a,
+                        n: it.n,
+                        source: it.source
+                    }))
                 };
                 
-                log.steps.push({ step: 'parseResult', details });
+                log.steps.push({ step: 'parseResult', details: { type: actualType, bets: totalBets, itemCount: items.length } });
                 
                 // 与期望值对比
                 if (testCase.expected) {
@@ -8257,7 +8387,7 @@
                 }
             } else {
                 status = 'fail';
-                details = { error: backendResult.error || '解析失败', raw: backendResult };
+                details = { error: backendResult.error || '解析失败' };
             }
             
             log.steps.push({ step: 'finalStatus', status });
@@ -8265,12 +8395,14 @@
             
             return {
                 index: index + 1,
+                groupId: testCase.groupId || (index + 1),  // 🆕 组ID
                 input: testCase.input,
                 expected: testCase.expected,
                 group: testCase.group,
                 status: status,
                 details: details,
-                elapsed: elapsed
+                elapsed: elapsed,
+                isMultiLine: isMultiLine  // 🆕 是否多行
             };
             
         } catch (error) {
@@ -8279,12 +8411,14 @@
             
             return {
                 index: index + 1,
+                groupId: testCase.groupId || (index + 1),
                 input: testCase.input,
                 expected: testCase.expected,
                 group: testCase.group,
                 status: 'fail',
                 details: { error: error.message },
-                elapsed: Date.now() - startTime
+                elapsed: Date.now() - startTime,
+                isMultiLine: isMultiLine
             };
         }
     }
@@ -8306,17 +8440,38 @@
     }
     
     // 添加结果到列表
+    // 🆕 v3.12.2 显示测试结果（支持多行输入）
     function appendResultToList(result, index) {
         const listEl = document.getElementById('batch-result-list');
         const statusIcon = result.status === 'pass' ? '✅' : result.status === 'fail' ? '❌' : '⚠️';
         const statusColor = result.status === 'pass' ? '#4ade80' : result.status === 'fail' ? '#ef5350' : '#ffa726';
+        
+        // 处理多行输入的显示
+        const isMultiLine = result.input && result.input.includes('\n');
+        const inputDisplay = isMultiLine 
+            ? result.input.split('\n')[0].substring(0, 30) + '...<span style="color:#60a5fa;">(共' + result.input.split('\n').length + '行)</span>'
+            : (result.input || '').substring(0, 50);
         
         let detailHtml = '';
         if (result.details) {
             if (result.details.error) {
                 detailHtml = `<span style="color:#ef5350;">${result.details.error}</span>`;
             } else {
-                detailHtml = `类型:${result.details.type} | 金额:${result.details.amount} | 注数:${result.details.bets} | 来源:${result.details.source || '-'}`;
+                // 🆕 显示来源统计
+                let sourceInfo = result.details.source || '-';
+                if (result.details.sourceStats && Object.keys(result.details.sourceStats).length > 0) {
+                    sourceInfo = Object.entries(result.details.sourceStats)
+                        .map(([k, v]) => `${k}:${v}`)
+                        .join(',');
+                }
+                
+                detailHtml = `类型:${result.details.type} | 金额:${result.details.amount} | 注数:${result.details.bets} | 来源:[${sourceInfo}]`;
+                
+                // 🆕 显示总投注（多行输入时有意义）
+                if (result.details.totalAmount && result.details.itemCount > 1) {
+                    detailHtml += ` | 总投注:${result.details.totalAmount}`;
+                }
+                
                 if (result.details.mismatch) {
                     const mm = result.details.mismatch;
                     const parts = [];
@@ -8333,8 +8488,8 @@
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;">
                     <div style="flex:1;">
                         <span style="color:${statusColor};">${statusIcon}</span>
-                        <span style="color:#fff;font-weight:bold;">[${result.index}]</span>
-                        <span style="color:#ccc;">${result.input}</span>
+                        <span style="color:#fff;font-weight:bold;">[组${result.groupId || result.index}]</span>
+                        <span style="color:#ccc;">${inputDisplay}</span>
                         <span style="color:#666;font-size:10px;margin-left:8px;">(${result.group || '-'})</span>
                     </div>
                     <span style="color:#888;font-size:10px;">${result.elapsed}ms</span>
