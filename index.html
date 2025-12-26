@@ -5372,22 +5372,22 @@
         // 🆕 v3.12 精简日志：清晰展示处理结果
         if (result.success) {
             // 统计数据来源
-            let regexCount = 0, aiCount = 0, v2Count = 0;
+            let regexCount = 0, aiCount = 0, flashlexCount = 0;
             if (result.items) {
                 result.items.forEach(item => {
                     if (item.source === 'regex') regexCount++;
                     else if (item.source === 'ai') aiCount++;
-                    else if (item.source === 'v2') v2Count++;
+                    else if (item.source === 'flashlex' || item.source === 'v2') flashlexCount++;
                 });
             }
             
             // 一行汇总日志
             console.log(
-                '%c✅ 计算完成%c | 耗时:%dms | 识别:%d条 | ⚡正则:%d | 🤖AI:%d | 🚀v2.0:%d | 投注:%d元 | 结算:%s%d元',
+                '%c✅ 计算完成%c | 耗时:%dms | 识别:%d条 | 🚀FlashLex:%d | ⚡正则:%d | 🤖AI:%d | 投注:%d元 | 结算:%s%d元',
                 'color: #4caf50; font-weight: bold', 'color: inherit',
                 result.latency_ms || 0,
                 result.items?.length || 0,
-                regexCount, aiCount, v2Count,
+                flashlexCount, regexCount, aiCount,
                 result.s1 || 0,
                 result.s4 >= 0 ? '+' : '', result.s4 || 0
             );
@@ -5399,7 +5399,7 @@
                     'PT1': '平特一肖', 'PT2': '二连肖', 'PT3': '三连肖',
                     'BS': '波色', 'BZ': '不中', 'XS': '小数', 'DS': '大数'
                 };
-                const sourceMap = {'regex': '⚡', 'ai': '🤖', 'v2': '🚀'};
+                const sourceMap = {'regex': '⚡', 'ai': '🤖', 'flashlex': '🚀', 'v2': '🚀'};
                 
                 console.log('%c─────────────────────────────────────────', 'color: #888');
                 result.items.forEach((item, idx) => {
