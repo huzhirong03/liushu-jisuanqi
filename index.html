@@ -8094,21 +8094,34 @@
         let currentGroup = null;
         let currentLines = [];
         
+        console.log('📋 开始解析测试案例，共', lines.length, '行');
+        
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             
-            // 检测组标记：#组N 或 #组N|期望类型|期望金额|期望注数
-            const groupMatch = line.match(/^#组(\d+)(?:\|(.*))?$/);
+            // 🆕 v3.12.4 增强匹配：支持 # ＃ 井 等开头，支持空格
+            // 匹配格式：#组1 或 #组1|期望类型|期望金额|期望注数
+            const trimmedLine = line.trim();
+            const groupMatch = trimmedLine.match(/^[#＃井]组(\d+)(?:\s*\|(.*))?$/);
             
             if (groupMatch) {
+                console.log('✅ 检测到组标记:', trimmedLine, '→ 组ID:', groupMatch[1]);
+                
                 // 保存上一组
                 if (currentGroup !== null && currentLines.length > 0) {
-                    testCases.push({
-                        groupId: currentGroup.id,
-                        input: currentLines.join('\n'),  // 多行合并
-                        expected: currentGroup.expected,
-                        group: currentGroup.expected ? '有标准' : '仅测试'
-                    });
+                    // 🆕 去除首尾空行
+                    while (currentLines.length > 0 && !currentLines[0].trim()) currentLines.shift();
+                    while (currentLines.length > 0 && !currentLines[currentLines.length-1].trim()) currentLines.pop();
+                    
+                    if (currentLines.length > 0) {
+                        testCases.push({
+                            groupId: currentGroup.id,
+                            input: currentLines.join('\n'),
+                            expected: currentGroup.expected,
+                            group: currentGroup.expected ? '有标准' : '仅测试'
+                        });
+                        console.log('📦 保存组', currentGroup.id, ':', currentLines.length, '行');
+                    }
                 }
                 
                 // 解析新组
@@ -8117,7 +8130,7 @@
                 
                 currentGroup = {
                     id: groupId,
-                    expected: expectParts.length >= 1 ? {
+                    expected: expectParts.length >= 1 && expectParts[0] ? {
                         type: expectParts[0] || null,
                         amount: expectParts[1] ? parseInt(expectParts[1]) : null,
                         bets: expectParts[2] ? parseInt(expectParts[2]) : null
@@ -8125,14 +8138,19 @@
                 };
                 currentLines = [];
             } else if (currentGroup !== null) {
-                // 属于当前组的输入行（保留空行，因为真实输入可能有空行）
+                // 属于当前组的输入行
                 currentLines.push(line);
             } else {
                 // 兼容旧格式：单行测试（没有#组标记）
-                if (line.trim()) {
-                    const parts = line.split('|').map(p => p.trim());
-                    // 跳过注释行和分隔线
-                    if (parts[0].startsWith('//') || parts[0].startsWith('===') || parts[0].startsWith('---')) {
+                if (trimmedLine) {
+                    const parts = trimmedLine.split('|').map(p => p.trim());
+                    // 跳过注释行、分隔线、标题行
+                    if (parts[0].startsWith('//') || 
+                        parts[0].startsWith('===') || 
+                        parts[0].startsWith('---') ||
+                        parts[0].startsWith('【') ||
+                        parts[0].startsWith('格式') ||
+                        parts[0].startsWith('使用')) {
                         continue;
                     }
                     testCases.push({
@@ -8151,14 +8169,22 @@
         
         // 保存最后一组
         if (currentGroup !== null && currentLines.length > 0) {
-            testCases.push({
-                groupId: currentGroup.id,
-                input: currentLines.join('\n'),
-                expected: currentGroup.expected,
-                group: currentGroup.expected ? '有标准' : '仅测试'
-            });
+            // 去除首尾空行
+            while (currentLines.length > 0 && !currentLines[0].trim()) currentLines.shift();
+            while (currentLines.length > 0 && !currentLines[currentLines.length-1].trim()) currentLines.pop();
+            
+            if (currentLines.length > 0) {
+                testCases.push({
+                    groupId: currentGroup.id,
+                    input: currentLines.join('\n'),
+                    expected: currentGroup.expected,
+                    group: currentGroup.expected ? '有标准' : '仅测试'
+                });
+                console.log('📦 保存最后一组', currentGroup.id, ':', currentLines.length, '行');
+            }
         }
         
+        console.log('📋 解析完成，共', testCases.length, '个测试案例');
         return testCases;
     }
     
