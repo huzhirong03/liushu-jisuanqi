@@ -5311,23 +5311,22 @@
         
         // 🆕 v3.12 精简日志：清晰展示处理结果
         if (result.success) {
-            // 统计数据来源
-            let regexCount = 0, aiCount = 0, flashlexCount = 0;
+            // 统计数据来源（v3.5.3 移除正则引擎后只有 flashlex 和 ai）
+            let flashlexCount = 0, aiCount = 0;
             if (result.items) {
                 result.items.forEach(item => {
-                    if (item.source === 'regex') regexCount++;
+                    if (item.source === 'flashlex' || item.source === 'v2') flashlexCount++;
                     else if (item.source === 'ai') aiCount++;
-                    else if (item.source === 'flashlex' || item.source === 'v2') flashlexCount++;
                 });
             }
             
             // 一行汇总日志
             console.log(
-                '%c✅ 计算完成%c | 耗时:%dms | 识别:%d条 | 🚀FlashLex:%d | ⚡正则:%d | 🤖AI:%d | 投注:%d元 | 结算:%s%d元',
+                '%c✅ 计算完成%c | 耗时:%dms | 识别:%d条 | 🚀FlashLex:%d | 🤖AI:%d | 投注:%d元 | 结算:%s%d元',
                 'color: #4caf50; font-weight: bold', 'color: inherit',
                 result.latency_ms || 0,
                 result.items?.length || 0,
-                flashlexCount, regexCount, aiCount,
+                flashlexCount, aiCount,
                 result.s1 || 0,
                 result.s4 >= 0 ? '+' : '', result.s4 || 0
             );
@@ -5339,7 +5338,7 @@
                     'PT1': '平特一肖', 'PT2': '二连肖', 'PT3': '三连肖',
                     'BS': '波色', 'BZ': '不中', 'XS': '小数', 'DS': '大数'
                 };
-                const sourceMap = {'regex': '⚡', 'ai': '🤖', 'flashlex': '🚀', 'v2': '🚀'};
+                const sourceMap = {'ai': '🤖', 'flashlex': '🚀', 'v2': '🚀'};  // v3.5.3 移除regex
                 
                 console.log('%c─────────────────────────────────────────', 'color: #888');
                 result.items.forEach((item, idx) => {
@@ -5592,7 +5591,7 @@
         if (settings.aiEnabled) {
             // 🆕 v3.11.65 旧的toast提示已由全屏加载动画替代
             try {
-                // 🆕 v3.11.4 生肖代号转换（后端正则匹配需要 Z1-Z12 格式）
+                // 🆕 v3.11.4 生肖代号转换（后端FlashLex引擎需要 Z1-Z12 格式）
                 const sanitizedInput = sanitizeText(input);
                 debugInfo.sanitizedInput = sanitizedInput;
                 console.log('🔄 代号转换后:', sanitizedInput);
@@ -7559,7 +7558,7 @@
     
     // ==================== 【输入标准化系统 v3.11.6】 ====================
     // 🎯 目的1：将同义词/变体统一为标准格式（提高AI识别率）
-    // 🎯 目的2：将中文生肖转换为 Z 代号（后端正则匹配依赖此格式）
+    // 🎯 目的2：将中文生肖转换为 Z 代号（后端FlashLex引擎依赖此格式）
     // 📝 处理顺序：同义词标准化 → 生肖代号转换
     
     // ========== 同义词映射表（用户变体 → 标准格式）==========
@@ -7610,7 +7609,7 @@
         '块钱': '元',
         
         // ===== 乘号统一 =====
-        // 🆕 v3.11.67 新增多种乘号变体，让更多输入走正则减少AI调用
+        // 🆕 v3.11.67 新增多种乘号变体，让更多输入走FlashLex减少AI调用
         '×': 'x',
         'X': 'x',
         '✖️': 'x',   // emoji乘号（用户常用）
@@ -7799,7 +7798,7 @@
             }
         }
         
-        // 🆕 v3.11.4 第3步：生肖→Z代号转换（后端正则匹配依赖 Z\d{1,2} 格式）
+        // 🆕 v3.11.4 第3步：生肖→Z代号转换（后端FlashLex引擎依赖 Z\d{1,2} 格式）
         for (const zodiac of ZODIAC_KEYS_SORTED) {
             result = result.split(zodiac).join(ZODIAC_TO_CODE[zodiac]);
         }
@@ -10185,7 +10184,7 @@ ${userInput}
             debugInfo.normalizeInfo = '';
         }
         
-        // 【步骤2】🔄 生肖代号转换（后端正则匹配需要 Z 代号格式）
+        // 【步骤2】🔄 生肖代号转换（后端FlashLex引擎需要 Z 代号格式）
         const sanitizedInput = sanitizeText(userInput);
         console.log('🔄 代号转换:', userInput.substring(0, 30), '→', sanitizedInput.substring(0, 30));
         
@@ -10194,7 +10193,7 @@ ${userInput}
         debugInfo.sanitizedInput = sanitizedInput;
         
         // ╔════════════════════════════════════════════════════════════════╗
-        // ║     【AI提示词 v3.0】Z代号格式 - 后端正则匹配需要              ║
+        // ║     【AI提示词 v3.0】Z代号格式 - 后端FlashLex引擎需要           ║
         // ║  中文生肖已转换为Z代号（如 羊→Z8），便于正则匹配               ║
         // ╚════════════════════════════════════════════════════════════════╝
         const prompt = `你是数据分类器。判断每条数据的类型代号。
