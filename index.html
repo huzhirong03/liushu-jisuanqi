@@ -8349,16 +8349,24 @@
             
             if (backendResult.success && backendResult.items?.length > 0) {
                 const items = backendResult.items;
-                const totalBets = items.reduce((sum, item) => sum + (item.bet_count || 1), 0);
+                // 🆕 v3.5.1 修复：注数统计与首页一致，直接使用 items.length
+                // 首页显示的 "识别 X 注" 使用的是 calcResults.length
+                const totalBets = items.length;
                 const totalAmount = backendResult.s1 || items.reduce((sum, item) => sum + (item.a || 0), 0);
                 const firstItem = items[0];
                 
-                // 类型映射
+                // 类型映射（与首页 FB_TYPE_CODE_TO_NAME 保持一致）
                 const TYPE_MAP = {
-                    'T01': '特码', 'SXTM': '生肖特码', 'SX': '生肖',
+                    'T01': '特码', 'SXTM': '特码', 'SX': '生肖', '生肖特码': '特码',
                     'PT1': '平特一肖', 'PT2': '平特二连肖', 'PT3': '平特三连肖',
-                    'PT4': '平特四连肖', 'PT5': '平特五连肖',
-                    'SX6': '六肖', 'BS': '波色', 'BB': '半波'
+                    'PT4': '平特四连肖', 'PT5': '平特五连肖', 'PTW': '平特尾数',
+                    'LX': '六肖', 'LX6': '六肖', 'SX6': '六肖', '6X': '六肖', 'LIUXIAO': '六肖',
+                    'TX': '特肖', 'HX': '合肖', 'ZX': '正肖',
+                    'BS': '波色', 'BB': '半波', 'DP': '单平', 'DXDS': '大小单双',
+                    'XS': '小数', 'DS': '大数', 'ODD': '单数', 'EVEN': '双数',
+                    'E2': '二中二', 'S3': '三中三', 'BZ': '不中',
+                    'LM': '连码', 'ZH': '总和', 'WX': '五行', 'JY': '家野',
+                    'UK': '特码'  // 未知类型默认为特码
                 };
                 
                 // 🆕 多行输入时统计所有类型
