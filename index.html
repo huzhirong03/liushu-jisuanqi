@@ -7804,6 +7804,17 @@
             result = result.split(zodiac).join(ZODIAC_TO_CODE[zodiac]);
         }
         
+        // 🆕 v3.12.1 修复Z代号粘连问题：鸡100 → Z10100 → Z10 100
+        // 问题：鸡/狗/猪转为Z10/Z11/Z12后，如果后面紧跟数字会粘在一起
+        // 解决：在Z代号和后面的数字之间插入空格
+        result = result.replace(/(Z1[0-2])(\d)/g, '$1 $2');  // Z10/Z11/Z12 + 数字
+        result = result.replace(/(Z[1-9])(\d)/g, (match, z, d) => {
+            // 避免误伤：Z1后面的0-2不处理（因为可能是Z10/Z11/Z12的一部分）
+            // 只处理Z1-Z9后面紧跟数字的情况
+            if (z === 'Z1' && ['0','1','2'].includes(d)) return match;  // Z10/Z11/Z12保持
+            return z + ' ' + d;
+        });
+        
         if (text !== result) {
             console.log('🔄 输入标准化:', text.substring(0, 30), '→', result.substring(0, 30));
         }
@@ -8370,7 +8381,7 @@
         document.getElementById('batch-test-status').style.color = '#ffa726';
     }
     
-    // 导出批量测试报告
+    // 导出批量测试报告（精简版）
     function exportBatchReport(format) {
         if (batchTestState.results.length === 0) {
             alert('没有测试结果可导出');
@@ -8378,33 +8389,71 @@
         }
         
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const passCount = batchTestState.results.filter(r => r.status === 'pass').length;
+        const failCount = batchTestState.results.filter(r => r.status === 'fail').length;
+        const warnCount = batchTestState.results.filter(r => r.status === 'warn').length;
+        const avgTime = Math.round(batchTestState.results.reduce((sum, r) => sum + r.elapsed, 0) / batchTestState.results.length);
+        
+        // 分类失败原因
+        const failReasons = {};
+        batchTestState.results.filter(r => r.status === 'fail').forEach(r => {
+            let reason = '其他';
+            if (r.details?.error) {
+                reason = r.details.error.substring(0, 30);
+            } else if (r.details?.mismatch) {
+                if (r.details.mismatch.bets) reason = '注数错误';
+                else if (r.details.mismatch.amount) reason = '金额错误';
+                else if (r.details.mismatch.type) reason = '类型错误';
+            }
+            failReasons[reason] = (failReasons[reason] || 0) + 1;
+        });
         
         if (format === 'json') {
-            // JSON格式
+            // 🆕 精简JSON：只保留失败案例详情，通过案例只保留摘要
+            const failedResults = batchTestState.results
+                .filter(r => r.status === 'fail')
+                .map(r => ({
+                    index: r.index,
+                    input: r.input,
+                    expected: r.expected,
+                    actual: {
+                        type: r.details?.type,
+                        amount: r.details?.amount,
+                        bets: r.details?.bets,
+                        source: r.details?.source
+                    },
+                    mismatch: r.details?.mismatch,
+                    error: r.details?.error,
+                    elapsed: r.elapsed
+                }));
+            
             const report = {
-                version: '1.0',
+                version: '2.0',  // 精简版
                 timestamp: new Date().toISOString(),
                 summary: {
                     total: batchTestState.results.length,
-                    pass: batchTestState.results.filter(r => r.status === 'pass').length,
-                    fail: batchTestState.results.filter(r => r.status === 'fail').length,
-                    warn: batchTestState.results.filter(r => r.status === 'warn').length,
-                    avgTime: Math.round(batchTestState.results.reduce((sum, r) => sum + r.elapsed, 0) / batchTestState.results.length)
+                    pass: passCount,
+                    fail: failCount,
+                    warn: warnCount,
+                    passRate: (passCount / batchTestState.results.length * 100).toFixed(1) + '%',
+                    avgTime: avgTime + 'ms'
                 },
-                results: batchTestState.results
+                failReasons: failReasons,
+                failedCases: failedResults,
+                // 通过案例只保留序号列表
+                passedIndexes: batchTestState.results.filter(r => r.status === 'pass').map(r => r.index)
             };
             
             const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
-            downloadBlob(blob, `batch_test_report_${timestamp}.json`);
+            downloadBlob(blob, `test_report_${timestamp}.json`);
             
         } else if (format === 'csv') {
-            // CSV格式
-            const headers = ['序号', '输入', '分组', '状态', '类型', '金额', '注数', '来源', '耗时(ms)', '期望类型', '期望金额', '期望注数', '错误信息'];
+            // CSV格式（保持不变，方便Excel查看）
+            const headers = ['序号', '输入', '状态', '实际类型', '实际金额', '实际注数', '来源', '耗时ms', '期望类型', '期望金额', '期望注数', '错误'];
             const rows = batchTestState.results.map(r => [
                 r.index,
                 `"${r.input.replace(/"/g, '""')}"`,
-                r.group || '',
-                r.status,
+                r.status === 'pass' ? '✓通过' : r.status === 'fail' ? '✗失败' : '?待验',
                 r.details?.type || '',
                 r.details?.amount || '',
                 r.details?.bets || '',
@@ -8413,21 +8462,69 @@
                 r.expected?.type || '',
                 r.expected?.amount || '',
                 r.expected?.bets || '',
-                r.details?.error || ''
+                r.details?.error || (r.details?.mismatch ? JSON.stringify(r.details.mismatch) : '')
             ]);
             
-            const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            // 添加摘要行
+            const summaryRows = [
+                [],
+                ['=== 测试摘要 ==='],
+                ['总数', batchTestState.results.length],
+                ['通过', passCount],
+                ['失败', failCount],
+                ['通过率', (passCount / batchTestState.results.length * 100).toFixed(1) + '%'],
+                ['平均耗时', avgTime + 'ms']
+            ];
+            
+            const csv = [headers.join(','), ...rows.map(r => r.join(',')), ...summaryRows.map(r => r.join(','))].join('\n');
             const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
-            downloadBlob(blob, `batch_test_report_${timestamp}.csv`);
+            downloadBlob(blob, `test_report_${timestamp}.csv`);
             
         } else if (format === 'log') {
-            // 处理日志格式
-            const logContent = batchTestState.logs.map(log => {
-                return `[${log.index}] ${log.input}\n${JSON.stringify(log.steps, null, 2)}\n${'─'.repeat(50)}`;
-            }).join('\n\n');
+            // 🆕 精简日志：只显示失败案例的详细步骤
+            let logContent = `========== 批量测试日志 ==========\n`;
+            logContent += `时间: ${new Date().toLocaleString()}\n`;
+            logContent += `总数: ${batchTestState.results.length} | 通过: ${passCount} | 失败: ${failCount}\n`;
+            logContent += `通过率: ${(passCount / batchTestState.results.length * 100).toFixed(1)}%\n`;
+            logContent += `${'═'.repeat(40)}\n\n`;
+            
+            // 失败原因统计
+            if (Object.keys(failReasons).length > 0) {
+                logContent += `【失败原因分类】\n`;
+                for (const [reason, count] of Object.entries(failReasons)) {
+                    logContent += `  • ${reason}: ${count}个\n`;
+                }
+                logContent += `\n${'─'.repeat(40)}\n\n`;
+            }
+            
+            // 只输出失败案例的详细日志
+            const failedLogs = batchTestState.logs.filter((log, i) => 
+                batchTestState.results[i]?.status === 'fail'
+            );
+            
+            if (failedLogs.length > 0) {
+                logContent += `【失败案例详情】\n\n`;
+                failedLogs.forEach(log => {
+                    logContent += `[#${log.index}] ${log.input}\n`;
+                    // 只保留关键步骤
+                    const keySteps = log.steps.filter(s => 
+                        s.step === 'sanitizeText' || s.step === 'error' || s.step === 'finalStatus'
+                    );
+                    keySteps.forEach(step => {
+                        if (step.step === 'sanitizeText') {
+                            logContent += `  转换后: ${step.result}\n`;
+                        } else if (step.step === 'error') {
+                            logContent += `  ❌ 错误: ${step.message}\n`;
+                        }
+                    });
+                    logContent += `${'─'.repeat(40)}\n`;
+                });
+            } else {
+                logContent += `🎉 全部通过，无失败案例！\n`;
+            }
             
             const blob = new Blob([logContent], { type: 'text/plain;charset=utf-8' });
-            downloadBlob(blob, `batch_test_log_${timestamp}.txt`);
+            downloadBlob(blob, `test_log_${timestamp}.txt`);
         }
         
         showAutoCloseToast(`✅ 已导出${format.toUpperCase()}报告`);
