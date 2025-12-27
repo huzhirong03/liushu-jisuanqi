@@ -2267,26 +2267,47 @@
         </div>
     </div>
     
-    <!-- 批量边缘测试弹窗 -->
+    <!-- 批量边缘测试弹窗 v2.0 -->
     <div class="import-modal" id="batch-test-modal" style="display:none;">
-        <div class="import-modal-content" style="max-width:95%;width:600px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;">
+        <div class="import-modal-content" style="max-width:95%;width:700px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;">
             <div class="import-modal-title" style="display:flex;justify-content:space-between;align-items:center;">
-                <span>🧪 批量边缘测试</span>
+                <span>🧪 批量精准测试 v2.0</span>
                 <span id="batch-test-status" style="font-size:11px;color:#4ade80;background:rgba(74,222,128,0.1);padding:2px 8px;border-radius:4px;">就绪</span>
                 <button onclick="closeBatchTestModal()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;">×</button>
             </div>
             
+            <!-- 🆕 v2.0 Tab切换栏 -->
+            <div style="display:flex;border-bottom:2px solid rgba(255,255,255,0.1);margin-bottom:8px;">
+                <button id="tab-test-cases" onclick="switchBatchTab('cases')" style="flex:1;padding:10px;background:linear-gradient(90deg,#667eea,#764ba2);color:white;border:none;font-size:13px;font-weight:bold;cursor:pointer;border-radius:6px 6px 0 0;">
+                    📝 测试案例
+                </button>
+                <button id="tab-standard-answers" onclick="switchBatchTab('answers')" style="flex:1;padding:10px;background:rgba(255,255,255,0.1);color:#888;border:none;font-size:13px;cursor:pointer;border-radius:6px 6px 0 0;">
+                    ✅ 标准答案
+                </button>
+            </div>
+            
             <!-- 测试输入区 -->
-            <div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.1);">
-                <div style="margin-bottom:8px;">
-                    <label style="font-size:11px;color:#888;display:block;margin-bottom:4px;">📝 粘贴测试案例（每行一个，格式：输入内容|期望类型|期望金额|期望注数）：</label>
-                    <textarea id="batch-test-input" oninput="updateQueueCount()" placeholder="格式说明：&#10;输入内容|期望类型|期望金额|期望注数&#10;&#10;例如：&#10;鸡各100|特码|100|4&#10;六肖鼠牛虎兔龙蛇200|六肖|200|1&#10;平特马x900|平特一肖|900|1&#10;&#10;也可以只输入内容（无标准答案）：&#10;龙x10&#10;买猪狗鸡各50" 
-                        style="width:100%;height:120px;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.3);color:#fff;font-size:12px;font-family:monospace;resize:vertical;"></textarea>
+            <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.1);">
+                <!-- 🆕 测试案例Tab内容 -->
+                <div id="batch-tab-cases" style="margin-bottom:8px;">
+                    <label style="font-size:11px;color:#888;display:block;margin-bottom:4px;">📝 粘贴测试案例（用户输入内容）：</label>
+                    <textarea id="batch-test-input" oninput="updateQueueCount()" placeholder="格式：#组N&#10;用户输入内容（可多行）&#10;&#10;示例：&#10;#组1&#10;六肖鼠猴羊鸡牛马200，鸡鼠猴x10，平特猴鸡各200&#10;&#10;#组2&#10;特牛、狗、鸡各数30特羊各数160&#10;特05、17、45、11、23、35各数50新澳" 
+                        style="width:100%;height:140px;padding:8px;border-radius:6px;border:1px solid rgba(102,126,234,0.5);background:rgba(0,0,0,0.3);color:#fff;font-size:12px;font-family:monospace;resize:vertical;box-sizing:border-box;"></textarea>
+                </div>
+                
+                <!-- 🆕 标准答案Tab内容 -->
+                <div id="batch-tab-answers" style="display:none;margin-bottom:8px;">
+                    <label style="font-size:11px;color:#888;display:block;margin-bottom:4px;">✅ 粘贴标准答案（AI生成或手动整理）：</label>
+                    <textarea id="batch-standard-answers" oninput="updateAnswerCount()" placeholder="格式：#组N&#10;总注:X|总投:X|中奖:X|派彩:X|盈亏:X&#10;---&#10;序号|类型|原文|号码|金额|注数|小计|中奖&#10;===&#10;&#10;示例：&#10;#组1&#10;总注:54|总投:3280|中奖:3|派彩:12030|盈亏:+8750&#10;---&#10;1|六肖|六肖鼠猴羊鸡牛马 200|鼠,猴,羊,鸡,牛,马|200|1|200|✓&#10;2|特码|鸡鼠猴x10|鸡09,21,33,45,鼠06,18,30,42,猴10,22,34,46|10|12|120|✗&#10;===" 
+                        style="width:100%;height:140px;padding:8px;border-radius:6px;border:1px solid rgba(74,222,128,0.5);background:rgba(0,0,0,0.3);color:#fff;font-size:12px;font-family:monospace;resize:vertical;box-sizing:border-box;"></textarea>
+                    <div style="font-size:10px;color:#888;margin-top:4px;">
+                        💡 标准答案格式参考：<a href="#" onclick="showAnswerFormatHelp();return false;" style="color:#60a5fa;">查看格式规范</a>
+                    </div>
                 </div>
                 
                 <!-- 操作按钮 -->
-                <div style="display:flex;gap:8px;align-items:center;">
-                    <button id="run-batch-test-btn" onclick="runBatchTest()" style="padding:8px 20px;background:linear-gradient(90deg,#27ae60,#2ecc71);color:white;border:none;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;">
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <button id="run-batch-test-btn" onclick="runBatchTestV2()" style="padding:8px 20px;background:linear-gradient(90deg,#27ae60,#2ecc71);color:white;border:none;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;">
                         ▶️ 开始测试
                     </button>
                     <button id="stop-batch-test-btn" onclick="stopBatchTest()" style="padding:8px 20px;background:linear-gradient(90deg,#e74c3c,#c0392b);color:white;border:none;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;display:none;">
@@ -2295,7 +2316,10 @@
                     <button onclick="clearBatchTest()" style="padding:8px 12px;background:rgba(255,255,255,0.1);color:#ccc;border:1px solid rgba(255,255,255,0.2);border-radius:6px;font-size:11px;cursor:pointer;">
                         🗑️ 清空
                     </button>
-                    <span id="test-queue-count" style="font-size:11px;color:#888;margin-left:auto;">0 个案例</span>
+                    <span style="font-size:11px;color:#888;margin-left:auto;">
+                        案例: <span id="test-queue-count" style="color:#60a5fa;">0</span> | 
+                        答案: <span id="answer-queue-count" style="color:#4ade80;">0</span>
+                    </span>
                 </div>
             </div>
             
@@ -8032,7 +8056,7 @@
         results: []  // [{ input, answer, models: { deepseek: {...}, ... } }]
     };
     
-    // ==================== 批量边缘测试系统 v1.1 ====================
+    // ==================== 批量精准测试系统 v2.0 ====================
     
     // 批量测试状态
     let batchTestState = {
@@ -8042,13 +8066,155 @@
         results: [],      // 测试结果
         logs: [],         // 处理日志
         startTime: null,
-        currentIndex: 0
+        currentIndex: 0,
+        standardAnswers: {}  // 🆕 v2.0 标准答案 { 组N: { header: {...}, records: [...] } }
     };
+    
+    // 🆕 v2.0 Tab切换
+    function switchBatchTab(tab) {
+        const casesTab = document.getElementById('tab-test-cases');
+        const answersTab = document.getElementById('tab-standard-answers');
+        const casesContent = document.getElementById('batch-tab-cases');
+        const answersContent = document.getElementById('batch-tab-answers');
+        
+        if (tab === 'cases') {
+            casesTab.style.background = 'linear-gradient(90deg,#667eea,#764ba2)';
+            casesTab.style.color = 'white';
+            answersTab.style.background = 'rgba(255,255,255,0.1)';
+            answersTab.style.color = '#888';
+            casesContent.style.display = 'block';
+            answersContent.style.display = 'none';
+        } else {
+            answersTab.style.background = 'linear-gradient(90deg,#27ae60,#2ecc71)';
+            answersTab.style.color = 'white';
+            casesTab.style.background = 'rgba(255,255,255,0.1)';
+            casesTab.style.color = '#888';
+            casesContent.style.display = 'none';
+            answersContent.style.display = 'block';
+        }
+    }
+    
+    // 🆕 v2.0 更新答案计数
+    function updateAnswerCount() {
+        const inputEl = document.getElementById('batch-standard-answers');
+        const text = inputEl?.value?.trim() || '';
+        const groupMatches = text.match(/#组\d+/g) || [];
+        const countEl = document.getElementById('answer-queue-count');
+        if (countEl) countEl.textContent = groupMatches.length;
+    }
+    
+    // 🆕 v2.0 显示格式帮助
+    function showAnswerFormatHelp() {
+        alert(`标准答案格式：
+
+#组1
+总注:54|总投:3280|中奖:3|派彩:12030|盈亏:+8750
+---
+1|六肖|六肖鼠猴羊鸡牛马 200|鼠,猴,羊,鸡,牛,马|200|1|200|✓
+2|特码|鸡鼠猴x10|鸡09,21,33,45,鼠06,18,30,42|10|12|120|✗
+---
+3|特码|特牛狗鸡各数30|牛05,17,29,41,狗08,20,32,44,鸡09,21,33,45|30|12|360|✓
+===
+
+字段说明：
+- 总注/总投/中奖/派彩/盈亏：汇总数据
+- 序号|类型|原文|号码|金额|注数|小计|中奖
+- 分隔线 --- 表示用户输入的空行分组
+- === 表示该组结束`);
+    }
+    
+    // 🆕 v2.0 解析标准答案
+    function parseStandardAnswers(text) {
+        const answers = {};
+        if (!text.trim()) return answers;
+        
+        const lines = text.split('\n');
+        let currentGroup = null;
+        let currentHeader = null;
+        let currentRecords = [];
+        
+        for (const line of lines) {
+            const trimmed = line.trim();
+            
+            // 匹配组标识
+            const groupMatch = trimmed.match(/^#组(\d+)/);
+            if (groupMatch) {
+                // 保存上一组
+                if (currentGroup !== null) {
+                    answers[currentGroup] = {
+                        header: currentHeader,
+                        records: currentRecords
+                    };
+                }
+                currentGroup = parseInt(groupMatch[1]);
+                currentHeader = null;
+                currentRecords = [];
+                continue;
+            }
+            
+            // 匹配头部汇总
+            if (trimmed.startsWith('总注:')) {
+                const parts = trimmed.split('|');
+                currentHeader = {};
+                parts.forEach(p => {
+                    const [key, val] = p.split(':');
+                    if (key && val !== undefined) {
+                        currentHeader[key.trim()] = val.trim().replace(/[+元]/, '');
+                    }
+                });
+                continue;
+            }
+            
+            // 跳过分隔线
+            if (trimmed === '---' || trimmed === '===' || !trimmed) continue;
+            
+            // 解析记录行
+            const parts = trimmed.split('|');
+            if (parts.length >= 7) {
+                // 判断是否有彩种列
+                const hasLt = parts.length >= 9;
+                const record = hasLt ? {
+                    seq: parseInt(parts[0]),
+                    lt: parts[1],           // 彩种
+                    type: parts[2],         // 类型
+                    raw: parts[3],          // 原文
+                    numbers: parts[4],      // 号码
+                    amount: parseInt(parts[5]),  // 金额
+                    bets: parseInt(parts[6]),    // 注数
+                    subtotal: parseInt(parts[7]), // 小计
+                    win: parts[8]?.includes('✓')  // 中奖
+                } : {
+                    seq: parseInt(parts[0]),
+                    type: parts[1],
+                    raw: parts[2],
+                    numbers: parts[3],
+                    amount: parseInt(parts[4]),
+                    bets: parseInt(parts[5]),
+                    subtotal: parseInt(parts[6]),
+                    win: parts[7]?.includes('✓')
+                };
+                currentRecords.push(record);
+            }
+        }
+        
+        // 保存最后一组
+        if (currentGroup !== null) {
+            answers[currentGroup] = {
+                header: currentHeader,
+                records: currentRecords
+            };
+        }
+        
+        console.log('📋 解析标准答案:', Object.keys(answers).length, '组');
+        return answers;
+    }
     
     // 打开批量测试弹窗
     function openBatchTestModal() {
         document.getElementById('batch-test-modal').style.display = 'flex';
+        switchBatchTab('cases');  // 默认显示测试案例Tab
         updateQueueCount();
+        updateAnswerCount();
         console.log('🧪 批量测试弹窗已打开');
     }
     
@@ -8065,17 +8231,20 @@
     function updateQueueCount() {
         const inputEl = document.getElementById('batch-test-input');
         const text = inputEl?.value?.trim() || '';
-        const count = text ? text.split('\n').filter(l => l.trim()).length : 0;
+        const groupMatches = text.match(/#组\d+/g) || [];
         const countEl = document.getElementById('test-queue-count');
-        if (countEl) countEl.textContent = count + ' 个案例';
+        if (countEl) countEl.textContent = groupMatches.length || text.split('\n').filter(l => l.trim()).length;
     }
     
     // 清空批量测试
     function clearBatchTest() {
         document.getElementById('batch-test-input').value = '';
+        document.getElementById('batch-standard-answers').value = '';
         batchTestState.results = [];
         batchTestState.logs = [];
+        batchTestState.standardAnswers = {};
         updateQueueCount();
+        updateAnswerCount();
         document.getElementById('batch-result-list').innerHTML = '';
         document.getElementById('batch-summary').style.display = 'none';
         showAutoCloseToast('🗑️ 已清空');
@@ -8258,6 +8427,392 @@
         
         // 测试完成
         finishBatchTest();
+    }
+    
+    // 🆕 v2.0 新版批量测试（支持标准答案精确对比）
+    async function runBatchTestV2() {
+        // 从输入框读取测试案例
+        const inputEl = document.getElementById('batch-test-input');
+        const text = inputEl.value.trim();
+        
+        // 读取标准答案
+        const answersEl = document.getElementById('batch-standard-answers');
+        const answersText = answersEl?.value?.trim() || '';
+        
+        if (!text) {
+            alert('请在"测试案例"Tab中粘贴测试案例');
+            switchBatchTab('cases');
+            return;
+        }
+        
+        if (batchTestState.isRunning) {
+            alert('测试正在进行中...');
+            return;
+        }
+        
+        // 解析标准答案
+        batchTestState.standardAnswers = parseStandardAnswers(answersText);
+        const hasAnswers = Object.keys(batchTestState.standardAnswers).length > 0;
+        
+        if (!hasAnswers) {
+            const proceed = confirm('未检测到标准答案，将只运行测试不进行精确验证。\n\n是否继续？');
+            if (!proceed) {
+                switchBatchTab('answers');
+                return;
+            }
+        }
+        
+        // 解析测试案例
+        batchTestState.queue = parseGroupedTestCases(text);
+        
+        if (batchTestState.queue.length === 0) {
+            alert('未找到有效的测试案例');
+            return;
+        }
+        
+        // 初始化状态
+        batchTestState.isRunning = true;
+        batchTestState.shouldStop = false;
+        batchTestState.results = [];
+        batchTestState.logs = [];
+        batchTestState.startTime = Date.now();
+        batchTestState.currentIndex = 0;
+        
+        // 更新UI
+        document.getElementById('run-batch-test-btn').style.display = 'none';
+        document.getElementById('stop-batch-test-btn').style.display = 'inline-block';
+        document.getElementById('batch-progress-bar').style.display = 'block';
+        document.getElementById('batch-test-status').textContent = hasAnswers ? '精确验证中...' : '测试中...';
+        document.getElementById('batch-test-status').style.color = '#ffa726';
+        document.getElementById('batch-result-list').innerHTML = '';
+        document.getElementById('batch-summary').style.display = 'none';
+        
+        const totalCases = batchTestState.queue.length;
+        console.log(`🧪 开始测试: ${totalCases}组案例, ${Object.keys(batchTestState.standardAnswers).length}组标准答案`);
+        
+        // 逐个测试
+        for (let i = 0; i < totalCases; i++) {
+            if (batchTestState.shouldStop) break;
+            
+            batchTestState.currentIndex = i;
+            const testCase = batchTestState.queue[i];
+            
+            // 更新进度
+            updateProgress(i + 1, totalCases);
+            
+            // 执行测试并与标准答案对比
+            const result = await executeTestCaseV2(testCase, i);
+            batchTestState.results.push(result);
+            
+            // 实时显示结果
+            appendResultToListV2(result, i);
+            
+            // 延迟
+            if (i < totalCases - 1 && !batchTestState.shouldStop) {
+                await new Promise(r => setTimeout(r, 300));
+            }
+        }
+        
+        // 测试完成
+        finishBatchTest();
+    }
+    
+    // 🆕 v2.0 执行单个测试并与标准答案对比
+    async function executeTestCaseV2(testCase, index) {
+        const startTime = Date.now();
+        const groupId = testCase.groupId || (index + 1);
+        const standardAnswer = batchTestState.standardAnswers[groupId];
+        
+        const log = {
+            index: index + 1,
+            groupId: groupId,
+            input: testCase.input,
+            hasStandardAnswer: !!standardAnswer,
+            timestamp: new Date().toISOString(),
+            steps: [],
+            comparison: null  // 🆕 对比结果
+        };
+        
+        try {
+            // 调用后端计算
+            const sanitizedInput = sanitizeText(testCase.input);
+            const config = getOddsConfig();
+            const mcData = appState.lotteryData['xam'];
+            const hkData = appState.lotteryData['hk'];
+            const mcNums = (mcData?.numbers && mcData.numbers.length === 7) 
+                ? mcData.numbers 
+                : appState.lotteryNumbers || [41, 27, 6, 44, 15, 39, 12];
+            const hkNums = (hkData?.numbers && hkData.numbers.length === 7) 
+                ? hkData.numbers : null;
+            
+            const aiProvider = localStorage.getItem('ai_provider') || 'tuzi';
+            const backendResult = await callBackendCalc(sanitizedInput, mcNums, config, aiProvider, null, hkNums);
+            
+            const elapsed = Date.now() - startTime;
+            
+            if (!backendResult.success || !backendResult.items?.length) {
+                log.steps.push({ step: 'error', message: backendResult.error || '解析失败' });
+                batchTestState.logs.push(log);
+                return {
+                    index: index + 1,
+                    groupId: groupId,
+                    input: testCase.input,
+                    status: 'fail',
+                    details: { error: backendResult.error || '解析失败' },
+                    elapsed: elapsed,
+                    comparison: null
+                };
+            }
+            
+            // 🆕 构建实际输出数据
+            const actualOutput = {
+                header: {
+                    总注: backendResult.items.length,
+                    总投: backendResult.s1 || 0,
+                    中奖: backendResult.items.filter(it => it.isWin).length,
+                    派彩: backendResult.items.filter(it => it.isWin).reduce((s, it) => s + (it.winAmount || 0), 0),
+                    盈亏: (backendResult.s4 || 0)
+                },
+                records: backendResult.items.map((item, idx) => ({
+                    seq: idx + 1,
+                    lt: item.lt === 'hk' ? '香' : '澳',
+                    type: item.type || 'T01',
+                    raw: item.raw || '',
+                    numbers: formatItemNumbers(item),
+                    amount: item.a || item.amount || 0,
+                    bets: 1,
+                    subtotal: item.a || item.amount || 0,
+                    win: item.isWin
+                }))
+            };
+            
+            log.steps.push({ step: 'calculated', output: actualOutput });
+            
+            // 🆕 与标准答案对比
+            let status = 'warn';  // 默认待验证
+            let comparison = null;
+            
+            if (standardAnswer) {
+                comparison = compareWithStandard(actualOutput, standardAnswer, groupId);
+                log.comparison = comparison;
+                status = comparison.allMatch ? 'pass' : 'fail';
+            }
+            
+            batchTestState.logs.push(log);
+            
+            return {
+                index: index + 1,
+                groupId: groupId,
+                input: testCase.input,
+                status: status,
+                details: {
+                    actual: actualOutput,
+                    expected: standardAnswer,
+                    itemCount: backendResult.items.length,
+                    s1: backendResult.s1,
+                    s4: backendResult.s4
+                },
+                comparison: comparison,
+                elapsed: elapsed
+            };
+            
+        } catch (error) {
+            log.steps.push({ step: 'error', message: error.message });
+            batchTestState.logs.push(log);
+            
+            return {
+                index: index + 1,
+                groupId: groupId,
+                input: testCase.input,
+                status: 'fail',
+                details: { error: error.message },
+                elapsed: Date.now() - startTime,
+                comparison: null
+            };
+        }
+    }
+    
+    // 🆕 v2.0 格式化号码显示
+    function formatItemNumbers(item) {
+        const Z_TO_NAME = {
+            'Z1': '鼠', 'Z2': '牛', 'Z3': '虎', 'Z4': '兔',
+            'Z5': '龙', 'Z6': '蛇', 'Z7': '马', 'Z8': '羊',
+            'Z9': '猴', 'Z10': '鸡', 'Z11': '狗', 'Z12': '猪'
+        };
+        
+        if (item.zodiac) {
+            const zName = Z_TO_NAME[item.zodiac] || item.zodiac;
+            const num = String(item.value || item.number || '').padStart(2, '0');
+            return zName + num;
+        }
+        return item.value || item.number || item.n || '';
+    }
+    
+    // 🆕 v2.0 与标准答案对比
+    function compareWithStandard(actual, expected, groupId) {
+        const mismatches = [];
+        let allMatch = true;
+        
+        // 1. 对比头部汇总
+        if (expected.header) {
+            const headerFields = ['总注', '总投', '中奖', '派彩', '盈亏'];
+            headerFields.forEach(field => {
+                const expVal = parseInt(expected.header[field]) || 0;
+                const actVal = parseInt(actual.header[field]) || 0;
+                if (expVal !== actVal) {
+                    mismatches.push({
+                        type: 'header',
+                        field: field,
+                        expected: expVal,
+                        actual: actVal,
+                        diff: actVal - expVal
+                    });
+                    allMatch = false;
+                }
+            });
+        }
+        
+        // 2. 对比记录数
+        if (expected.records && expected.records.length !== actual.records.length) {
+            mismatches.push({
+                type: 'count',
+                expected: expected.records.length,
+                actual: actual.records.length
+            });
+            allMatch = false;
+        }
+        
+        // 3. 逐条对比记录
+        if (expected.records) {
+            expected.records.forEach((expRec, idx) => {
+                const actRec = actual.records[idx];
+                if (!actRec) {
+                    mismatches.push({
+                        type: 'missing',
+                        seq: expRec.seq,
+                        expected: expRec
+                    });
+                    allMatch = false;
+                    return;
+                }
+                
+                // 对比各字段
+                const recMismatches = [];
+                
+                // 类型
+                if (expRec.type && actRec.type && !typesMatch(expRec.type, actRec.type)) {
+                    recMismatches.push({ field: '类型', expected: expRec.type, actual: actRec.type });
+                }
+                
+                // 号码（精确匹配）
+                if (expRec.numbers && actRec.numbers !== expRec.numbers) {
+                    recMismatches.push({ field: '号码', expected: expRec.numbers, actual: actRec.numbers });
+                }
+                
+                // 金额
+                if (expRec.amount !== actRec.amount) {
+                    recMismatches.push({ field: '金额', expected: expRec.amount, actual: actRec.amount });
+                }
+                
+                // 注数
+                if (expRec.bets !== actRec.bets) {
+                    recMismatches.push({ field: '注数', expected: expRec.bets, actual: actRec.bets });
+                }
+                
+                // 小计
+                if (expRec.subtotal !== actRec.subtotal) {
+                    recMismatches.push({ field: '小计', expected: expRec.subtotal, actual: actRec.subtotal });
+                }
+                
+                // 中奖
+                if (expRec.win !== actRec.win) {
+                    recMismatches.push({ field: '中奖', expected: expRec.win ? '✓' : '✗', actual: actRec.win ? '✓' : '✗' });
+                }
+                
+                if (recMismatches.length > 0) {
+                    mismatches.push({
+                        type: 'record',
+                        seq: idx + 1,
+                        mismatches: recMismatches
+                    });
+                    allMatch = false;
+                }
+            });
+        }
+        
+        return {
+            groupId: groupId,
+            allMatch: allMatch,
+            mismatches: mismatches
+        };
+    }
+    
+    // 🆕 v2.0 类型匹配（支持代码和中文名）
+    function typesMatch(type1, type2) {
+        const TYPE_MAP = {
+            'T01': '特码', 'SXTM': '特码', '特码': '特码',
+            'PT1': '平特一肖', '平特一肖': '平特一肖',
+            'PT2': '平特二连肖', '平特二连肖': '平特二连肖',
+            'PT3': '平特三连肖', '平特三连肖': '平特三连肖',
+            'SX6': '六肖', 'LX': '六肖', '六肖': '六肖'
+        };
+        const norm1 = TYPE_MAP[type1] || type1;
+        const norm2 = TYPE_MAP[type2] || type2;
+        return norm1 === norm2;
+    }
+    
+    // 🆕 v2.0 显示测试结果（带对比详情）
+    function appendResultToListV2(result, index) {
+        const listEl = document.getElementById('batch-result-list');
+        const statusIcon = result.status === 'pass' ? '✅' : result.status === 'fail' ? '❌' : '⚠️';
+        const statusColor = result.status === 'pass' ? '#4ade80' : result.status === 'fail' ? '#ef5350' : '#ffa726';
+        
+        const inputDisplay = result.input.includes('\n')
+            ? result.input.split('\n')[0].substring(0, 30) + '...(共' + result.input.split('\n').length + '行)'
+            : result.input.substring(0, 50);
+        
+        let detailHtml = '';
+        
+        if (result.details?.error) {
+            detailHtml = `<span style="color:#ef5350;">${result.details.error}</span>`;
+        } else if (result.comparison) {
+            // 显示对比结果
+            const comp = result.comparison;
+            if (comp.allMatch) {
+                detailHtml = `<span style="color:#4ade80;">✅ 全部匹配 | 总注:${result.details.actual.header.总注} | 总投:${result.details.actual.header.总投}</span>`;
+            } else {
+                const mismatchSummary = comp.mismatches.slice(0, 3).map(m => {
+                    if (m.type === 'header') return `${m.field}(期望${m.expected},实际${m.actual})`;
+                    if (m.type === 'count') return `记录数(期望${m.expected},实际${m.actual})`;
+                    if (m.type === 'record') return `第${m.seq}条:${m.mismatches.map(mm => mm.field).join(',')}`;
+                    return '';
+                }).join('; ');
+                detailHtml = `<span style="color:#ef5350;">❌ 不匹配: ${mismatchSummary}</span>`;
+            }
+        } else {
+            // 无标准答案，显示实际结果
+            const act = result.details?.actual;
+            if (act) {
+                detailHtml = `总注:${act.header.总注} | 总投:${act.header.总投} | 中奖:${act.header.中奖} | <span style="color:#888;">(待验证)</span>`;
+            }
+        }
+        
+        const itemHtml = `
+            <div style="padding:8px;margin-bottom:4px;background:rgba(0,0,0,0.2);border-radius:4px;border-left:3px solid ${statusColor};">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                    <div style="flex:1;">
+                        <span style="color:${statusColor};">${statusIcon}</span>
+                        <span style="color:#fff;font-weight:bold;">[组${result.groupId}]</span>
+                        <span style="color:#ccc;">${inputDisplay}</span>
+                    </div>
+                    <span style="color:#888;font-size:10px;">${result.elapsed}ms</span>
+                </div>
+                <div style="font-size:10px;color:#888;margin-top:4px;">${detailHtml}</div>
+            </div>
+        `;
+        
+        listEl.innerHTML += itemHtml;
+        listEl.scrollTop = listEl.scrollHeight;
     }
     
     // 🆕 v3.12.2 执行单个测试用例（支持多行输入 + 增强日志）
@@ -8681,12 +9236,29 @@
             downloadBlob(blob, `test_report_${timestamp}.csv`);
             
         } else if (format === 'log') {
-            // 🆕 v3.12.3 增强日志：显示后端识别的每条记录详情
-            let logContent = `========== 批量测试日志（详细版） ==========\n`;
+            // 🆕 v2.0 增强日志：包含完整背景信息和标准答案对比
+            let logContent = `${'═'.repeat(60)}\n`;
+            logContent += `           批量精准测试报告 v2.0\n`;
+            logContent += `${'═'.repeat(60)}\n\n`;
+            
+            // 背景信息
+            logContent += `【测试环境】\n`;
             logContent += `时间: ${new Date().toLocaleString()}\n`;
-            logContent += `总数: ${batchTestState.results.length} | 通过: ${passCount} | 失败: ${failCount}\n`;
+            const mcData = appState.lotteryData['xam'];
+            const hkData = appState.lotteryData['hk'];
+            logContent += `新澳开奖: ${mcData?.numbers?.join(' ') || '未设置'} (期号:${mcData?.issue || '-'})\n`;
+            logContent += `香港开奖: ${hkData?.numbers?.join(' ') || '未设置'} (期号:${hkData?.issue || '-'})\n`;
+            const savedOdds = JSON.parse(localStorage.getItem('lhc_odds') || '{}');
+            logContent += `赔率设置: 特码${savedOdds['odds-tema'] || 43}倍 | 平特${savedOdds['odds-pingte1'] || 11}倍 | 六肖${savedOdds['odds-liuxiao'] || 4.2}倍\n`;
+            logContent += `有标准答案: ${Object.keys(batchTestState.standardAnswers).length}组\n`;
+            logContent += `\n${'─'.repeat(60)}\n\n`;
+            
+            // 统计摘要
+            logContent += `【测试摘要】\n`;
+            logContent += `总数: ${batchTestState.results.length} | ✅通过: ${passCount} | ❌失败: ${failCount} | ⚠️待验证: ${warnCount}\n`;
             logContent += `通过率: ${(passCount / batchTestState.results.length * 100).toFixed(1)}%\n`;
-            logContent += `${'═'.repeat(50)}\n\n`;
+            logContent += `平均耗时: ${avgTime}ms\n`;
+            logContent += `\n${'═'.repeat(60)}\n\n`;
             
             // 失败原因统计
             if (Object.keys(failReasons).length > 0) {
@@ -8694,75 +9266,107 @@
                 for (const [reason, count] of Object.entries(failReasons)) {
                     logContent += `  • ${reason}: ${count}个\n`;
                 }
-                logContent += `\n${'─'.repeat(50)}\n\n`;
+                logContent += `\n${'─'.repeat(60)}\n\n`;
             }
             
-            // 输出失败案例的详细日志
-            const failedResults = batchTestState.results.filter(r => r.status === 'fail');
-            const failedLogs = batchTestState.logs.filter((log, i) => 
-                batchTestState.results[i]?.status === 'fail'
-            );
+            // 输出所有案例的详细对比
+            logContent += `【详细对比报告】\n\n`;
             
-            if (failedResults.length > 0) {
-                logContent += `【失败案例详情】\n\n`;
+            batchTestState.results.forEach((result, idx) => {
+                const statusIcon = result.status === 'pass' ? '✅' : result.status === 'fail' ? '❌' : '⚠️';
+                const log = batchTestState.logs[idx];
                 
-                failedResults.forEach((result, idx) => {
-                    const log = failedLogs[idx];
-                    logContent += `${'═'.repeat(50)}\n`;
-                    logContent += `[组${result.groupId || result.index}] ${result.isMultiLine ? '(多行输入)' : ''}\n`;
-                    logContent += `${'─'.repeat(50)}\n`;
+                logContent += `${'═'.repeat(60)}\n`;
+                logContent += `${statusIcon} 组${result.groupId || result.index}\n`;
+                logContent += `${'─'.repeat(60)}\n`;
+                
+                // 原始输入
+                logContent += `【用户输入】\n${result.input}\n\n`;
+                
+                // 🆕 v2.0 标准答案对比
+                if (result.comparison) {
+                    const comp = result.comparison;
+                    const expected = result.details?.expected;
+                    const actual = result.details?.actual;
                     
-                    // 原始输入
-                    logContent += `【原始输入】\n${result.input}\n\n`;
-                    
-                    // sanitizeText转换结果
-                    if (log) {
-                        const sanitizeStep = log.steps.find(s => s.step === 'sanitizeText');
-                        if (sanitizeStep) {
-                            logContent += `【转换后】\n${sanitizeStep.result}\n\n`;
-                        }
-                    }
-                    
-                    // 期望 vs 实际
-                    logContent += `【期望】类型:${result.expected?.type || '-'} | 金额:${result.expected?.amount || '-'} | 注数:${result.expected?.bets || '-'} | 总投注:${result.expected?.totalBet || '-'}\n`;
-                    logContent += `【实际】类型:${result.details?.type || '-'} | 金额:${result.details?.amount || '-'} | 注数:${result.details?.bets || '-'} | 总投注:${result.details?.totalBet || '-'} | 盈亏:${result.details?.s4 || '-'}\n`;
-                    
-                    // 不匹配项
-                    if (result.details?.mismatch) {
-                        const mm = result.details.mismatch;
-                        logContent += `【不匹配】`;
-                        if (mm.type) logContent += `类型(期望:${mm.type.expected} 实际:${mm.type.actual}) `;
-                        if (mm.amount) logContent += `金额(期望:${mm.amount.expected} 实际:${mm.amount.actual}) `;
-                        if (mm.bets) logContent += `注数(期望:${mm.bets.expected} 实际:${mm.bets.actual}) `;
-                        if (mm.totalBet) logContent += `总投注(期望:${mm.totalBet.expected} 实际:${mm.totalBet.actual}) `;
+                    // 头部对比
+                    if (expected?.header && actual?.header) {
+                        logContent += `【汇总对比】\n`;
+                        logContent += `          期望    │    实际    │ 结果\n`;
+                        logContent += `${'─'.repeat(45)}\n`;
+                        ['总注', '总投', '中奖', '派彩', '盈亏'].forEach(field => {
+                            const exp = expected.header[field] || 0;
+                            const act = actual.header[field] || 0;
+                            const match = parseInt(exp) === parseInt(act);
+                            logContent += `${field.padEnd(6)}:  ${String(exp).padStart(6)}    │   ${String(act).padStart(6)}    │ ${match ? '✓' : '✗'}\n`;
+                        });
                         logContent += `\n`;
                     }
                     
-                    // 🆕 后端识别的每条记录详情
-                    if (result.details?.rawSummary && result.details.rawSummary.length > 0) {
-                        logContent += `\n【后端识别记录】共${result.details.itemCount}条\n`;
-                        result.details.rawSummary.forEach((item, i) => {
-                            logContent += `  ${i+1}. [${item.code}] ${item.raw} | 金额:${item.a} | 号码:${JSON.stringify(item.n)} | 来源:${item.source}\n`;
+                    // 不匹配详情
+                    if (!comp.allMatch && comp.mismatches.length > 0) {
+                        logContent += `【不匹配项】\n`;
+                        comp.mismatches.forEach(m => {
+                            if (m.type === 'header') {
+                                logContent += `  ⚠ ${m.field}: 期望${m.expected}, 实际${m.actual}, 差${m.diff > 0 ? '+' : ''}${m.diff}\n`;
+                            } else if (m.type === 'count') {
+                                logContent += `  ⚠ 记录数: 期望${m.expected}条, 实际${m.actual}条\n`;
+                            } else if (m.type === 'record') {
+                                logContent += `  ⚠ 第${m.seq}条记录:\n`;
+                                m.mismatches.forEach(mm => {
+                                    logContent += `      ${mm.field}: 期望[${mm.expected}] 实际[${mm.actual}]\n`;
+                                });
+                            } else if (m.type === 'missing') {
+                                logContent += `  ⚠ 缺失记录 #${m.seq}: ${m.expected?.raw || '-'}\n`;
+                            }
                         });
-                        if (result.details.itemCount > 5) {
-                            logContent += `  ... 还有${result.details.itemCount - 5}条记录\n`;
+                        logContent += `\n`;
+                    }
+                    
+                    // 逐条记录对比
+                    if (expected?.records && actual?.records) {
+                        logContent += `【记录对比】\n`;
+                        logContent += `序号 │ 类型     │ 原文                        │ 金额 │ 注数 │ 结果\n`;
+                        logContent += `${'─'.repeat(70)}\n`;
+                        
+                        const maxLen = Math.max(expected.records.length, actual.records.length);
+                        for (let i = 0; i < maxLen; i++) {
+                            const exp = expected.records[i];
+                            const act = actual.records[i];
+                            
+                            if (exp && act) {
+                                const match = (exp.type === act.type || typesMatch(exp.type, act.type)) && 
+                                              exp.amount === act.amount && exp.bets === act.bets;
+                                logContent += `${String(i+1).padStart(3)}  │ ${(act.type || '-').padEnd(8)} │ ${(act.raw || '-').substring(0,25).padEnd(25)} │ ${String(act.amount).padStart(4)} │ ${String(act.bets).padStart(4)} │ ${match ? '✓' : '✗'}\n`;
+                            } else if (act) {
+                                logContent += `${String(i+1).padStart(3)}  │ ${(act.type || '-').padEnd(8)} │ ${(act.raw || '-').substring(0,25).padEnd(25)} │ ${String(act.amount).padStart(4)} │ ${String(act.bets).padStart(4)} │ 多余\n`;
+                            } else if (exp) {
+                                logContent += `${String(i+1).padStart(3)}  │ ${(exp.type || '-').padEnd(8)} │ ${(exp.raw || '-').substring(0,25).padEnd(25)} │ ${String(exp.amount).padStart(4)} │ ${String(exp.bets).padStart(4)} │ 缺失\n`;
+                            }
                         }
+                        logContent += `\n`;
                     }
-                    
-                    // 来源统计
-                    if (result.details?.sourceStats) {
-                        logContent += `\n【来源统计】${JSON.stringify(result.details.sourceStats)}\n`;
+                } else {
+                    // 无标准答案，显示实际结果
+                    const actual = result.details?.actual;
+                    if (actual) {
+                        logContent += `【实际结果】(无标准答案)\n`;
+                        logContent += `总注: ${actual.header.总注} | 总投: ${actual.header.总投} | 中奖: ${actual.header.中奖} | 派彩: ${actual.header.派彩} | 盈亏: ${actual.header.盈亏}\n`;
+                        logContent += `共 ${actual.records.length} 条记录\n\n`;
                     }
-                    
-                    logContent += `\n【耗时】${result.elapsed}ms\n`;
-                    logContent += `${'─'.repeat(50)}\n\n`;
-                });
-            } else {
-                logContent += `🎉 全部通过，无失败案例！\n`;
-            }
+                }
+                
+                logContent += `【耗时】${result.elapsed}ms\n`;
+                logContent += `${'─'.repeat(60)}\n\n`;
+            });
+            
+            // 结尾
+            logContent += `${'═'.repeat(60)}\n`;
+            logContent += `                    报告结束\n`;
+            logContent += `${'═'.repeat(60)}\n`;
             
             const blob = new Blob([logContent], { type: 'text/plain;charset=utf-8' });
-            downloadBlob(blob, `test_log_${timestamp}.txt`);
+            downloadBlob(blob, `test_report_${timestamp}.txt`);
         }
         
         showAutoCloseToast(`✅ 已导出${format.toUpperCase()}报告`);
