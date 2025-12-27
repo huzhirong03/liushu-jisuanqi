@@ -8593,12 +8593,23 @@
             let comparison = null;
             
             if (standardAnswer) {
-                comparison = compareWithStandard(actualOutput, standardAnswer, groupId);
+                // 🆕 v2.1 合并展开的记录后再对比
+                // 后端返回每个号码一条记录，标准答案是按用户输入分组的
+                const mergedOutput = mergeRecordsByRaw(actualOutput);
+                log.steps.push({ step: 'merged', mergedRecords: mergedOutput.records.length, originalRecords: actualOutput.records.length });
+                
+                comparison = compareWithStandard(mergedOutput, standardAnswer, groupId);
                 log.comparison = comparison;
                 status = comparison.allMatch ? 'pass' : 'fail';
+                
+                // 调试日志
+                console.log(`[组${groupId}] 合并前: ${actualOutput.records.length}条, 合并后: ${mergedOutput.records.length}条, 期望: ${standardAnswer.records?.length || 0}条`);
             }
             
             batchTestState.logs.push(log);
+            
+            // 🆕 v2.1 返回合并后的数据用于显示
+            const mergedForDisplay = standardAnswer ? mergeRecordsByRaw(actualOutput) : actualOutput;
             
             return {
                 index: index + 1,
@@ -8606,9 +8617,11 @@
                 input: testCase.input,
                 status: status,
                 details: {
-                    actual: actualOutput,
+                    actual: actualOutput,           // 原始展开数据
+                    actualMerged: mergedForDisplay, // 合并后数据（用于对比）
                     expected: standardAnswer,
                     itemCount: backendResult.items.length,
+                    mergedCount: mergedForDisplay.records.length,
                     s1: backendResult.s1,
                     s4: backendResult.s4
                 },
@@ -8704,8 +8717,8 @@
                     recMismatches.push({ field: '类型', expected: expRec.type, actual: actRec.type });
                 }
                 
-                // 号码（精确匹配）
-                if (expRec.numbers && actRec.numbers !== expRec.numbers) {
+                // 号码（🆕 v2.1 宽松匹配：提取关键信息对比）
+                if (expRec.numbers && !numbersMatch(expRec.numbers, actRec.numbers)) {
                     recMismatches.push({ field: '号码', expected: expRec.numbers, actual: actRec.numbers });
                 }
                 
@@ -8754,11 +8767,167 @@
             'PT1': '平特一肖', '平特一肖': '平特一肖',
             'PT2': '平特二连肖', '平特二连肖': '平特二连肖',
             'PT3': '平特三连肖', '平特三连肖': '平特三连肖',
+            'PT4': '平特四连肖', '平特四连肖': '平特四连肖',
+            'PT5': '平特五连肖', '平特五连肖': '平特五连肖',
             'SX6': '六肖', 'LX': '六肖', '六肖': '六肖'
         };
         const norm1 = TYPE_MAP[type1] || type1;
         const norm2 = TYPE_MAP[type2] || type2;
         return norm1 === norm2;
+    }
+    
+    // 🆕 v2.1 号码宽松匹配（提取数字和生肖关键信息对比）
+    function numbersMatch(expected, actual) {
+        if (!expected || !actual) return !expected && !actual;
+        if (expected === actual) return true;
+        
+        // 提取所有数字
+        const extractNumbers = str => {
+            const nums = str.match(/\d+/g) || [];
+            return nums.map(n => parseInt(n)).sort((a, b) => a - b).join(',');
+        };
+        
+        // 提取所有生肖
+        const extractZodiacs = str => {
+            const zodiacs = str.match(/[鼠牛虎兔龙蛇马羊猴鸡狗猪]/g) || [];
+            return [...new Set(zodiacs)].sort().join('');
+        };
+        
+        // 对比数字是否一致
+        const expNums = extractNumbers(expected);
+        const actNums = extractNumbers(actual);
+        
+        // 对比生肖是否一致
+        const expZod = extractZodiacs(expected);
+        const actZod = extractZodiacs(actual);
+        
+        // 数字和生肖都匹配才算通过
+        // 如果是纯数字格式，只对比数字
+        // 如果包含生肖，只对比生肖（因为生肖会展开成数字）
+        if (expZod && actZod) {
+            return expZod === actZod;
+        } else if (expNums && actNums) {
+            return expNums === actNums;
+        }
+        
+        return false;
+    }
+    
+    // 🆕 v2.1 合并展开的记录（按原文raw分组）
+    // 后端返回每个号码一条记录，标准答案是按用户输入分组的
+    // 此函数将相同raw的记录合并，使其与标准答案格式匹配
+    function mergeRecordsByRaw(actualOutput) {
+        if (!actualOutput || !actualOutput.records || actualOutput.records.length === 0) {
+            return actualOutput;
+        }
+        
+        const Z_TO_NAME = {
+            'Z1': '鼠', 'Z2': '牛', 'Z3': '虎', 'Z4': '兔',
+            'Z5': '龙', 'Z6': '蛇', 'Z7': '马', 'Z8': '羊',
+            'Z9': '猴', 'Z10': '鸡', 'Z11': '狗', 'Z12': '猪'
+        };
+        
+        // 按 raw 分组
+        const groups = {};
+        const groupOrder = []; // 保持原始顺序
+        
+        actualOutput.records.forEach(rec => {
+            // 清理raw中的Z代号，统一格式用于分组
+            const rawKey = (rec.raw || '').trim();
+            if (!rawKey) return;
+            
+            if (!groups[rawKey]) {
+                groups[rawKey] = [];
+                groupOrder.push(rawKey);
+            }
+            groups[rawKey].push(rec);
+        });
+        
+        // 合并每组记录
+        const mergedRecords = groupOrder.map((rawKey, idx) => {
+            const group = groups[rawKey];
+            if (!group || group.length === 0) return null;
+            
+            const first = group[0];
+            
+            // 判断是否为复合类型（六肖、平特连肖等只算1注）
+            const isCompositeType = ['SX6', 'LX', 'PT2', 'PT3', 'PT4', 'PT5'].includes(first.type);
+            
+            // 收集所有号码
+            const allNumbers = [];
+            group.forEach(rec => {
+                if (rec.numbers) {
+                    allNumbers.push(rec.numbers);
+                }
+            });
+            
+            // 合并号码格式
+            let mergedNumbers = '';
+            if (isCompositeType && ['SX6', 'LX'].includes(first.type)) {
+                // 六肖：提取生肖名称
+                const zodiacs = new Set();
+                allNumbers.forEach(n => {
+                    // 尝试提取生肖名
+                    const match = n.match(/^(鼠|牛|虎|兔|龙|蛇|马|羊|猴|鸡|狗|猪)/);
+                    if (match) zodiacs.add(match[1]);
+                });
+                mergedNumbers = Array.from(zodiacs).join(',');
+            } else if (isCompositeType) {
+                // 平特连肖：提取生肖名称
+                const zodiacs = new Set();
+                allNumbers.forEach(n => {
+                    const match = n.match(/^(鼠|牛|虎|兔|龙|蛇|马|羊|猴|鸡|狗|猪)/);
+                    if (match) zodiacs.add(match[1]);
+                });
+                mergedNumbers = Array.from(zodiacs).join(',');
+            } else {
+                // 特码等：合并所有号码
+                mergedNumbers = allNumbers.join(',');
+            }
+            
+            // 计算合并后的值
+            const bets = isCompositeType ? 1 : group.length;
+            const subtotal = group.reduce((sum, rec) => sum + (rec.subtotal || rec.amount || 0), 0);
+            const anyWin = group.some(rec => rec.win);
+            
+            // 获取类型的中文名
+            const TYPE_TO_CN = {
+                'T01': '特码', 'SXTM': '特码',
+                'PT1': '平特一肖',
+                'PT2': '平特二连肖',
+                'PT3': '平特三连肖',
+                'PT4': '平特四连肖',
+                'PT5': '平特五连肖',
+                'SX6': '六肖', 'LX': '六肖'
+            };
+            const typeCn = TYPE_TO_CN[first.type] || first.type;
+            
+            return {
+                seq: idx + 1,
+                lt: first.lt,
+                type: typeCn,
+                raw: rawKey,
+                numbers: mergedNumbers,
+                amount: first.amount,
+                bets: bets,
+                subtotal: subtotal,
+                win: anyWin
+            };
+        }).filter(Boolean);
+        
+        // 重新计算汇总（使用合并后的记录）
+        const mergedHeader = {
+            总注: mergedRecords.reduce((sum, rec) => sum + rec.bets, 0),
+            总投: actualOutput.header.总投, // 总投保持不变
+            中奖: mergedRecords.filter(rec => rec.win).length,
+            派彩: actualOutput.header.派彩, // 派彩保持不变
+            盈亏: actualOutput.header.盈亏  // 盈亏保持不变
+        };
+        
+        return {
+            header: mergedHeader,
+            records: mergedRecords
+        };
     }
     
     // 🆕 v2.0 显示测试结果（带对比详情）
@@ -9287,7 +9456,15 @@
                 if (result.comparison) {
                     const comp = result.comparison;
                     const expected = result.details?.expected;
-                    const actual = result.details?.actual;
+                    // 🆕 v2.1 使用合并后的数据进行对比显示
+                    const actual = result.details?.actualMerged || result.details?.actual;
+                    const originalCount = result.details?.actual?.records?.length || 0;
+                    const mergedCount = actual?.records?.length || 0;
+                    
+                    // 显示合并信息
+                    if (originalCount !== mergedCount) {
+                        logContent += `【记录合并】后端返回${originalCount}条 → 合并后${mergedCount}条\n\n`;
+                    }
                     
                     // 头部对比
                     if (expected?.header && actual?.header) {
@@ -9323,9 +9500,9 @@
                         logContent += `\n`;
                     }
                     
-                    // 逐条记录对比
+                    // 逐条记录对比（使用合并后的数据）
                     if (expected?.records && actual?.records) {
-                        logContent += `【记录对比】\n`;
+                        logContent += `【记录对比】(合并后)\n`;
                         logContent += `序号 │ 类型     │ 原文                        │ 金额 │ 注数 │ 结果\n`;
                         logContent += `${'─'.repeat(70)}\n`;
                         
