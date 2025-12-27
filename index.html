@@ -8565,24 +8565,25 @@
             }
             
             // 🆕 构建实际输出数据
+            // 🆕 v2.2 修复字段名：后端返回 w/v/code，不是 isWin/winAmount/type
             const actualOutput = {
                 header: {
                     总注: backendResult.items.length,
                     总投: backendResult.s1 || 0,
-                    中奖: backendResult.items.filter(it => it.isWin).length,
-                    派彩: backendResult.items.filter(it => it.isWin).reduce((s, it) => s + (it.winAmount || 0), 0),
+                    中奖: backendResult.items.filter(it => it.w).length,  // 🆕 修复: w 不是 isWin
+                    派彩: backendResult.items.filter(it => it.w).reduce((s, it) => s + (it.v || 0), 0),  // 🆕 修复: v 不是 winAmount
                     盈亏: (backendResult.s4 || 0)
                 },
                 records: backendResult.items.map((item, idx) => ({
                     seq: idx + 1,
                     lt: item.lt === 'hk' ? '香' : '澳',
-                    type: item.type || 'T01',
+                    type: item.code || 'T01',  // 🆕 修复: code 不是 type
                     raw: item.raw || '',
                     numbers: formatItemNumbers(item),
                     amount: item.a || item.amount || 0,
                     bets: 1,
                     subtotal: item.a || item.amount || 0,
-                    win: item.isWin
+                    win: item.w || false  // 🆕 修复: w 不是 isWin
                 }))
             };
             
@@ -8645,7 +8646,7 @@
         }
     }
     
-    // 🆕 v2.0 格式化号码显示
+    // 🆕 v2.2 格式化号码显示（修复后端字段名）
     function formatItemNumbers(item) {
         const Z_TO_NAME = {
             'Z1': '鼠', 'Z2': '牛', 'Z3': '虎', 'Z4': '兔',
@@ -8653,12 +8654,21 @@
             'Z9': '猴', 'Z10': '鸡', 'Z11': '狗', 'Z12': '猪'
         };
         
-        if (item.zodiac) {
-            const zName = Z_TO_NAME[item.zodiac] || item.zodiac;
-            const num = String(item.value || item.number || '').padStart(2, '0');
-            return zName + num;
+        // 后端返回: z=生肖代号(如Z1), n=号码数组(如[9,21,33,45])
+        const zodiac = item.z || item.zodiac;
+        const numbers = item.n || [];
+        
+        if (zodiac && Z_TO_NAME[zodiac] && numbers.length > 0) {
+            // 生肖+号码格式: 鸡09,21,33,45
+            const zName = Z_TO_NAME[zodiac];
+            const numStr = numbers.map(n => String(n).padStart(2, '0')).join(',');
+            return zName + numStr;
+        } else if (numbers.length > 0) {
+            // 纯号码格式: 09,21,33,45
+            return numbers.map(n => String(n).padStart(2, '0')).join(',');
         }
-        return item.value || item.number || item.n || '';
+        
+        return item.value || item.number || '';
     }
     
     // 🆕 v2.0 与标准答案对比
@@ -8813,7 +8823,7 @@
         return false;
     }
     
-    // 🆕 v2.1 合并展开的记录（按原文raw分组）
+    // 🆕 v2.2 合并展开的记录（按原文raw分组）
     // 后端返回每个号码一条记录，标准答案是按用户输入分组的
     // 此函数将相同raw的记录合并，使其与标准答案格式匹配
     function mergeRecordsByRaw(actualOutput) {
@@ -8826,6 +8836,22 @@
             'Z5': '龙', 'Z6': '蛇', 'Z7': '马', 'Z8': '羊',
             'Z9': '猴', 'Z10': '鸡', 'Z11': '狗', 'Z12': '猪'
         };
+        
+        // 🆕 v2.2 从 raw 推断正确的类型（后端展开后type可能丢失）
+        function inferTypeFromRaw(raw, backendType) {
+            // 优先使用后端返回的类型（如果不是T01）
+            if (backendType && !['T01', 'SXTM', 'UK'].includes(backendType)) {
+                return backendType;
+            }
+            // 从 raw 关键词推断类型
+            if (/六肖|6肖/.test(raw)) return 'SX6';
+            if (/五友/.test(raw)) return 'PT5';
+            if (/四友/.test(raw)) return 'PT4';
+            if (/三友/.test(raw)) return 'PT3';
+            if (/二友|两友/.test(raw)) return 'PT2';
+            if (/平特|一友/.test(raw)) return 'PT1';
+            return backendType || 'T01';
+        }
         
         // 按 raw 分组
         const groups = {};
@@ -8850,8 +8876,11 @@
             
             const first = group[0];
             
+            // 🆕 v2.2 从 raw 推断正确的类型
+            const inferredType = inferTypeFromRaw(rawKey, first.type);
+            
             // 判断是否为复合类型（六肖、平特连肖等只算1注）
-            const isCompositeType = ['SX6', 'LX', 'PT2', 'PT3', 'PT4', 'PT5'].includes(first.type);
+            const isCompositeType = ['SX6', 'LX', 'PT2', 'PT3', 'PT4', 'PT5'].includes(inferredType);
             
             // 收集所有号码
             const allNumbers = [];
@@ -8863,7 +8892,7 @@
             
             // 合并号码格式
             let mergedNumbers = '';
-            if (isCompositeType && ['SX6', 'LX'].includes(first.type)) {
+            if (isCompositeType && ['SX6', 'LX'].includes(inferredType)) {
                 // 六肖：提取生肖名称
                 const zodiacs = new Set();
                 allNumbers.forEach(n => {
@@ -8871,6 +8900,13 @@
                     const match = n.match(/^(鼠|牛|虎|兔|龙|蛇|马|羊|猴|鸡|狗|猪)/);
                     if (match) zodiacs.add(match[1]);
                 });
+                // 如果没有提取到生肖，从raw中提取Z代号转换
+                if (zodiacs.size === 0) {
+                    const zCodes = rawKey.match(/Z\d+/g) || [];
+                    zCodes.forEach(z => {
+                        if (Z_TO_NAME[z]) zodiacs.add(Z_TO_NAME[z]);
+                    });
+                }
                 mergedNumbers = Array.from(zodiacs).join(',');
             } else if (isCompositeType) {
                 // 平特连肖：提取生肖名称
@@ -8879,6 +8915,13 @@
                     const match = n.match(/^(鼠|牛|虎|兔|龙|蛇|马|羊|猴|鸡|狗|猪)/);
                     if (match) zodiacs.add(match[1]);
                 });
+                // 如果没有提取到生肖，从raw中提取Z代号转换
+                if (zodiacs.size === 0) {
+                    const zCodes = rawKey.match(/Z\d+/g) || [];
+                    zCodes.forEach(z => {
+                        if (Z_TO_NAME[z]) zodiacs.add(Z_TO_NAME[z]);
+                    });
+                }
                 mergedNumbers = Array.from(zodiacs).join(',');
             } else {
                 // 特码等：合并所有号码
@@ -8900,12 +8943,13 @@
                 'PT5': '平特五连肖',
                 'SX6': '六肖', 'LX': '六肖'
             };
-            const typeCn = TYPE_TO_CN[first.type] || first.type;
+            const typeCn = TYPE_TO_CN[inferredType] || inferredType;
             
             return {
                 seq: idx + 1,
                 lt: first.lt,
                 type: typeCn,
+                typeCode: inferredType, // 保留类型代码用于验证
                 raw: rawKey,
                 numbers: mergedNumbers,
                 amount: first.amount,
