@@ -8101,17 +8101,26 @@
         };
         
         /**
-         * 提取生肖
+         * 提取生肖（保持输入顺序）
+         * 🆕 v3.13.5 修复：按生肖在输入中出现的位置顺序提取，而不是固定顺序
          */
         const extractZodiacs = (content) => {
             const zodiacs = [];
             let remaining = content;
-            for (const char of ZODIAC_CHARS) {
-                while (remaining.includes(char)) {
+            
+            // 按位置顺序提取生肖
+            for (let i = 0; i < remaining.length; i++) {
+                const char = remaining[i];
+                if (ZODIAC_MAP_FE[char]) {
                     zodiacs.push(ZODIAC_MAP_FE[char]);
-                    remaining = remaining.replace(char, '');
                 }
             }
+            
+            // 移除所有生肖字符
+            for (const char of ZODIAC_CHARS) {
+                remaining = remaining.split(char).join('');
+            }
+            
             return { zodiacs, remaining: remaining.replace(/[,，.。、\s]+/g, ' ').trim() };
         };
         
@@ -14302,3 +14311,4 @@ ${winDetailText}║    ───────────────────
     </script>
 </body>
 </html>
+
