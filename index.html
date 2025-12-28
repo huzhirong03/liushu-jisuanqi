@@ -7905,6 +7905,77 @@
             '$1'
         );
         
+        // 🆕 v3.12.10 第1.7步：内置半波组合展开（蓝双、蓝单、红双、红单等）
+        // 功能：无需自定义设置，系统自动识别半波组合并展开为特码
+        // 示例：
+        //   "蓝双x70" → 展开为 T01 4 70, T01 10 70, ... (蓝波双数8个号码)
+        //   "兰单x50" → 展开为 T01 3 50, T01 9 50, ... (蓝波单数8个号码)
+        const HALF_WAVE_NUMBERS = {
+            // 红波：1, 2, 7, 8, 12, 13, 18, 19, 23, 24, 29, 30, 34, 35, 40, 45, 46
+            '红双': [2, 8, 12, 18, 24, 30, 34, 40, 46],      // 红波双数 9个
+            '红单': [1, 7, 13, 19, 23, 29, 35, 45],          // 红波单数 8个
+            '红大': [29, 30, 34, 35, 40, 45, 46],            // 红波大数(>=25) 7个
+            '红小': [1, 2, 7, 8, 12, 13, 18, 19, 23, 24],    // 红波小数(<25) 10个
+            // 蓝波：3, 4, 9, 10, 14, 15, 20, 25, 26, 31, 36, 37, 41, 42, 47, 48
+            '蓝双': [4, 10, 14, 20, 26, 36, 42, 48],         // 蓝波双数 8个
+            '蓝单': [3, 9, 15, 25, 31, 37, 41, 47],          // 蓝波单数 8个
+            '蓝大': [25, 26, 31, 36, 37, 41, 42, 47, 48],    // 蓝波大数(>=25) 9个
+            '蓝小': [3, 4, 9, 10, 14, 15, 20],               // 蓝波小数(<25) 7个
+            // 绿波：5, 6, 11, 16, 17, 21, 22, 27, 28, 32, 33, 38, 39, 43, 44, 49
+            '绿双': [6, 16, 22, 28, 32, 38, 44],             // 绿波双数 7个
+            '绿单': [5, 11, 17, 21, 27, 33, 39, 43, 49],     // 绿波单数 9个
+            '绿大': [27, 28, 32, 33, 38, 39, 43, 44, 49],    // 绿波大数(>=25) 9个
+            '绿小': [5, 6, 11, 16, 17, 21, 22],              // 绿波小数(<25) 7个
+        };
+        // 同音字映射
+        const HALF_WAVE_ALIASES = {
+            '兰双': '蓝双', '兰单': '蓝单', '兰大': '蓝大', '兰小': '蓝小',
+            '篮双': '蓝双', '篮单': '蓝单', '篮大': '蓝大', '篮小': '蓝小',
+        };
+        
+        // 按行处理半波组合
+        const halfWaveLines = result.split('\n');
+        const processedHalfWaveLines = halfWaveLines.map(line => {
+            // 检查是否包含半波关键词
+            let matchedKey = null;
+            let matchedNumbers = null;
+            
+            // 先检查同音字别名
+            for (const [alias, standard] of Object.entries(HALF_WAVE_ALIASES)) {
+                if (line.includes(alias)) {
+                    matchedKey = alias;
+                    matchedNumbers = HALF_WAVE_NUMBERS[standard];
+                    break;
+                }
+            }
+            // 再检查标准关键词
+            if (!matchedKey) {
+                for (const [key, nums] of Object.entries(HALF_WAVE_NUMBERS)) {
+                    if (line.includes(key)) {
+                        matchedKey = key;
+                        matchedNumbers = nums;
+                        break;
+                    }
+                }
+            }
+            
+            if (!matchedKey || !matchedNumbers) return line;
+            
+            // 提取金额：支持 蓝双x70、蓝双70、蓝双各70 等格式
+            const amountRegex = new RegExp(escapeRegex(matchedKey) + '\\s*[x×X各每]?\\s*(\\d+)', 'i');
+            const match = line.match(amountRegex);
+            if (!match) return line;
+            
+            const amount = parseInt(match[1]);
+            const originalMatch = match[0].trim();
+            
+            console.log(`🎯 内置半波展开: "${matchedKey}" → ${matchedNumbers.length}条, 金额=${amount}`);
+            
+            // 展开为多条 T01 记录
+            return matchedNumbers.map(num => `#CUSTOM:${originalMatch}#T01 ${num} ${amount}`).join('\n');
+        });
+        result = processedHalfWaveLines.join('\n');
+        
         // 🆕 v3.4 第2步：应用自定义规则（关键词→代号映射）
         // 🆕 v3.11.48 修复：展开时添加 #CUSTOM:原始输入# 标记，确保显示时还原用户原始输入
         // 🆕 v3.11.49 修复：改进金额提取逻辑，解决关键词后紧跟金额时提取错误的问题
