@@ -7932,6 +7932,28 @@
             '兰双': '蓝双', '兰单': '蓝单', '兰大': '蓝大', '兰小': '蓝小',
             '篮双': '蓝双', '篮单': '蓝单', '篮大': '蓝大', '篮小': '蓝小',
         };
+        // 所有半波关键词（用于拆分检测）
+        const ALL_HALF_WAVE_KEYS = [...Object.keys(HALF_WAVE_NUMBERS), ...Object.keys(HALF_WAVE_ALIASES)];
+        
+        // 🆕 v3.12.10 修复：先把逗号分隔的半波组合拆分成多行
+        // 问题："兰双x70，兰单x50" 是一行，但按行处理只展开第一个
+        const splitHalfWaveLine = (text) => {
+            const lines = text.split('\n');
+            const expandedLines = [];
+            for (const line of lines) {
+                // 检查这一行包含多少个半波关键词
+                const foundKeys = ALL_HALF_WAVE_KEYS.filter(k => line.includes(k));
+                if (foundKeys.length > 1) {
+                    // 包含多个半波关键词，按逗号拆分
+                    const parts = line.split(/[,，]/).map(p => p.trim()).filter(Boolean);
+                    expandedLines.push(...parts);
+                } else {
+                    expandedLines.push(line);
+                }
+            }
+            return expandedLines.join('\n');
+        };
+        result = splitHalfWaveLine(result);
         
         // 按行处理半波组合
         const halfWaveLines = result.split('\n');
