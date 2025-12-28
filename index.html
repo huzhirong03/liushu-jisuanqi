@@ -5867,7 +5867,8 @@
                             numbers: item.n || [],
                             amount: item.a || 0,
                             raw: cleanRawText(restoreText(item.raw || '')),
-                            originalLine: cleanRawText(restoreText(fragmentInfo?.originalLine || groupInfo.originalLine || item.raw || '')),
+                            // 🆕 v3.14.5 修复：优先使用后端返回的 original（精确到单个下注），避免显示整行冗余
+                            originalLine: cleanRawText(restoreText(item.original || item.raw || '')),
                             zodiac: item.z || null,
                             fromAI: true,
                             // 🆕 v3.11.52 优先使用后端返回的 group_idx（用户输入组号）
@@ -6057,7 +6058,8 @@
                     sortedGroups.forEach((pg) => {
                         const displayTexts = [];
                         pg.items.forEach(r => {
-                            let rawText = r.raw || '';
+                            // 🆕 v3.14.5 修复：优先使用 originalLine（已是后端返回的精确值）
+                            let rawText = r.originalLine || r.raw || '';
                             // 🆕 v3.14.1 清理内部格式标记
                             rawText = cleanInternalFormat(rawText);
                             if (rawText && !displayTexts.includes(rawText)) {
