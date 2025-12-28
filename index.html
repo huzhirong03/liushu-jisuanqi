@@ -6329,18 +6329,32 @@
         resultText += `💰 结算: ${settleAmount >= 0 ? '+' : ''}${settleAmount}元\n`;
         resultText += `━━━━━━━━━━━━━━━━━━\n`;
         
-        // 按原文分组显示（🆕 v3.13.7 连肖类型使用 raw 分组，其他类型使用 originalLine）
+        // 按原文分组显示（🆕 v3.13.8 连肖类型按 类型+金额 分组，确保合并后注数正确）
         const byOriginal = {};
         calcResults.forEach(r => {
-            // 🆕 v3.13.7 连肖类型（PT2/PT3/PT4/PT5）每注独立显示，使用 raw 分组
+            // 🆕 v3.13.8 连肖类型按 type + amount 分组，确保同金额的连肖合并且注数正确
             // 其他类型使用 originalLine 聚合显示（如特码多号码合并）
             const isLianXiao = ['PT2', 'PT3', 'PT4', 'PT5', '平特二连肖', '平特三连肖', '平特四连肖', '平特五连肖'].includes(r.type);
-            const key = isLianXiao ? (r.raw || r.originalLine || r.type) : (r.originalLine || r.raw || r.type);
+            const key = isLianXiao ? `${r.type}_${r.amount}` : (r.originalLine || r.raw || r.type);
             if (!byOriginal[key]) {
-                byOriginal[key] = { type: r.type, originalLine: key, items: [], odds: r.odds || 1 };
+                // 🆕 v3.13.8 连肖类型显示时收集所有 raw
+                byOriginal[key] = { type: r.type, originalLine: '', items: [], odds: r.odds || 1, rawList: [] };
             }
             byOriginal[key].items.push(r);
+            // 收集连肖的 raw 用于显示
+            if (isLianXiao && r.raw && !byOriginal[key].rawList.includes(r.raw)) {
+                byOriginal[key].rawList.push(r.raw);
+            }
         });
+        
+        // 🆕 v3.13.8 为连肖类型生成合并后的 originalLine
+        for (const group of Object.values(byOriginal)) {
+            if (group.rawList && group.rawList.length > 0) {
+                group.originalLine = group.rawList.join(' ');
+            } else if (!group.originalLine) {
+                group.originalLine = group.items[0]?.originalLine || group.items[0]?.raw || '';
+            }
+        }
         
         const savedOdds = JSON.parse(localStorage.getItem('lhc_odds') || '{}');
         
