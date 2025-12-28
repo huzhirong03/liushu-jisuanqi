@@ -6336,6 +6336,8 @@
             // 其他类型使用 originalLine 聚合显示（如特码多号码合并）
             const isLianXiao = ['PT2', 'PT3', 'PT4', 'PT5', '平特二连肖', '平特三连肖', '平特四连肖', '平特五连肖'].includes(r.type);
             const key = isLianXiao ? `${r.type}_${r.amount}` : (r.originalLine || r.raw || r.type);
+            // 🔍 调试日志（可删除）
+            console.log('[分组调试] r.type:', r.type, 'isLianXiao:', isLianXiao, 'key:', key);
             if (!byOriginal[key]) {
                 // 🆕 v3.13.8 连肖类型显示时收集所有 raw
                 byOriginal[key] = { type: r.type, originalLine: '', items: [], odds: r.odds || 1, rawList: [] };
@@ -6346,6 +6348,8 @@
                 byOriginal[key].rawList.push(r.raw);
             }
         });
+        // 🔍 调试日志（可删除）
+        console.log('[分组结果]', Object.entries(byOriginal).map(([k, v]) => ({key: k, items: v.items.length, rawList: v.rawList})));
         
         // 🆕 v3.13.8 为连肖类型生成合并后的 originalLine
         for (const group of Object.values(byOriginal)) {
