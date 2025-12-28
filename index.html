@@ -8130,6 +8130,7 @@
         
         /**
          * 处理单个分组
+         * 🆕 v3.13.2 支持连肖类型按顿号分组（三友猪狗牛、鸡猴虎、鼠猪狗各条20 → 3条PT3）
          */
         const processGroup = (group) => {
             const results = [];
@@ -8139,6 +8140,38 @@
             
             // 识别类型
             const { type: typeCode, remaining: afterType } = identifyType(content);
+            
+            // 🆕 v3.13.4 连肖类型（PT2/PT3/PT4/PT5）智能分组
+            // 核心规则：提取所有生肖，按类型要求的数量自动分组
+            // 忽略分隔符位置（用户输入的分隔符不代表分组边界）
+            const LIANXIAO_TYPES = { 'PT2': 2, 'PT3': 3, 'PT4': 4, 'PT5': 5 };
+            if (LIANXIAO_TYPES[typeCode]) {
+                const requiredCount = LIANXIAO_TYPES[typeCode];
+                
+                // 提取所有生肖（忽略任何分隔符）
+                const { zodiacs: allZodiacs } = extractZodiacs(afterType);
+                
+                if (allZodiacs.length > requiredCount && allZodiacs.length % requiredCount === 0) {
+                    // 生肖数量是所需数量的倍数，自动分组
+                    const groupCount = allZodiacs.length / requiredCount;
+                    console.log(`🎯 连肖智能分组: ${typeCode} ${allZodiacs.length}个生肖 → ${groupCount}组 (每组${requiredCount}个)`);
+                    for (let i = 0; i < groupCount; i++) {
+                        const groupZodiacs = allZodiacs.slice(i * requiredCount, (i + 1) * requiredCount);
+                        results.push({
+                            type: typeCode,
+                            zodiacs: groupZodiacs,
+                            numbers: [],
+                            amount: amount,
+                            original: raw
+                        });
+                        console.log(`  → 第${i + 1}组: ${groupZodiacs.join('')}`);
+                    }
+                    if (results.length > 0) {
+                        return results;
+                    }
+                }
+                // 如果不是倍数，继续后面的普通处理（单注或错误输入）
+            }
             
             // 提取生肖
             const { zodiacs, remaining: afterZodiac } = extractZodiacs(afterType);
