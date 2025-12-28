@@ -7981,12 +7981,16 @@
         
         /**
          * 找出所有金额标记
+         * 模式1: x/各/每 + 数字（x100, 各30）
+         * 模式2: 数字 + 元/块（100元, 50块）
+         * 模式3: 生肖 + 数字（蛇500, 猴300 - 数字>49或后面是分隔符）
          */
         const findAmountMarkers = (text) => {
             const markers = [];
+            let match;
+            
             // 模式1: x/各/每 + 数字
             const pattern1 = /[x各每]\s*数?\s*(\d+(?:\.\d+)?)/gi;
-            let match;
             while ((match = pattern1.exec(text)) !== null) {
                 markers.push({
                     amount: parseFloat(match[1]),
@@ -7995,6 +7999,7 @@
                     raw: match[0]
                 });
             }
+            
             // 模式2: 数字 + 元/块
             const pattern2 = /(\d+(?:\.\d+)?)\s*[元块]/g;
             while ((match = pattern2.exec(text)) !== null) {
@@ -8008,6 +8013,29 @@
                     });
                 }
             }
+            
+            // 模式3: 生肖 + 数字（蛇500, 猴300）
+            const zodiacCharsStr = ZODIAC_CHARS.join('');
+            const pattern3 = new RegExp(`[${zodiacCharsStr}]\\s*(\\d+(?:\\.\\d+)?)`, 'g');
+            while ((match = pattern3.exec(text)) !== null) {
+                const numStart = match.index + match[0].indexOf(match[1]);
+                const numVal = parseFloat(match[1]);
+                // 检查是否已被其他模式匹配
+                if (!markers.some(m => m.start <= numStart && numStart < m.end)) {
+                    // 数字>49时认为是金额（号码范围1-49），或者数字后面是分隔符/结束
+                    const afterPos = match.index + match[0].length;
+                    const isAmount = numVal > 49 || afterPos >= text.length || ',，.。、\n '.includes(text[afterPos]);
+                    if (isAmount) {
+                        markers.push({
+                            amount: numVal,
+                            start: numStart,
+                            end: match.index + match[0].length,
+                            raw: match[1]
+                        });
+                    }
+                }
+            }
+            
             markers.sort((a, b) => a.start - b.start);
             return markers;
         };
@@ -8130,6 +8158,32 @@
                     });
                 }
                 console.log(`🎯 半波展开: ${typeCode} → ${HALF_WAVE_NUMBERS[typeCode].length}条, 金额=${amount}`);
+                return results;
+            }
+            
+            // T01特码：多生肖应该展开为多条（每个生肖独立下注）
+            if (typeCode === 'T01' && zodiacs.length > 1) {
+                // 每个生肖单独一条
+                for (const z of zodiacs) {
+                    results.push({
+                        type: 'T01',
+                        zodiacs: [z],
+                        numbers: [],
+                        amount: amount,
+                        original: raw
+                    });
+                }
+                // 号码单独处理（如果有的话）
+                for (const num of numbers) {
+                    results.push({
+                        type: 'T01',
+                        zodiacs: [],
+                        numbers: [num],
+                        amount: amount,
+                        original: raw
+                    });
+                }
+                console.log(`🎯 T01多生肖展开: ${zodiacs.join(',')} → ${zodiacs.length}条, 金额=${amount}`);
                 return results;
             }
             
