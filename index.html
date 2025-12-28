@@ -7971,6 +7971,9 @@
             // 肖类
             '六肖': 'SX6', '6肖': 'SX6', '陆肖': 'SX6',
             '特肖': 'TX', '正肖': 'ZX', '合肖': 'HX',
+            // 🆕 v3.13.12 平特尾数（平特N尾 格式）
+            '平特0尾': 'PTW_0', '平特1尾': 'PTW_1', '平特2尾': 'PTW_2', '平特3尾': 'PTW_3', '平特4尾': 'PTW_4',
+            '平特5尾': 'PTW_5', '平特6尾': 'PTW_6', '平特7尾': 'PTW_7', '平特8尾': 'PTW_8', '平特9尾': 'PTW_9',
             // 平特
             '平特尾': 'PTW', '平特': 'PT1',
             // 半波
@@ -8229,6 +8232,22 @@
             
             // 提取号码
             const numbers = extractNumbers(afterZodiac);
+            
+            // 🆕 v3.13.12 处理平特尾数（PTW_N 格式）
+            // "平特1尾100" → PTW_1 → 平特尾数
+            // 后端期望 numbers[0] 是尾数（0-9），后端会自动展开为对应号码
+            if (typeCode.startsWith('PTW_')) {
+                const tailDigit = parseInt(typeCode.split('_')[1]);
+                results.push({
+                    type: 'PTW',
+                    zodiacs: [],
+                    numbers: [tailDigit],  // 只传尾数，后端会展开
+                    amount: amount,
+                    original: raw
+                });
+                console.log(`🎯 平特尾数: ${typeCode} → ${tailDigit}尾, 金额=${amount}`);
+                return results;
+            }
             
             // 处理半波
             if (typeCode.startsWith('BB_') && HALF_WAVE_NUMBERS[typeCode]) {
