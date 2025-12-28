@@ -6167,8 +6167,24 @@
                         const hasZodiac = items.some(it => it.zodiac);
                         const isPingteType = ['PT1', 'PT2', 'PT3', 'PT4', 'PT5', '平特一肖', '平特二连肖', '平特三连肖', '平特四连肖', '平特五连肖'].includes(type);
                         
+                        // 🆕 v3.12.3 检测是否是波色展开（兰波/蓝波/红波/绿波 + 各/每/x）
+                        const isColorExpand = /[红蓝兰绿]波|[红蓝兰绿]色/.test(originalLine) && /[各每xX×\*]/.test(originalLine);
+                        
                         let numsDisplay = '';
-                        if (hasZodiac && allNums.length > 0 && betCount > 1 && !isPingteType) {
+                        
+                        // 🆕 v3.12.3 波色展开显示号码
+                        if (isColorExpand && allNums.length > 0 && betCount > 1) {
+                            // 判断波色类型
+                            let colorName = '';
+                            if (/红波|红色/.test(originalLine)) colorName = '红波';
+                            else if (/蓝波|兰波|蓝色/.test(originalLine)) colorName = '蓝波';
+                            else if (/绿波|绿色/.test(originalLine)) colorName = '绿波';
+                            
+                            const numsStr = allNums.map(n => String(n).padStart(2,'0')).join(',');
+                            numsDisplay = ` (${colorName}${numsStr})`;
+                        }
+                        // 生肖显示号码
+                        else if (hasZodiac && allNums.length > 0 && betCount > 1 && !isPingteType) {
                             // 🆕 v3.8.4 按生肖分组显示号码（如：猴10,22,34,46,龙02,14,26,38）
                             // Z代号转生肖名称映射
                             const Z_TO_NAME = {
@@ -6347,8 +6363,24 @@
             const hasZodiac = items.some(it => it.zodiac);
             const isPingteType = ['PT1', 'PT2', 'PT3', 'PT4', 'PT5', '平特一肖', '平特二连肖', '平特三连肖', '平特四连肖', '平特五连肖'].includes(type);
             
+            // 🆕 v3.12.3 检测是否是波色展开（兰波/蓝波/红波/绿波 + 各/每/x）
+            const isColorExpand = /[红蓝兰绿]波|[红蓝兰绿]色/.test(originalLine) && /[各每xX×\*]/.test(originalLine);
+            
             let numsDisplay = '';
-            if (hasZodiac && allNums.length > 0 && betCount > 1 && !isPingteType) {
+            
+            // 🆕 v3.12.3 波色展开显示号码
+            if (isColorExpand && allNums.length > 0 && betCount > 1) {
+                // 判断波色类型
+                let colorName = '';
+                if (/红波|红色/.test(originalLine)) colorName = '红波';
+                else if (/蓝波|兰波|蓝色/.test(originalLine)) colorName = '蓝波';
+                else if (/绿波|绿色/.test(originalLine)) colorName = '绿波';
+                
+                const numsStr = allNums.map(n => String(n).padStart(2,'0')).join(',');
+                numsDisplay = ` (${colorName}${numsStr})`;
+            }
+            // 生肖显示号码
+            else if (hasZodiac && allNums.length > 0 && betCount > 1 && !isPingteType) {
                 // 🆕 v3.8.4 按生肖分组显示号码（如：猴10,22,34,46,龙02,14,26,38）
                 // Z代号转生肖名称映射
                 const Z_TO_NAME = {
