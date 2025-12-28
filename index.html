@@ -7848,20 +7848,34 @@
         }
         
         // 🆕 v3.11.4 第3步：生肖→Z代号转换（后端FlashLex引擎依赖 Z\d{1,2} 格式）
-        for (const zodiac of ZODIAC_KEYS_SORTED) {
-            result = result.split(zodiac).join(ZODIAC_TO_CODE[zodiac]);
-        }
+        // 🆕 v3.12.2 修复：不转换 #CUSTOM:...# 标记内的原始内容，保持中文生肖用于显示
+        const convertZodiac = (text) => {
+            let converted = text;
+            for (const zodiac of ZODIAC_KEYS_SORTED) {
+                converted = converted.split(zodiac).join(ZODIAC_TO_CODE[zodiac]);
+            }
+            // 修复Z代号粘连问题
+            converted = converted.replace(/(Z1[0-2])(\d)/g, '$1 $2');
+            converted = converted.replace(/(Z[1-9])(\d)/g, (match, z, d) => {
+                if (z === 'Z1' && ['0','1','2'].includes(d)) return match;
+                return z + ' ' + d;
+            });
+            return converted;
+        };
         
-        // 🆕 v3.12.1 修复Z代号粘连问题：鸡100 → Z10100 → Z10 100
-        // 问题：鸡/狗/猪转为Z10/Z11/Z12后，如果后面紧跟数字会粘在一起
-        // 解决：在Z代号和后面的数字之间插入空格
-        result = result.replace(/(Z1[0-2])(\d)/g, '$1 $2');  // Z10/Z11/Z12 + 数字
-        result = result.replace(/(Z[1-9])(\d)/g, (match, z, d) => {
-            // 避免误伤：Z1后面的0-2不处理（因为可能是Z10/Z11/Z12的一部分）
-            // 只处理Z1-Z9后面紧跟数字的情况
-            if (z === 'Z1' && ['0','1','2'].includes(d)) return match;  // Z10/Z11/Z12保持
-            return z + ' ' + d;
-        });
+        // 按行处理，保护 #CUSTOM:...# 标记内的原始内容
+        const lines = result.split('\n');
+        result = lines.map(line => {
+            const customMatch = line.match(/^(#CUSTOM:[^#]+#)(.*)$/);
+            if (customMatch) {
+                // 有标记：只转换 # 后面的内容，保留标记内的原始中文
+                const marker = customMatch[1];
+                const content = customMatch[2];
+                return marker + convertZodiac(content);
+            }
+            // 无标记：正常转换
+            return convertZodiac(line);
+        }).join('\n');
         
         if (text !== result) {
             console.log('🔄 输入标准化:', text.substring(0, 30), '→', result.substring(0, 30));
