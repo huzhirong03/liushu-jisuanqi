@@ -7814,9 +7814,34 @@
                         
                         result = processedLines.join('\n');
                     } else {
-                        // 非展开类型：简单替换关键词为类型代号（保持原有逻辑）
-                        result = result.split(rule.keyword).join(rule.type);
-                        console.log(`🎯 自定义规则: "${rule.keyword}" → "${rule.type}"`);
+                        // 🆕 v3.12.2 非展开类型：按行处理，添加标记保留原始输入
+                        const keywordEscaped = escapeRegex(rule.keyword);
+                        const lines = result.split('\n');
+                        const processedLines = lines.map(line => {
+                            if (!line.includes(rule.keyword)) return line;
+                            
+                            // 匹配包含关键词的完整输入（关键词 + 可选内容 + 金额）
+                            const regex = new RegExp(
+                                '(' + keywordEscaped + '[^\\n]*?)(\\d+)(?:元|块|钱)?\\s*$',
+                                'i'
+                            );
+                            
+                            const match = line.match(regex);
+                            if (match) {
+                                const originalLine = line.trim();
+                                // 替换关键词为代号，添加空格防止粘连
+                                const converted = line.replace(rule.keyword, rule.type + ' ');
+                                console.log(`🎯 自定义规则: "${originalLine}" → "${converted.trim()}"`);
+                                // 添加标记保留原始输入
+                                return `#CUSTOM:${originalLine}#${converted.trim()}`;
+                            }
+                            
+                            // 没有金额的情况，直接替换
+                            const converted = line.replace(rule.keyword, rule.type + ' ');
+                            console.log(`🎯 自定义规则(无金额): "${line}" → "${converted}"`);
+                            return converted;
+                        });
+                        result = processedLines.join('\n');
                     }
                 }
             }
