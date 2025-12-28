@@ -7910,6 +7910,20 @@
         // 🆕 v3.11.49 修复：改进金额提取逻辑，解决关键词后紧跟金额时提取错误的问题
         const rules = getCustomRules();
         if (rules && rules.length > 0) {
+            // 🆕 v3.12.9 预处理：把逗号分隔的自定义规则拆分成多行
+            // 解决问题：用户输入 "兰双各70,兰单各50" 时，因为行尾锚点导致匹配失败
+            // 只拆分包含自定义规则关键词的逗号位置
+            const ruleKeywords = rules.map(r => r.keyword);
+            const splitCustomRuleLines = (text) => {
+                // 匹配：数字后紧跟逗号，逗号后是自定义规则关键词
+                for (const kw of ruleKeywords) {
+                    const pattern = new RegExp(`(\\d+)\\s*[,，]\\s*(?=${escapeRegex(kw)})`, 'g');
+                    text = text.replace(pattern, '$1\n');
+                }
+                return text;
+            };
+            result = splitCustomRuleLines(result);
+            
             const sortedRules = [...rules].sort((a, b) => b.keyword.length - a.keyword.length);
             for (const rule of sortedRules) {
                 if (result.includes(rule.keyword)) {
