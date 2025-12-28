@@ -8150,10 +8150,14 @@
             // 识别类型
             const { type: typeCode, remaining: afterType } = identifyType(content);
             
-            // 🆕 v3.13.4 连肖类型（PT2/PT3/PT4/PT5）智能分组
+            // 🆕 v3.13.6 连肖类型（PT2/PT3/PT4/PT5）智能分组
             // 核心规则：提取所有生肖，按类型要求的数量自动分组
             // 忽略分隔符位置（用户输入的分隔符不代表分组边界）
             const LIANXIAO_TYPES = { 'PT2': 2, 'PT3': 3, 'PT4': 4, 'PT5': 5 };
+            const TYPE_CN_NAMES = { 'PT2': '二友', 'PT3': '三友', 'PT4': '四友', 'PT5': '五友' };
+            // Z代号转中文生肖
+            const Z_TO_CN = { 'Z1': '鼠', 'Z2': '牛', 'Z3': '虎', 'Z4': '兔', 'Z5': '龙', 'Z6': '蛇', 'Z7': '马', 'Z8': '羊', 'Z9': '猴', 'Z10': '鸡', 'Z11': '狗', 'Z12': '猪' };
+            
             if (LIANXIAO_TYPES[typeCode]) {
                 const requiredCount = LIANXIAO_TYPES[typeCode];
                 
@@ -8166,14 +8170,17 @@
                     console.log(`🎯 连肖智能分组: ${typeCode} ${allZodiacs.length}个生肖 → ${groupCount}组 (每组${requiredCount}个)`);
                     for (let i = 0; i < groupCount; i++) {
                         const groupZodiacs = allZodiacs.slice(i * requiredCount, (i + 1) * requiredCount);
+                        // 🆕 v3.13.6 为每组生成独立的 original，避免显示合并
+                        const zodiacNames = groupZodiacs.map(z => Z_TO_CN[z] || z).join('');
+                        const groupOriginal = `${TYPE_CN_NAMES[typeCode] || typeCode}${zodiacNames}各${amount}`;
                         results.push({
                             type: typeCode,
                             zodiacs: groupZodiacs,
                             numbers: [],
                             amount: amount,
-                            original: raw
+                            original: groupOriginal
                         });
-                        console.log(`  → 第${i + 1}组: ${groupZodiacs.join('')}`);
+                        console.log(`  → 第${i + 1}组: ${groupZodiacs.join('')} → ${groupOriginal}`);
                     }
                     if (results.length > 0) {
                         return results;
