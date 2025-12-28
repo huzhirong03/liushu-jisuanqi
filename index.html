@@ -2476,6 +2476,26 @@
     </div>
     
     <script>
+    // ==================== 🆕 v3.14.1 全局工具函数 ====================
+    
+    /**
+     * 清理内部格式标记，只保留用户可读内容
+     * 用于显示时过滤掉 #CUSTOM:...#, #T01 等内部格式
+     * 
+     * @param {string} text - 可能包含内部格式的文本
+     * @returns {string} - 清理后的用户可读文本
+     */
+    function cleanDisplayText(text) {
+        if (!text) return '';
+        // 移除 #CUSTOM:原始输入#... 格式，提取原始输入
+        const customMatch = text.match(/^#CUSTOM:([^#]+)#/);
+        if (customMatch) {
+            return customMatch[1].trim();
+        }
+        // 移除 #T01、#PT1 等类型代码前缀
+        return text.replace(/^#[A-Z0-9_]+\s*/i, '').trim();
+    }
+    
     // ==================== 六合彩数据 ====================
     const LHC_DATA = {
         // 生肖对应号码（2024年为基准）
@@ -2639,7 +2659,7 @@
             content += `<table style="width:100%;border-collapse:collapse;margin-top:8px;">
                 <tr style="background:rgba(0,0,0,0.3);"><th style="padding:6px;border:1px solid #555;">原文</th><th style="padding:6px;border:1px solid #555;">AI识别类型</th></tr>`;
             for (const item of debugInfo.aiParsed.items) {
-                content += `<tr><td style="padding:6px;border:1px solid #555;">${item.raw || ''}</td><td style="padding:6px;border:1px solid #555;color:#9b59b6;font-weight:bold;">${item.type || ''}</td></tr>`;
+                content += `<tr><td style="padding:6px;border:1px solid #555;">${cleanDisplayText(item.raw || '')}</td><td style="padding:6px;border:1px solid #555;color:#9b59b6;font-weight:bold;">${item.type || ''}</td></tr>`;
             }
             content += `</table>`;
         } else {
@@ -2787,7 +2807,7 @@
             content += `<table style="width:100%;border-collapse:collapse;margin-top:8px;">
                 <tr style="background:rgba(0,0,0,0.3);"><th style="padding:6px;border:1px solid #555;text-align:left;">原文</th><th style="padding:6px;border:1px solid #555;">类型</th></tr>`;
             for (const item of debugInfo.aiParsed.items) {
-                content += `<tr><td style="padding:6px;border:1px solid #555;font-size:12px;">${item.raw || ''}</td><td style="padding:6px;border:1px solid #555;color:#9b59b6;font-weight:bold;">${item.type || ''}</td></tr>`;
+                content += `<tr><td style="padding:6px;border:1px solid #555;font-size:12px;">${cleanDisplayText(item.raw || '')}</td><td style="padding:6px;border:1px solid #555;color:#9b59b6;font-weight:bold;">${item.type || ''}</td></tr>`;
             }
             content += `</table>`;
         } else {
@@ -5829,13 +5849,25 @@
                         const finalGroupId = fragmentInfo?.groupId || groupInfo.groupId;
                         const finalLineIndex = fragmentInfo?.lineIndex !== undefined ? fragmentInfo.lineIndex : groupInfo.lineIndex;
                         
+                        // 🆕 v3.14.1 清理内部格式标记
+                        function cleanRawText(text) {
+                            if (!text) return '';
+                            // 移除 #CUSTOM:原始输入#... 格式，提取原始输入
+                            const customMatch = text.match(/^#CUSTOM:([^#]+)#/);
+                            if (customMatch) {
+                                return customMatch[1].trim();
+                            }
+                            // 移除 #T01、#PT1 等类型代码前缀
+                            return text.replace(/^#[A-Z0-9_]+\s*/i, '').trim();
+                        }
+                        
                         return {
                             type: TYPE_NAME_MAP[item.code] || item.code,
                             number: item.n && item.n.length === 1 ? item.n[0] : null,
                             numbers: item.n || [],
                             amount: item.a || 0,
-                            raw: restoreText(item.raw || ''),
-                            originalLine: restoreText(fragmentInfo?.originalLine || groupInfo.originalLine || item.raw || ''),
+                            raw: cleanRawText(restoreText(item.raw || '')),
+                            originalLine: cleanRawText(restoreText(fragmentInfo?.originalLine || groupInfo.originalLine || item.raw || '')),
                             zodiac: item.z || null,
                             fromAI: true,
                             // 🆕 v3.11.52 优先使用后端返回的 group_idx（用户输入组号）
@@ -6010,10 +6042,24 @@
                     const userInputText = document.getElementById('bet-input')?.value || '';
                     const userInputFragments = userInputText.split(/[,，\n]+/).map(s => s.trim()).filter(Boolean);
                     
+                    // 🆕 v3.14.1 清理内部格式标记，只保留用户可读内容
+                    function cleanInternalFormat(text) {
+                        if (!text) return '';
+                        // 移除 #CUSTOM:原始输入#... 格式，提取原始输入
+                        const customMatch = text.match(/^#CUSTOM:([^#]+)#/);
+                        if (customMatch) {
+                            return customMatch[1].trim();
+                        }
+                        // 移除 #T01、#PT1 等类型代码前缀
+                        return text.replace(/^#[A-Z0-9_]+\s*/i, '').trim();
+                    }
+                    
                     sortedGroups.forEach((pg) => {
                         const displayTexts = [];
                         pg.items.forEach(r => {
-                            const rawText = r.raw || '';
+                            let rawText = r.raw || '';
+                            // 🆕 v3.14.1 清理内部格式标记
+                            rawText = cleanInternalFormat(rawText);
                             if (rawText && !displayTexts.includes(rawText)) {
                                 displayTexts.push(rawText);
                             }
