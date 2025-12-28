@@ -6329,11 +6329,13 @@
         resultText += `💰 结算: ${settleAmount >= 0 ? '+' : ''}${settleAmount}元\n`;
         resultText += `━━━━━━━━━━━━━━━━━━\n`;
         
-        // 按原文分组显示（🆕 v3.7.2 优先使用 originalLine 作为聚合 key）
+        // 按原文分组显示（🆕 v3.13.7 连肖类型使用 raw 分组，其他类型使用 originalLine）
         const byOriginal = {};
         calcResults.forEach(r => {
-            // 优先使用 originalLine（用户原始输入），而不是 raw（后端展开后的单条数据）
-            const key = r.originalLine || r.raw || r.type;
+            // 🆕 v3.13.7 连肖类型（PT2/PT3/PT4/PT5）每注独立显示，使用 raw 分组
+            // 其他类型使用 originalLine 聚合显示（如特码多号码合并）
+            const isLianXiao = ['PT2', 'PT3', 'PT4', 'PT5', '平特二连肖', '平特三连肖', '平特四连肖', '平特五连肖'].includes(r.type);
+            const key = isLianXiao ? (r.raw || r.originalLine || r.type) : (r.originalLine || r.raw || r.type);
             if (!byOriginal[key]) {
                 byOriginal[key] = { type: r.type, originalLine: key, items: [], odds: r.odds || 1 };
             }
