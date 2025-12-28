@@ -6110,6 +6110,9 @@
                         
                         // 🆕 v3.11.10 复合类型注数固定为1注
                         const isCompositeType = COMPOSITE_TYPES.includes(type) || COMPOSITE_TYPES.includes(rawType);
+                        // 🆕 v3.13.9 连肖类型特殊处理：每组算1注（不是整体1注）
+                        const isLianXiaoComposite = ['PT2', 'PT3', 'PT4', 'PT5', '平特二连肖', '平特三连肖', '平特四连肖', '平特五连肖'].includes(type) ||
+                                                    ['PT2', 'PT3', 'PT4', 'PT5'].includes(rawType);
                         // 🆕 v3.11.10 使用分组时已计算好的 perAmount
                         const perAmount = group.perAmount || items[0]?.amount || 0;
                         
@@ -6118,17 +6121,24 @@
                         const hasEachKeyword = /各|每/.test(originalLine);
                         const zodiacCount = hasEachKeyword ? countZodiacsInText(originalLine) : 0;
                         
-                        // 🆕 v3.11.12 注数计算：复合类型=1注；有"各"关键词时用生肖数；否则用items数
+                        // 🆕 v3.13.9 注数计算：
+                        // - 连肖类型：按 items 数量（每条记录是1组连肖=1注）
+                        // - 其他复合类型（六肖等）：固定1注
+                        // - 有"各"关键词时用生肖数
+                        // - 否则用items数
                         let betCount;
-                        if (isCompositeType) {
+                        if (isLianXiaoComposite) {
+                            // 🆕 v3.13.9 连肖类型：每条记录（每组）算1注
+                            betCount = items.length;
+                        } else if (isCompositeType) {
                             betCount = 1;
                         } else if (hasEachKeyword && zodiacCount > 0) {
                             betCount = Math.max(items.length, zodiacCount);
                         } else {
                             betCount = items.length;
                         }
-                        // 🆕 v3.11.12 总金额：复合类型=单注金额；其他=注数×单注金额
-                        const typeTotal = isCompositeType ? perAmount : (betCount * perAmount);
+                        // 🆕 v3.13.9 总金额：连肖按 items 计算；其他复合类型=单注金额；其他=注数×单注金额
+                        const typeTotal = (isCompositeType && !isLianXiaoComposite) ? perAmount : (betCount * perAmount);
                         
                         // 🆕 v3.11.14 修复复合类型中奖判断：PT2/PT3等连肖类型必须所有生肖都中才算中奖
                         // 因为后端AI可能错误地将"二友猪狗200"拆成两条PT2（猪一条、狗一条），
@@ -6336,8 +6346,6 @@
             // 其他类型使用 originalLine 聚合显示（如特码多号码合并）
             const isLianXiao = ['PT2', 'PT3', 'PT4', 'PT5', '平特二连肖', '平特三连肖', '平特四连肖', '平特五连肖'].includes(r.type);
             const key = isLianXiao ? `${r.type}_${r.amount}` : (r.originalLine || r.raw || r.type);
-            // 🔍 调试日志（可删除）
-            console.log('[分组调试] r.type:', r.type, 'isLianXiao:', isLianXiao, 'key:', key);
             if (!byOriginal[key]) {
                 // 🆕 v3.13.8 连肖类型显示时收集所有 raw
                 byOriginal[key] = { type: r.type, originalLine: '', items: [], odds: r.odds || 1, rawList: [] };
@@ -6348,8 +6356,6 @@
                 byOriginal[key].rawList.push(r.raw);
             }
         });
-        // 🔍 调试日志（可删除）
-        console.log('[分组结果]', Object.entries(byOriginal).map(([k, v]) => ({key: k, items: v.items.length, rawList: v.rawList})));
         
         // 🆕 v3.13.8 为连肖类型生成合并后的 originalLine
         for (const group of Object.values(byOriginal)) {
