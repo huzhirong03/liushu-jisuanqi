@@ -2010,7 +2010,13 @@
                         
                         <!-- 已选号码 -->
                         <div style="margin-bottom:20px;">
-                            <div style="font-size:13px;color:#fff;margin-bottom:8px;font-weight:bold;">📝 已选号码</div>
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                                <div style="font-size:13px;color:#fff;font-weight:bold;">📝 已选号码</div>
+                                <div style="display:flex;gap:6px;">
+                                    <button id="filter-odd-btn" onclick="toggleOddEvenFilter('odd')" class="filter-toggle-btn" style="padding:4px 10px;background:transparent;border:2px solid #ff9800;border-radius:4px;color:#ff9800;font-size:10px;cursor:pointer;transition:all 0.2s;">单数</button>
+                                    <button id="filter-even-btn" onclick="toggleOddEvenFilter('even')" class="filter-toggle-btn" style="padding:4px 10px;background:transparent;border:2px solid #ff9800;border-radius:4px;color:#ff9800;font-size:10px;cursor:pointer;transition:all 0.2s;">双数</button>
+                                </div>
+                            </div>
                             <textarea id="expand-numbers-input" placeholder="点击上方按钮自动填充，或手动输入（如：1,2,3,4,5）" style="width:100%;height:60px;padding:10px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;resize:none;box-sizing:border-box;"></textarea>
                             <div id="expand-numbers-count" style="font-size:10px;color:#888;margin-top:4px;text-align:right;">已选 0 个号码</div>
                         </div>
@@ -6997,6 +7003,9 @@
         document.querySelector('input[name="amount-mode"][value="each"]').checked = true;
         document.getElementById('expand-modal').style.display = 'block';
         
+        // 🆕 v3.12.3 重置单双数筛选按钮状态
+        resetOddEvenFilters();
+        
         // 监听号码输入变化
         document.getElementById('expand-numbers-input').addEventListener('input', updateNumbersCount);
     }
@@ -7024,7 +7033,90 @@
         if (numbers) {
             document.getElementById('expand-numbers-input').value = numbers.join(',');
             updateNumbersCount();
+            // 重置单双数筛选按钮状态
+            resetOddEvenFilters();
         }
+    }
+    
+    // 🆕 v3.12.3 单双数筛选状态
+    let oddFilterActive = false;
+    let evenFilterActive = false;
+    let originalNumbers = []; // 保存原始号码，用于筛选恢复
+    
+    // 🆕 v3.12.3 重置单双数筛选按钮状态
+    function resetOddEvenFilters() {
+        oddFilterActive = false;
+        evenFilterActive = false;
+        originalNumbers = [];
+        const oddBtn = document.getElementById('filter-odd-btn');
+        const evenBtn = document.getElementById('filter-even-btn');
+        if (oddBtn) {
+            oddBtn.style.background = 'transparent';
+            oddBtn.style.color = '#ff9800';
+        }
+        if (evenBtn) {
+            evenBtn.style.background = 'transparent';
+            evenBtn.style.color = '#ff9800';
+        }
+    }
+    
+    // 🆕 v3.12.3 切换单双数筛选
+    function toggleOddEvenFilter(type) {
+        const input = document.getElementById('expand-numbers-input');
+        const currentValue = input?.value || '';
+        
+        // 解析当前已选号码
+        let numbers = currentValue.split(/[,，\s]+/).map(n => parseInt(n)).filter(n => !isNaN(n) && n >= 1 && n <= 49);
+        
+        if (numbers.length === 0 && originalNumbers.length === 0) {
+            showAutoCloseToast('⚠️ 请先选择号码再进行筛选');
+            return;
+        }
+        
+        // 如果是第一次点击筛选，保存原始号码
+        if (originalNumbers.length === 0) {
+            originalNumbers = [...numbers];
+        }
+        
+        const oddBtn = document.getElementById('filter-odd-btn');
+        const evenBtn = document.getElementById('filter-even-btn');
+        
+        if (type === 'odd') {
+            oddFilterActive = !oddFilterActive;
+            // 更新按钮样式
+            if (oddFilterActive) {
+                oddBtn.style.background = '#ff9800';
+                oddBtn.style.color = '#fff';
+            } else {
+                oddBtn.style.background = 'transparent';
+                oddBtn.style.color = '#ff9800';
+            }
+        } else if (type === 'even') {
+            evenFilterActive = !evenFilterActive;
+            // 更新按钮样式
+            if (evenFilterActive) {
+                evenBtn.style.background = '#ff9800';
+                evenBtn.style.color = '#fff';
+            } else {
+                evenBtn.style.background = 'transparent';
+                evenBtn.style.color = '#ff9800';
+            }
+        }
+        
+        // 基于原始号码进行筛选
+        let filteredNumbers = originalNumbers;
+        if (oddFilterActive && !evenFilterActive) {
+            // 只选单数
+            filteredNumbers = originalNumbers.filter(n => n % 2 === 1);
+        } else if (!oddFilterActive && evenFilterActive) {
+            // 只选双数
+            filteredNumbers = originalNumbers.filter(n => n % 2 === 0);
+        }
+        // 如果两个都选中或都不选中，显示全部原始号码
+        
+        // 更新输入框
+        input.value = filteredNumbers.join(',');
+        updateNumbersCount();
     }
     
     // 🆕 v3.6 更新号码计数
