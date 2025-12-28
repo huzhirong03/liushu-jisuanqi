@@ -6165,15 +6165,21 @@
                         // 🆕 v3.8.3 只有生肖输入才显示号码列表（直接输入号码的不显示，避免冗余）
                         // 🆕 v3.11.14 平特类型不显示号码列表，只有特码类型才显示
                         const hasZodiac = items.some(it => it.zodiac);
-                        const isPingteType = ['PT1', 'PT2', 'PT3', 'PT4', 'PT5', '平特一肖', '平特二连肖', '平特三连肖', '平特四连肖', '平特五连肖'].includes(type);
+                        // 🆕 v3.12.3 增强平特类型检测：同时检查 type 和 originalLine
+                        const isPingteType = ['PT1', 'PT2', 'PT3', 'PT4', 'PT5', '平特一肖', '平特二连肖', '平特三连肖', '平特四连肖', '平特五连肖', '平特'].includes(type)
+                            || /平特|一肖|二肖|三肖|四肖|五肖|一友|二友|三友|四友|五友|一有|二有|三有|四有|五有/.test(originalLine);
                         
                         // 🆕 v3.12.3 检测是否是波色展开（兰波/蓝波/红波/绿波 + 各/每/x）
                         const isColorExpand = /[红蓝兰绿]波|[红蓝兰绿]色/.test(originalLine) && /[各每xX×\*]/.test(originalLine);
                         
                         let numsDisplay = '';
                         
+                        // 🆕 v3.12.3 平特类型不显示号码列表
+                        if (isPingteType) {
+                            numsDisplay = '';
+                        }
                         // 🆕 v3.12.3 波色展开显示号码
-                        if (isColorExpand && allNums.length > 0 && betCount > 1) {
+                        else if (isColorExpand && allNums.length > 0 && betCount > 1) {
                             // 判断波色类型
                             let colorName = '';
                             if (/红波|红色/.test(originalLine)) colorName = '红波';
@@ -6183,8 +6189,8 @@
                             const numsStr = allNums.map(n => String(n).padStart(2,'0')).join(',');
                             numsDisplay = ` (${colorName}${numsStr})`;
                         }
-                        // 生肖显示号码
-                        else if (hasZodiac && allNums.length > 0 && betCount > 1 && !isPingteType) {
+                        // 生肖显示号码（仅特码类型）
+                        else if (hasZodiac && allNums.length > 0 && betCount > 1) {
                             // 🆕 v3.8.4 按生肖分组显示号码（如：猴10,22,34,46,龙02,14,26,38）
                             // Z代号转生肖名称映射
                             const Z_TO_NAME = {
@@ -6361,15 +6367,21 @@
             // 🆕 v3.8.3 只有生肖输入才显示号码列表（直接输入号码的不显示，避免冗余）
             // 🆕 v3.11.14 平特类型不显示号码列表，只有特码类型才显示
             const hasZodiac = items.some(it => it.zodiac);
-            const isPingteType = ['PT1', 'PT2', 'PT3', 'PT4', 'PT5', '平特一肖', '平特二连肖', '平特三连肖', '平特四连肖', '平特五连肖'].includes(type);
+            // 🆕 v3.12.3 增强平特类型检测：同时检查 type 和 originalLine
+            const isPingteType = ['PT1', 'PT2', 'PT3', 'PT4', 'PT5', '平特一肖', '平特二连肖', '平特三连肖', '平特四连肖', '平特五连肖', '平特'].includes(type) 
+                || /平特|一肖|二肖|三肖|四肖|五肖|一友|二友|三友|四友|五友|一有|二有|三有|四有|五有/.test(originalLine);
             
             // 🆕 v3.12.3 检测是否是波色展开（兰波/蓝波/红波/绿波 + 各/每/x）
             const isColorExpand = /[红蓝兰绿]波|[红蓝兰绿]色/.test(originalLine) && /[各每xX×\*]/.test(originalLine);
             
             let numsDisplay = '';
             
+            // 🆕 v3.12.3 平特类型不显示号码列表
+            if (isPingteType) {
+                numsDisplay = '';
+            }
             // 🆕 v3.12.3 波色展开显示号码
-            if (isColorExpand && allNums.length > 0 && betCount > 1) {
+            else if (isColorExpand && allNums.length > 0 && betCount > 1) {
                 // 判断波色类型
                 let colorName = '';
                 if (/红波|红色/.test(originalLine)) colorName = '红波';
@@ -6379,8 +6391,8 @@
                 const numsStr = allNums.map(n => String(n).padStart(2,'0')).join(',');
                 numsDisplay = ` (${colorName}${numsStr})`;
             }
-            // 生肖显示号码
-            else if (hasZodiac && allNums.length > 0 && betCount > 1 && !isPingteType) {
+            // 生肖显示号码（仅特码类型）
+            else if (hasZodiac && allNums.length > 0 && betCount > 1) {
                 // 🆕 v3.8.4 按生肖分组显示号码（如：猴10,22,34,46,龙02,14,26,38）
                 // Z代号转生肖名称映射
                 const Z_TO_NAME = {
