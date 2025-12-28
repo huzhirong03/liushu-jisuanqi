@@ -7905,98 +7905,311 @@
             '$1'
         );
         
-        // 🆕 v3.12.10 第1.7步：内置半波组合展开（蓝双、蓝单、红双、红单等）
-        // 功能：无需自定义设置，系统自动识别半波组合并展开为特码
+        // 🆕 v3.13 第1.7步：关键字提取引擎v2（按金额分组）
+        // 核心规则：
+        //   1. 先按金额分组（扫描到金额 = 一组结束）
+        //   2. 再识别每组类型（在组内找类型关键词）
+        //   3. 没有类型词 = 默认特码
+        //
+        // 支持的金额标记：
+        //   - X/x/×/各/每 + 数字：x100, 各30
+        //   - 数字 + 元/块：100元, 50块
+        //
         // 示例：
-        //   "蓝双x70" → 展开为 T01 4 70, T01 10 70, ... (蓝波双数8个号码)
-        //   "兰单x50" → 展开为 T01 3 50, T01 9 50, ... (蓝波单数8个号码)
+        //   "平特马x900，龙x10" → 组1:平特马+900, 组2:龙+10
+        //   "六肖鼠猴羊鸡牛马200，平特猴鸡各200" → 正确分组识别
+        
+        // 类型关键词映射（按长度降序排列）
+        const TYPE_KEYWORDS = {
+            // 不中类
+            '十二不中': 'BZ12', '12不中': 'BZ12', '十一不中': 'BZ11', '11不中': 'BZ11',
+            '十不中': 'BZ10', '10不中': 'BZ10', '九不中': 'BZ9', '9不中': 'BZ9',
+            '八不中': 'BZ8', '8不中': 'BZ8', '七不中': 'BZ7', '7不中': 'BZ7',
+            '六不中': 'BZ6', '6不中': 'BZ6', '五不中': 'BZ5', '5不中': 'BZ5',
+            // 连肖类
+            '平特五连肖': 'PT5', '五连肖': 'PT5', '平特四连肖': 'PT4', '四连肖': 'PT4',
+            '平特三连肖': 'PT3', '三连肖': 'PT3', '平特二连肖': 'PT2', '二连肖': 'PT2',
+            // 友类
+            '五友': 'PT5', '五有': 'PT5', '四友': 'PT4', '四有': 'PT4',
+            '三友': 'PT3', '三有': 'PT3', '二友': 'PT2', '二有': 'PT2',
+            '一友': 'PT1', '一有': 'PT1',
+            // 肖类
+            '六肖': 'SX6', '6肖': 'SX6', '陆肖': 'SX6',
+            '特肖': 'TX', '正肖': 'ZX', '合肖': 'HX',
+            // 平特
+            '平特尾': 'PTW', '平特': 'PT1',
+            // 半波
+            '红双': 'BB_RED_EVEN', '红单': 'BB_RED_ODD', '红大': 'BB_RED_BIG', '红小': 'BB_RED_SMALL',
+            '蓝双': 'BB_BLUE_EVEN', '蓝单': 'BB_BLUE_ODD', '蓝大': 'BB_BLUE_BIG', '蓝小': 'BB_BLUE_SMALL',
+            '绿双': 'BB_GREEN_EVEN', '绿单': 'BB_GREEN_ODD', '绿大': 'BB_GREEN_BIG', '绿小': 'BB_GREEN_SMALL',
+            '兰双': 'BB_BLUE_EVEN', '兰单': 'BB_BLUE_ODD', '兰大': 'BB_BLUE_BIG', '兰小': 'BB_BLUE_SMALL',
+            '篮双': 'BB_BLUE_EVEN', '篮单': 'BB_BLUE_ODD', '篮大': 'BB_BLUE_BIG', '篮小': 'BB_BLUE_SMALL',
+            // 波色
+            '红波': 'C1', '蓝波': 'C2', '绿波': 'C3', '兰波': 'C2', '篮波': 'C2',
+            // 大小单双
+            '大数': 'DS', '小数': 'XS', '单数': 'ODD', '双数': 'EVEN',
+            // 单平
+            '单平': 'DP', '平码': 'DP',
+            // 特码（放最后）
+            '特码': 'T01', '买': 'T01', '押': 'T01', '特': 'T01',
+        };
+        const TYPE_KEYWORDS_SORTED = Object.keys(TYPE_KEYWORDS).sort((a, b) => b.length - a.length);
+        
+        // 半波号码映射
         const HALF_WAVE_NUMBERS = {
-            // 红波：1, 2, 7, 8, 12, 13, 18, 19, 23, 24, 29, 30, 34, 35, 40, 45, 46
-            '红双': [2, 8, 12, 18, 24, 30, 34, 40, 46],      // 红波双数 9个
-            '红单': [1, 7, 13, 19, 23, 29, 35, 45],          // 红波单数 8个
-            '红大': [29, 30, 34, 35, 40, 45, 46],            // 红波大数(>=25) 7个
-            '红小': [1, 2, 7, 8, 12, 13, 18, 19, 23, 24],    // 红波小数(<25) 10个
-            // 蓝波：3, 4, 9, 10, 14, 15, 20, 25, 26, 31, 36, 37, 41, 42, 47, 48
-            '蓝双': [4, 10, 14, 20, 26, 36, 42, 48],         // 蓝波双数 8个
-            '蓝单': [3, 9, 15, 25, 31, 37, 41, 47],          // 蓝波单数 8个
-            '蓝大': [25, 26, 31, 36, 37, 41, 42, 47, 48],    // 蓝波大数(>=25) 9个
-            '蓝小': [3, 4, 9, 10, 14, 15, 20],               // 蓝波小数(<25) 7个
-            // 绿波：5, 6, 11, 16, 17, 21, 22, 27, 28, 32, 33, 38, 39, 43, 44, 49
-            '绿双': [6, 16, 22, 28, 32, 38, 44],             // 绿波双数 7个
-            '绿单': [5, 11, 17, 21, 27, 33, 39, 43, 49],     // 绿波单数 9个
-            '绿大': [27, 28, 32, 33, 38, 39, 43, 44, 49],    // 绿波大数(>=25) 9个
-            '绿小': [5, 6, 11, 16, 17, 21, 22],              // 绿波小数(<25) 7个
+            'BB_RED_EVEN': [2, 8, 12, 18, 24, 30, 34, 40, 46],
+            'BB_RED_ODD': [1, 7, 13, 19, 23, 29, 35, 45],
+            'BB_RED_BIG': [29, 30, 34, 35, 40, 45, 46],
+            'BB_RED_SMALL': [1, 2, 7, 8, 12, 13, 18, 19, 23, 24],
+            'BB_BLUE_EVEN': [4, 10, 14, 20, 26, 36, 42, 48],
+            'BB_BLUE_ODD': [3, 9, 15, 25, 31, 37, 41, 47],
+            'BB_BLUE_BIG': [25, 26, 31, 36, 37, 41, 42, 47, 48],
+            'BB_BLUE_SMALL': [3, 4, 9, 10, 14, 15, 20],
+            'BB_GREEN_EVEN': [6, 16, 22, 28, 32, 38, 44],
+            'BB_GREEN_ODD': [5, 11, 17, 21, 27, 33, 39, 43, 49],
+            'BB_GREEN_BIG': [27, 28, 32, 33, 38, 39, 43, 44, 49],
+            'BB_GREEN_SMALL': [5, 6, 11, 16, 17, 21, 22],
         };
-        // 同音字映射
-        const HALF_WAVE_ALIASES = {
-            '兰双': '蓝双', '兰单': '蓝单', '兰大': '蓝大', '兰小': '蓝小',
-            '篮双': '蓝双', '篮单': '蓝单', '篮大': '蓝大', '篮小': '蓝小',
-        };
-        // 所有半波关键词（用于拆分检测）
-        const ALL_HALF_WAVE_KEYS = [...Object.keys(HALF_WAVE_NUMBERS), ...Object.keys(HALF_WAVE_ALIASES)];
         
-        // 🆕 v3.12.10 修复：先把逗号分隔的半波组合拆分成多行
-        // 问题："兰双x70，兰单x50" 是一行，但按行处理只展开第一个
-        const splitHalfWaveLine = (text) => {
-            const lines = text.split('\n');
-            const expandedLines = [];
-            for (const line of lines) {
-                // 检查这一行包含多少个半波关键词
-                const foundKeys = ALL_HALF_WAVE_KEYS.filter(k => line.includes(k));
-                if (foundKeys.length > 1) {
-                    // 包含多个半波关键词，按逗号拆分
-                    const parts = line.split(/[,，]/).map(p => p.trim()).filter(Boolean);
-                    expandedLines.push(...parts);
-                } else {
-                    expandedLines.push(line);
+        // 生肖映射
+        const ZODIAC_MAP_FE = {
+            '鼠': 'Z1', '牛': 'Z2', '虎': 'Z3', '兔': 'Z4', '免': 'Z4',
+            '龙': 'Z5', '蛇': 'Z6', '马': 'Z7', '羊': 'Z8',
+            '猴': 'Z9', '鸡': 'Z10', '狗': 'Z11', '猪': 'Z12', '𤠣': 'Z9',
+        };
+        const ZODIAC_CHARS = Object.keys(ZODIAC_MAP_FE);
+        
+        /**
+         * 找出所有金额标记
+         */
+        const findAmountMarkers = (text) => {
+            const markers = [];
+            // 模式1: x/各/每 + 数字
+            const pattern1 = /[x各每]\s*数?\s*(\d+(?:\.\d+)?)/gi;
+            let match;
+            while ((match = pattern1.exec(text)) !== null) {
+                markers.push({
+                    amount: parseFloat(match[1]),
+                    start: match.index,
+                    end: match.index + match[0].length,
+                    raw: match[0]
+                });
+            }
+            // 模式2: 数字 + 元/块
+            const pattern2 = /(\d+(?:\.\d+)?)\s*[元块]/g;
+            while ((match = pattern2.exec(text)) !== null) {
+                const pos = match.index;
+                if (!markers.some(m => m.start <= pos && pos < m.end)) {
+                    markers.push({
+                        amount: parseFloat(match[1]),
+                        start: match.index,
+                        end: match.index + match[0].length,
+                        raw: match[0]
+                    });
                 }
             }
-            return expandedLines.join('\n');
+            markers.sort((a, b) => a.start - b.start);
+            return markers;
         };
-        result = splitHalfWaveLine(result);
         
-        // 按行处理半波组合
-        const halfWaveLines = result.split('\n');
-        const processedHalfWaveLines = halfWaveLines.map(line => {
-            // 检查是否包含半波关键词
-            let matchedKey = null;
-            let matchedNumbers = null;
+        /**
+         * 按金额分组
+         */
+        const splitByAmount = (text) => {
+            const groups = [];
+            const markers = findAmountMarkers(text);
             
-            // 先检查同音字别名
-            for (const [alias, standard] of Object.entries(HALF_WAVE_ALIASES)) {
-                if (line.includes(alias)) {
-                    matchedKey = alias;
-                    matchedNumbers = HALF_WAVE_NUMBERS[standard];
-                    break;
-                }
-            }
-            // 再检查标准关键词
-            if (!matchedKey) {
-                for (const [key, nums] of Object.entries(HALF_WAVE_NUMBERS)) {
-                    if (line.includes(key)) {
-                        matchedKey = key;
-                        matchedNumbers = nums;
-                        break;
+            if (markers.length === 0) {
+                // 没有明确金额标记，尝试最后一个数字
+                const nums = [...text.matchAll(/\d+/g)];
+                if (nums.length > 0) {
+                    const lastNum = nums[nums.length - 1];
+                    const content = text.substring(0, lastNum.index).trim();
+                    if (content) {
+                        groups.push({
+                            content: content,
+                            amount: parseInt(lastNum[0]),
+                            raw: text.trim()
+                        });
                     }
                 }
+                return groups;
             }
             
-            if (!matchedKey || !matchedNumbers) return line;
+            let prevEnd = 0;
+            for (const marker of markers) {
+                let content = text.substring(prevEnd, marker.start).trim();
+                content = content.replace(/^[,，.。、\s]+/, '').replace(/[,，.。、\s]+$/, '');
+                if (content || marker.amount > 0) {
+                    groups.push({
+                        content: content,
+                        amount: marker.amount,
+                        raw: text.substring(prevEnd, marker.end).trim()
+                    });
+                }
+                prevEnd = marker.end;
+            }
             
-            // 提取金额：支持 蓝双x70、蓝双70、蓝双各70 等格式
-            const amountRegex = new RegExp(escapeRegex(matchedKey) + '\\s*[x×X各每]?\\s*(\\d+)', 'i');
-            const match = line.match(amountRegex);
-            if (!match) return line;
+            // 处理剩余内容
+            const remaining = text.substring(prevEnd).trim().replace(/^[,，.。、\s]+/, '');
+            if (remaining) {
+                const subGroups = splitByAmount(remaining);
+                groups.push(...subGroups);
+            }
             
-            const amount = parseInt(match[1]);
-            const originalMatch = match[0].trim();
+            return groups;
+        };
+        
+        /**
+         * 识别类型
+         */
+        const identifyType = (content) => {
+            for (const kw of TYPE_KEYWORDS_SORTED) {
+                if (content.includes(kw)) {
+                    return { type: TYPE_KEYWORDS[kw], remaining: content.replace(kw, '').trim() };
+                }
+            }
+            return { type: 'T01', remaining: content };
+        };
+        
+        /**
+         * 提取生肖
+         */
+        const extractZodiacs = (content) => {
+            const zodiacs = [];
+            let remaining = content;
+            for (const char of ZODIAC_CHARS) {
+                while (remaining.includes(char)) {
+                    zodiacs.push(ZODIAC_MAP_FE[char]);
+                    remaining = remaining.replace(char, '');
+                }
+            }
+            return { zodiacs, remaining: remaining.replace(/[,，.。、\s]+/g, ' ').trim() };
+        };
+        
+        /**
+         * 提取号码
+         */
+        const extractNumbers = (content) => {
+            const numbers = [];
+            const matches = content.matchAll(/\d+/g);
+            for (const match of matches) {
+                const num = parseInt(match[0]);
+                if (num >= 1 && num <= 49) numbers.push(num);
+            }
+            return numbers;
+        };
+        
+        /**
+         * 处理单个分组
+         */
+        const processGroup = (group) => {
+            const results = [];
+            let { content, amount, raw } = group;
             
-            console.log(`🎯 内置半波展开: "${matchedKey}" → ${matchedNumbers.length}条, 金额=${amount}`);
+            if (!content && amount <= 0) return results;
             
-            // 展开为多条 T01 记录
-            return matchedNumbers.map(num => `#CUSTOM:${originalMatch}#T01 ${num} ${amount}`).join('\n');
-        });
-        result = processedHalfWaveLines.join('\n');
+            // 识别类型
+            const { type: typeCode, remaining: afterType } = identifyType(content);
+            
+            // 提取生肖
+            const { zodiacs, remaining: afterZodiac } = extractZodiacs(afterType);
+            
+            // 提取号码
+            const numbers = extractNumbers(afterZodiac);
+            
+            // 处理半波
+            if (typeCode.startsWith('BB_') && HALF_WAVE_NUMBERS[typeCode]) {
+                for (const num of HALF_WAVE_NUMBERS[typeCode]) {
+                    results.push({
+                        type: 'T01',
+                        zodiacs: [],
+                        numbers: [num],
+                        amount: amount,
+                        original: raw
+                    });
+                }
+                console.log(`🎯 半波展开: ${typeCode} → ${HALF_WAVE_NUMBERS[typeCode].length}条, 金额=${amount}`);
+                return results;
+            }
+            
+            // 普通类型
+            results.push({
+                type: typeCode,
+                zodiacs: zodiacs,
+                numbers: numbers,
+                amount: amount,
+                original: raw
+            });
+            
+            return results;
+        };
+        
+        /**
+         * 格式化为 FlashLex 格式
+         */
+        const formatToFlashLex = (bets) => {
+            const lines = [];
+            for (const bet of bets) {
+                if (bet.amount <= 0) continue;
+                const parts = [...bet.zodiacs, ...bet.numbers.map(n => String(n))];
+                const content = parts.join(' ');
+                const original = bet.original || `${bet.type} ${content} ${bet.amount}`;
+                if (content) {
+                    lines.push(`#CUSTOM:${original}#${bet.type} ${content} ${Math.floor(bet.amount)}`);
+                } else {
+                    lines.push(`#CUSTOM:${original}#${bet.type} ${Math.floor(bet.amount)}`);
+                }
+            }
+            return lines.join('\n');
+        };
+        
+        // 使用新引擎处理每一行
+        try {
+            const processedLines = [];
+            for (const line of result.split('\n')) {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) continue;
+                
+                // 跳过已处理的行
+                if (trimmedLine.includes('#CUSTOM:') || trimmedLine.startsWith('T01 ') || trimmedLine.startsWith('PT')) {
+                    processedLines.push(line);
+                    continue;
+                }
+                
+                // 跳过纯彩种切换行
+                if (['香港', '港', '澳门', '澳', '新澳', '新奥'].includes(trimmedLine)) {
+                    processedLines.push(line);
+                    continue;
+                }
+                
+                // 按金额分组
+                const groups = splitByAmount(trimmedLine);
+                if (groups.length > 0) {
+                    const allBets = [];
+                    for (const group of groups) {
+                        const bets = processGroup(group);
+                        allBets.push(...bets);
+                    }
+                    if (allBets.length > 0) {
+                        const output = formatToFlashLex(allBets);
+                        if (output) {
+                            processedLines.push(output);
+                            console.log(`🔍 关键字引擎v2: "${trimmedLine.substring(0, 30)}${trimmedLine.length > 30 ? '...' : ''}" → ${allBets.length}条`);
+                        } else {
+                            processedLines.push(line);
+                        }
+                    } else {
+                        processedLines.push(line);
+                    }
+                } else {
+                    processedLines.push(line);
+                }
+            }
+            result = processedLines.join('\n');
+        } catch (e) {
+            console.warn('⚠️ 关键字引擎v2异常:', e);
+        }
         
         // 🆕 v3.4 第2步：应用自定义规则（关键词→代号映射）
         // 🆕 v3.11.48 修复：展开时添加 #CUSTOM:原始输入# 标记，确保显示时还原用户原始输入
